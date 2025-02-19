@@ -1,0 +1,30 @@
+{
+  "name": "updated-metadata-wizard",
+  "version": "1.0.0",
+  "description": "maya's edition of metadata wizard",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/mayakobchenko/updated-metadata-wizard.git"
+  },
+  "keywords": [
+    "metadata",
+    "ebrain2.0",
+    "wizard"
+  ],
+  "author": "Maya Kobchenko",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mayakobchenko/updated-metadata-wizard/issues"
+  },
+  "homepage": "https://github.com/mayakobchenko/updated-metadata-wizard#readme",
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0",
+    "redux": "^5.0.1"
+  }
+}
