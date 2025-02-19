@@ -1,2 +1,3 @@
 # updated-metadata-wizard
-rewriting wizard in next.js 
+
+rewriting wizard, node version v22.14.0
