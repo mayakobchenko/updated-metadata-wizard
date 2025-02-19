@@ -1,7 +1,12 @@
+/*removes the default margin and padding*/
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 /* Add some variables containing theme colors and page layout */
 :root{
   --form-background-color: #F5F7FA; /* original: ebebeb alternative: F5F7FA ffffff */ 
-
   --ebrains-color-light: #9CE142;
   --ebrains-color-medium: #00C959;
   --ebrains-color-dark: #00A595;
@@ -48,14 +53,8 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
 .app-header {  
-  min-height: 5vh;
+  min-height: 5vh; /*Sets the minimum height of the element to 5% of the viewport height*/
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -98,13 +97,6 @@
   z-index: 9999;
 }
 
-.privacy-notice {
-  width: 70%;
-  display: inline-block;
-  text-align: left;
-  margin: 0 auto;
-}
-
 .subheader-menu {
   width: 30%;
   padding-right: 0px;
@@ -119,24 +111,15 @@
   background-color: var(--form-background-color);
 }
 .notice-content {
+  width: 70%;
+  display: inline-block;
+  text-align: left;
+  margin: 0 auto;
   margin-top: 0px;
   margin-bottom: 0px;
   margin-left: auto;
   margin-right: auto;
   padding: 10px 0px 10px 0px;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Specify style of main containers */
@@ -182,7 +165,7 @@
 
 /* Some specific component styling */
 
-/* links */
+/* all links elements */
 a {
   color: var(--button-color-primary);
 }
@@ -318,13 +301,15 @@ input[type=radio] {
   color: var(--button-color-primary);
   background-color: transparent;
   padding-right: 15px;
-  background: url(./icons/up_arrow.svg) no-repeat;
-  background: url(./icons/down_arrow.svg) no-repeat;
+  background: url('/public/icons/up_arrow.svg') no-repeat;
+  background: url('/public/icons/down_arrow.svg') no-repeat;
   background-position: 100% 50%;
+  transition: text-decoration 0.2 s;
 }
 
 .link-button:hover {
   text-decoration: underline;
+  cursor: pointer;
 }
 
 /* Buttons in the array list */
