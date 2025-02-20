@@ -28,3 +28,14 @@ data = @{test = "hello from frontend"}
 }
 $jsonBody = $body | ConvertTo-Json
 Invoke-RestMethod -Uri "http://localhost:5000/api/data" -Method POST -Headers $headers -Body $jsonBody
+
+---
+
+$ npm add winston
+$ npm add dotenv
+$ npm add react-router-dom
+$ npm add antd
+$ npm install react-jsonschema-form --save
+$ npm install @rjsf/core @rjsf/utils @rjsf/validator-ajv8 --save
+
+routes: https://www.w3schools.com/react/showreact.asp?filename=demo2_react_router

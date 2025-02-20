@@ -1,33 +1,35 @@
 import { useState } from 'react'
 import './App.css'
-import PrivacyBanner from './components/PrivacyBanner.jsx'
-import Header from './components/Header.jsx'
+import PrivacyBanner from './components/PrivacyBanner'
+import Header from './components/Header'
+import DropdownMenu from './components/DropdownMenu'
+import StepsWizard from './components/StepsWizard'
+
 
 function App() {
-  const [count, setCount] = useState(0);
-  function handleClick() {
-    setCount(count + 1);
+  
+  function handleMenuSelection(selectedOption) {
+    if (!!selectedOption) {
+      setSelectedAction(selectedOption);
+      setUpdateKey(Date.now());
+    }
   }
-
   return (
-    <div className="App">
+  <div className="App">
     <Header/>
-    <div className="container-gradient"></div>
-    <div>
-      <PrivacyBanner />
-      <MyButton count={count} onClick={handleClick}/>
-      <MyButton count={count} onClick={handleClick}/>
+    <div className="container-subheader">
+      <div className="content-container">
+        <div className="privacy-notice">
+          <PrivacyBanner />
+        </div>
+        <div className="subheader-menu">
+          <DropdownMenu handleMenuSelection={handleMenuSelection}/>
+        </div>
+      </div>
     </div>
+    <StepsWizard/>  
   </div>
   )
-}
-
-function MyButton({ count, onClick }) {
-  return (
-    <button onClick={onClick}>
-      Clicked {count} times
-    </button>
-  );
 }
 
 export default App

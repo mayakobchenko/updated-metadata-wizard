@@ -1,0 +1,16 @@
+{
+    "name": {
+      "ui:autofocus": true,
+      "ui:emptyValue": ""
+    },
+    "email": {
+      "ui:widget": "email"
+    },
+    "eventDate": {
+      "ui:widget": "date"
+    },
+    "acceptTerms": {
+      "ui:widget": "checkbox"
+    }
+  }
+  
