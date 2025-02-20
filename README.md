@@ -1,39 +1,30 @@
-# updated-metadata-wizard
+# React + Vite
 
-rewriting wizard, node version v22.14.0
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-nvm install lts
-nvm use lts
-npm init
-npm install react react-dom
-npm install redux react-redux
+Currently, two official plugins are available:
 
-npm install --save-dev webpack webpack-cli webpack-dev-server babel-loader @babel/core @babel/preset-env @babel/preset-react html-webpack-plugin
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-Create a webpack.config.js file in the root of your project directory
-Create a .babelrc file to setup Babel presets:
+---
 
-Create the following directories and files:
-your-project/
-├── dist/
-├── src/
-│ ├── index.js
-│ └── index.html
-├── package.json
-├── webpack.config.js
-└── .babelrc
+following: https://react.dev/learn/build-a-react-app-from-scratch
+npm create vite@latest updated-metadata-wizard -- --template react
 
-Add a start script in your package.json:
-"scripts": {
-"start": "webpack serve --mode development --open",
-"build": "webpack --mode production"
+cd updated-metadata-wizard
+npm install
+npm run dev
+
+following: https://github.com/szymmis/vite-express?tab=readme-ov-file#-installation--usage
+npm add add express vite-express
+
+---
+
+$headers = @{"Content-Type" = "application/json"}
+$body = @{
+event = "post json to backend"
+data = @{test = "hello from frontend"}
 }
-To start the React application, run:
-npm start
-
-delete dist folder
-npx webpack --config webpack.config.js
-npx webpack serve
-
-npm list react
-npm list react-dom
+$jsonBody = $body | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:5000/api/data" -Method POST -Headers $headers -Body $jsonBody

@@ -1,0 +1,22 @@
+import express from 'express';
+import ViteExpress from "vite-express";
+//import cors from 'cors'; 
+import dotenv from 'dotenv';
+import logger from './logger.js';
+import formRoutes from './routes/metadataSubmission.js';
+
+dotenv.config({ path: '../.env' });
+//const PORT = import.meta.env.VITE_PORT_SERVER || 5000;
+const PORT = process.env.PORT_SERVER || 5000;
+const app = express();
+app.use(express.json());
+app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.url}`);
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
+//app.use(cors());
+app.use('/', formRoutes);
+  
+ViteExpress.listen(app, PORT, () => console.log(`Server running on http://localhost:${PORT}`));
