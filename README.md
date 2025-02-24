@@ -39,3 +39,5 @@ $ npm install react-jsonschema-form --save
 $ npm install @rjsf/core @rjsf/utils @rjsf/validator-ajv8 --save
 
 routes: https://www.w3schools.com/react/showreact.asp?filename=demo2_react_router
+
+context: https://react.dev/learn/passing-data-deeply-with-context
