@@ -4,28 +4,18 @@
   padding: 0;
   box-sizing: border-box;
 }
-/* Add some variables containing theme colors and page layout */
 :root{
   --form-background-color: #F5F7FA; /* original: ebebeb alternative: F5F7FA ffffff */ 
   --ebrains-color-light: #9CE142;
   --ebrains-color-medium: #00C959;
   --ebrains-color-dark: #00A595;
-
   /* Color variations are obtained by inserting the main color in 
   Ant Design's theme editor https://ant.design/theme-editor */
-
   /* Color on buttons on official ebrains page: */
   --button-color-primary: #45b07c; 
   --button-color-primary-hover: #68bd91;
   --button-color-primary-active-hover: #2f8a61;
   --button-color-primary-active: #2f8a61e0;
-
-  /* Using the ebrains-color-dark: */
-  /* --button-color-primary: #00a595;
-  --button-color-primary-hover: #1db39f;
-  --button-color-primary-active-hover: #008077;
-  --button-color-primary-active: #008077e0; */
-
   --button-color-secondary: #00c959;
   --button-color-secondary-hover: #22d66d;
   --button-color-secondary-active-hover: #00a34f;
@@ -48,20 +38,65 @@
   --max-content-width: 980px;  
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.container-header {
+  margin: 0 auto;
+  padding: 0px 60px 0px 60px;
+  max-width: var(--max-content-width);
+  z-index: 9997;
 }
-
-.app-header {  
-  min-height: 5vh; /*Sets the minimum height of the element to 5% of the viewport height*/
+.container-gradient {
+  background-image: linear-gradient(to left,  var(--ebrains-color-light), var(--ebrains-color-medium), var(--ebrains-color-dark));
+  height: 5px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
   color: white;
+  z-index: 9996;
 }
+.container-subheader {
+  background-color: var(--form-background-color);
+  margin-bottom: 40px;
+  position: -webkit-sticky; /* Safari */
+  position: sticky;
+  font-size: 14px;
+  z-index: 9998;
+  top: 0;
+  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0, 0, 0, 0.05) 0px 1px 4px 0px, rgba(0, 0, 0, 0.05) 0px 2px 8px 0px;
+}
+.subheader-menu-container {
+  margin: 0 auto 40px;
+  padding: 5px 60px 5px 60px;
+  max-width: var(--max-content-width);
+  display: flex;
+  justify-content: space-between;
+}
+.privacy-notice {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: left; 
+  /* width: 70%;
+  display: inline-block;
+  text-align: left;
+  margin: 0 auto; */
+}
+.notice-container {
+  display: flex;
+  justify-content: flex-start;
+}
+.notice-content {
+  /*margin-right: 5px;*/
+  margin: 0 auto;
+  padding: 10px 0px 10px 0px;
+}
+.notice-dropdown {
+  margin: 0 auto;
+  padding: 10px 0px 10px 0px;
+}
+/*-----------------------------not edited yet by maya------------------------*/
+
+
 
 .app-footer {
   color: #ffffff;
@@ -71,77 +106,12 @@
   width: 100%;
   height: 30px;
 }
-
-.container-gradient {
-  background-image: linear-gradient(to left,  var(--ebrains-color-light), var(--ebrains-color-medium), var(--ebrains-color-dark));
-  min-height: 1vh;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-  z-index: 9996;
-}
-
-.container-subheader {
-  background-color: var(--form-background-color);
-  margin-bottom: 40px;
-  position: -webkit-sticky; /* Safari */
-  position: sticky;
-  z-index: 9998;
-  top: 0;
-  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0, 0, 0, 0.05) 0px 1px 4px 0px, rgba(0, 0, 0, 0.05) 0px 2px 8px 0px;
-}
 .ant-dropdown {
   z-index: 9999;
 }
 
-.subheader-menu {
-  width: 30%;
-  padding-right: 0px;
-  padding-top: 5px;
-  padding-bottom: 5px;
-  display: inline-block;
-  text-align: right;
-  vertical-align: top;
-}
-
 .notice {
   background-color: var(--form-background-color);
-}
-.notice-content {
-  width: 70%;
-  display: inline-block;
-  text-align: left;
-  margin: 0 auto;
-  margin-top: 0px;
-  margin-bottom: 0px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 10px 0px 10px 0px;
-}
-
-/* Specify style of main containers */
-
-.content-container {
-  margin-top: 0px;
-  margin-bottom: 40px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 5px 60px 5px 60px;
-  max-width: var(--max-content-width);
-}
-
-.container-header {
-  margin-top: 0px;
-  margin-bottom: 0px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0px 60px 0px 60px;
-  max-width: var(--max-content-width);
-  border-radius: 20px;
-  z-index: 9997;
 }
 
 .container-form {
@@ -169,15 +139,6 @@
 a {
   color: var(--button-color-primary);
 }
-
-/* inputs */
-/* input:focus { 
-  border-color: var(--button-color-primary);
-  outline-color: var(--button-color-primary);
-  box-shadow: 0 0 3px var(--button-color-primary);
-  outline-offset: 0px;
-  outline: none;
-} */
 
 .form-control:focus { 
   border-color: var(--input-focus-color);
@@ -207,24 +168,6 @@ input[type=radio] {
 .ant-steps .ant-steps-item-process .ant-steps-item-icon {
   border-color: var(--button-color-primary);
 }
-
-/* 
-.ant-steps-icon-dot {
-  background: var(--button-color-primary);
-}
-.ant-steps-item-icon {
-  background: var(--button-color-primary);
-  border-color: var(--button-color-primary);
-}
-.ant-steps-item-tail {
-  background-color: var(--button-color-primary);
-}
-.ant-steps-item-tail::after {
-  background-color: var(--button-color-primary);
-} 
-*/
-
-
 
 /* General style for all buttons */
 .btn {
@@ -262,14 +205,6 @@ input[type=radio] {
   background-color: var(--button-color-primary-active-hover);
   border-color: var(--button-color-primary-active-hover);
 }
-
-/* Variation where button is gray-bluish (keep just in case) */
-/* .btn-default {
-  margin-right: 10px;
-  color: #1F2933;
-  border-color: #1f29338a;
-  background-color: var(--form-background-color);
-} */
 
 .btn-default {
   color: var(--button-color-primary);

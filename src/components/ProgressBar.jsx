@@ -2,12 +2,10 @@ import React, {useState} from 'react';
 import { Popover, Steps } from 'antd';
 import ConfigProvider from './ConfigProvider';
 
-const WIZARD_STEP_NAMES = [ "Introduction", "Dataset part 1", "Dataset part 2", "Funding", "Contributors", "Experiments" ];
-const NUM_STEPS = WIZARD_STEP_NAMES.length;
+const STEPS_NAMES = [ "Introduction", "Dataset part 1", "Dataset part 2", "Funding", "Contributors", "Experiments" ];
+const NUM_STEPS = STEPS_NAMES.length;
 
 const customDot = (dot, { status, index }) => {
-
-  // Update status message
   switch (status) {
     case 'process':
       status = 'In progress';
@@ -21,36 +19,28 @@ const customDot = (dot, { status, index }) => {
     default:
       status = 'Incomplete';
   }
-
   return (
     <Popover
       content={
         <span>
           Step {index+1} of {NUM_STEPS} - Status: {status}
-        </span>
-      }
-    >
+        </span>}>
       {dot}
     </Popover>
   );
 };
 
 const ProgressBar = ({step, status, onChanged}) => {
-
-  const [, setCurrent] = useState(0);
-  
+  const [, setCurrent] = useState(0);  
   const onChange = (value) => {
     setCurrent(value);
     onChanged(value);
+    //console.log('onChange:', value);
   };
-
   let items = [];
-
-  for (let i = 0; i < NUM_STEPS; i++) {
-      
+  for (let i = 0; i < NUM_STEPS; i++) {     
       let thisDescription = 'Incomplete';
-      let thisStatus = 'wait';
-      
+      let thisStatus = 'wait';   
       if ( status[i] ) {
         thisDescription = 'Completed';
         thisStatus = 'finish';
@@ -59,14 +49,12 @@ const ProgressBar = ({step, status, onChanged}) => {
       } else {
         thisStatus = 'wait';
       }
-
       if  ( i === step ) {
         thisStatus = 'process';
         thisDescription = 'In progress';
       }
-
       let thisItem = {
-          title: WIZARD_STEP_NAMES[i],
+          title: STEPS_NAMES[i],
           description: thisDescription,
           status: thisStatus,
       };
@@ -74,12 +62,10 @@ const ProgressBar = ({step, status, onChanged}) => {
   }
 
   return (
-
   <ConfigProvider>
      <div style={{"marginBottom":"30px"}}>
       <Steps
           current={step}
-          //status={status[step]}
           onChange={onChange}
           progressDot={customDot}
           items={items}

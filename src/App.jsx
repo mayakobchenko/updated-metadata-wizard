@@ -5,7 +5,6 @@ import Header from './components/Header'
 import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
 
-
 function App() {
   
   function handleMenuSelection(selectedOption) {
@@ -15,13 +14,11 @@ function App() {
     }
   }
   return (
-  <div className="App">
+  <div>
     <Header/>
     <div className="container-subheader">
-      <div className="content-container">
-        <div className="privacy-notice">
+      <div className="subheader-menu-container">
           <PrivacyBanner />
-        </div>
         <div className="subheader-menu">
           <DropdownMenu handleMenuSelection={handleMenuSelection}/>
         </div>

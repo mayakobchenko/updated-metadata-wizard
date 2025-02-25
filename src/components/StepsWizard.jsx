@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import ProgressBar from './ProgressBar';
+//import WIZARD_STEPS_LIST from './wizardSteps';
 
 const StepsWizard = () => {
 
   const [currentFormStep, setCurrentFormStep] = useState(0);  
   const steps = [
-    { id: 1, component: Introduction },
-    { id: 2, component: Dataset1 },
-    { id: 3, component: Dataset2 },
-    { id: 4, component: Funding },
-    { id: 5, component: Contributors },
-    { id: 6, component: Experiments },
+    { id: 0, component: Introduction },
+    { id: 1, component: Dataset1 },
+    { id: 2, component: Dataset2 },
+    { id: 3, component: Funding },
+    { id: 4, component: Contributors },
+    { id: 5, component: Experiments },
   ];
   const nextStep = () => {
     if (currentFormStep < steps.length - 1) {
@@ -22,11 +23,23 @@ const StepsWizard = () => {
         setCurrentFormStep(currentFormStep - 1);
     }
   };
-
+  const initializeValidSteps = () => {
+    return Array(steps.length).fill(false)
+  }
   const CurrentStep = steps[currentFormStep].component;
+  const validSteps = initializeValidSteps();
 
+  const goToWizardStep = (nextWizardStep) => {
+    if (typeof nextWizardStep === "number") {
+      nextWizardStep = steps[nextWizardStep].id;
+    }
+    setCurrentFormStep(nextWizardStep);
+  };
   return (
     <div>
+      <div>
+        <ProgressBar step={currentFormStep} status={validSteps} onChanged={goToWizardStep} />
+      </div>
       <h2>Step {currentFormStep + 1}</h2>
       <CurrentStep />
       <div>

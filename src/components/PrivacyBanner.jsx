@@ -14,18 +14,18 @@ let toggleExpandNotice = function () {
 }
   
 const PrivacyBanner = () => (
-<>
-  <div className="notice-content">
-    <span>This form stores personal information. </span>
+<div className="privacy-notice">
+  <div>
+    <span className="notice-content">This form stores personal information. </span>
     <button onClick={toggleExpandNotice} className="link-button" id="notice-button">Show more</button>
   </div>       
-  <div className="notice-content" id="notice-details" style={{display:"none"}}>
+  <div className="notice-dropdown" id="notice-details" style={{display:"none"}}>
     <ul >
       <li>The form contains questions that can be personally identifying.</li>
       <li>We only store the information you provide yourself or the information which have been filled out automatically in the form</li>
     </ul>
   </div>
-</>
+</div>
 );
   
 export default PrivacyBanner;
