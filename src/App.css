@@ -90,6 +90,23 @@
   margin: 0 auto;
   padding: 10px 0px 10px 0px;
 }
+.link-button {
+  padding: 0px 0px 0px 0px;
+  border-width: 0px;
+  font-size: small;
+  font-weight: 600;
+  color: var(--button-color-primary);
+  background-color: transparent;
+  padding-right: 15px;
+  background: url('/public/icons/up_arrow.svg') no-repeat;
+  background: url('/public/icons/down_arrow.svg') no-repeat;
+  background-position: 100% 50%;
+  transition: text-decoration 0.2 s;
+}
+.link-button:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
 .notice-dropdown {
   margin: 0 auto;
   padding: 10px 0px 10px 0px;
@@ -226,25 +243,6 @@ input[type=radio] {
   color: var(--button-color-primary-active-hover);
   border-color: var(--button-color-primary-active-hover);
   background-color: var(--form-background-color);
-}
-
-.link-button {
-  padding: 0px 0px 0px 0px;
-  border-width: 0px;
-  font-size: small;
-  font-weight: 600;
-  color: var(--button-color-primary);
-  background-color: transparent;
-  padding-right: 15px;
-  background: url('/public/icons/up_arrow.svg') no-repeat;
-  background: url('/public/icons/down_arrow.svg') no-repeat;
-  background-position: 100% 50%;
-  transition: text-decoration 0.2 s;
-}
-
-.link-button:hover {
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 /* Buttons in the array list */

@@ -1,7 +1,6 @@
 import React from 'react';
 import { DownloadOutlined, UploadOutlined, DeleteOutlined, MenuOutlined } from '@ant-design/icons';
 import { Dropdown, Space } from 'antd';
-//import ConfigProvider from './ConfigProvider';
 
 const items = [
   {
@@ -49,11 +48,13 @@ const DropdownMenu = ({handleMenuSelection}) => {
   };
 
   return (
-  <Space wrap>
+    <div>
+      <Space wrap>
         <Dropdown.Button menu={menuProps} onClick={handleButtonClick} icon={<MenuOutlined />} title={'Download form data'}>
         { isCollapsed ? <DownloadOutlined /> : "Download form data" }
         </Dropdown.Button>
-  </Space>
+      </Space>
+    </div> 
   )
 };
 

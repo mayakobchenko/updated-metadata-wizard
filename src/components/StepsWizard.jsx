@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ProgressBar from './ProgressBar';
+import Introduction from './steps/Introduction';
 //import WIZARD_STEPS_LIST from './wizardSteps';
 
 const StepsWizard = () => {
@@ -49,12 +50,6 @@ const StepsWizard = () => {
     </div>
   );
 };
-
-const Introduction = () => (
-  <div>
-    <h3>Step 1: Basic Information</h3>
-  </div>
-);
 
 const Dataset1 = () => (
   <div>

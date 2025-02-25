@@ -18,10 +18,8 @@ function App() {
     <Header/>
     <div className="container-subheader">
       <div className="subheader-menu-container">
-          <PrivacyBanner />
-        <div className="subheader-menu">
-          <DropdownMenu handleMenuSelection={handleMenuSelection}/>
-        </div>
+        <PrivacyBanner />
+        <DropdownMenu handleMenuSelection={handleMenuSelection}/>
       </div>
     </div>
     <StepsWizard/>  
