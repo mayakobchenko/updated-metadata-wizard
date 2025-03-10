@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ProgressBar from './ProgressBar';
-import Introduction from './steps/Introduction';
+import IntroductionForm from './steps/IntroductionForm';
 //import WIZARD_STEPS_LIST from './wizardSteps';
 
 const StepsWizard = () => {
@@ -36,6 +36,7 @@ const StepsWizard = () => {
     }
     setCurrentFormStep(nextWizardStep);
   };
+  
   return (
     <div>
       <div>
@@ -81,4 +82,11 @@ const Experiments = () => (
     </div>
 );
 
+
+const Introduction = () => (
+  <div>
+      <h3>Step 6: Introduction Form</h3>
+  </div>
+);
+//<IntroductionForm/>
 export default StepsWizard;

@@ -7,7 +7,7 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Route to handle form submissions
+// Route to handle form submissions, to save json file
 router.post('/submit-metadata', async (req, res) => {
   try {
     const formData = req.body;
@@ -30,14 +30,14 @@ router.post('/submit-metadata', async (req, res) => {
   }
 });
 
-// Example GET endpoint
+// test GET endpoint
 router.get('/hello', (req, res) => {
-  res.json({ message: 'Hello from Express' });
+  res.json({ message: 'Hello from backend' });
   console.log(`${req.method} ${req.url}`);
 });
 
-// Example POST endpoint
-router.post('/api/data', (req, res) => {
+// test POST endpoint
+router.post('/testpost', (req, res) => {
   const data = req.body;
   console.log('Received data:', data);
   res.status(200).json({ status: 'success test', received: data });
