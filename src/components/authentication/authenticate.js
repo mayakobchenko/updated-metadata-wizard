@@ -4,7 +4,7 @@ async function authenticate() {
     
     const urlParams = new URLSearchParams(window.location.search);
 
-    let url = 'api/auth/requesturl'
+    let url = 'auth/requesturl'
     url += '?' + urlParams.toString();
     
     try {
@@ -25,7 +25,7 @@ async function login() {
     const urlParams = new URLSearchParams(window.location.search);
 
     try {
-        let url = 'api/auth/loginurl'
+        let url = 'auth/loginurl'
         url += '?' + urlParams.toString();
 
         const urlResponse = await fetch(url)
@@ -44,7 +44,7 @@ async function logout() {
     const urlParams = new URLSearchParams(window.location.search);
 
     try {
-        let url = 'api/auth/logouturl'
+        let url = 'auth/logouturl'
         url += '?' + urlParams.toString();
         
         const logoutResponse = await fetch(url)

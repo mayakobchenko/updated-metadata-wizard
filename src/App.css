@@ -5,7 +5,7 @@
   box-sizing: border-box;
 }
 :root{
-  --form-background-color: #F5F7FA; /* original: ebebeb alternative: F5F7FA ffffff */ 
+  --form-background-color: #F5F7FA; 
   --ebrains-color-light: #9CE142;
   --ebrains-color-medium: #00C959;
   --ebrains-color-dark: #00A595;
@@ -20,24 +20,18 @@
   --button-color-secondary-hover: #22d66d;
   --button-color-secondary-active-hover: #00a34f;
   --button-color-secondary-active: #00a34fe0;
-  
-  /* Light red (not used) */
   --button-color-error: #ff4d68;
   --button-color-error-hover: #ff7585;
   --button-color-error-active-hover: #d93654;
   --button-color-error-active: #d93654e0;
-
-  --button-color-error: #a94442;
+  --button-color-error: #686868;
   --button-color-error-hover: #b56864;
   --button-color-error-active-hover: #822c2e;
   --button-color-error-active: #822c2ee0;
-
   --input-focus-color: #686868;
   --input-tick-color: var(--button-color-primary);
-
-  --max-content-width: 980px;  
+  --max-content-width: 980px;    
 }
-
 .container-header {
   margin: 0 auto;
   padding: 0px 60px 0px 60px;
@@ -75,7 +69,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: left; 
+  align-items: flex-start; 
   /* width: 70%;
   display: inline-block;
   text-align: left;
@@ -101,7 +95,7 @@
   background: url('/public/icons/up_arrow.svg') no-repeat;
   background: url('/public/icons/down_arrow.svg') no-repeat;
   background-position: 100% 50%;
-  transition: text-decoration 0.2 s;
+  /* transition: text-decoration 0.2 s; */
 }
 .link-button:hover {
   text-decoration: underline;
@@ -111,10 +105,6 @@
   margin: 0 auto;
   padding: 10px 0px 10px 0px;
 }
-/*-----------------------------not edited yet by maya------------------------*/
-
-
-
 .app-footer {
   color: #ffffff;
   background-color:#1F2933;
@@ -123,6 +113,14 @@
   width: 100%;
   height: 30px;
 }
+/* top | left and right | bottom */
+.container-footer {
+  margin: 10px 20px 10px;
+  padding-top: 5px;
+  min-width: 120px;
+}
+/*-----------------------------not edited yet by maya------------------------*/
+
 .ant-dropdown {
   z-index: 9999;
 }
@@ -140,14 +138,6 @@
   max-width: var(--max-content-width);
   background-color: var(--form-background-color);
   border-radius: 20px;
-}
-
-.container-footer {
-  margin: 0;
-  margin-left: 20px;
-  margin-right: 20px;
-  padding-top: 5px;
-  color: #ffffff;
 }
 
 /* Some specific component styling */
@@ -320,7 +310,7 @@ input[type=radio] {
 
 /* Components in the form's footer i.e nav buttons etc */
 
-.container-form .footer button {
+.container-form button {
   margin-top: 10px;
   min-width: 120px;
 }
@@ -348,4 +338,12 @@ input[type=radio] {
 }
 .container-footer a:hover {
   color: #CCCED0;
+}
+
+/* Global override for .ant-btn */
+.ant-btn {
+  -webkit-user-select: none; /* Safari and older browsers */
+  -moz-user-select: none;    /* Older versions of Firefox */
+  -ms-user-select: none;     /* Internet Explorer */
+  user-select: none;         /* Standard */
 }

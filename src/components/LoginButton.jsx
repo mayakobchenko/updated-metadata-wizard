@@ -1,9 +1,7 @@
 import { Button } from "antd";
 import { LoginOutlined, LogoutOutlined, LoadingOutlined } from '@ant-design/icons';
-
 import ConfigProvider from './ConfigProvider';
 import { useUserContext } from "./context/userContext.jsx";
-
 import {login, logout} from "./authentication/authenticate"; 
 
 const LoginButton = () => {
@@ -14,9 +12,7 @@ const LoginButton = () => {
         return (
             <ConfigProvider>
                 <Button
-                    className="custom-button"
-                    icon={<LoadingOutlined />}
-                >
+                    icon={<LoadingOutlined />}>
                     Log-in
                 </Button>
             </ConfigProvider>
@@ -25,10 +21,8 @@ const LoginButton = () => {
         return (
             <ConfigProvider>
                 <Button
-                    className="custom-button"
                     icon={user ? <LogoutOutlined /> : <LoginOutlined />}
-                    onClick={user ? logout : login}
-                >
+                    onClick={user ? logout : login}>
                     {user ? 'Log-out' : 'Log-in'}
                 </Button>
             </ConfigProvider>
@@ -37,5 +31,3 @@ const LoginButton = () => {
 }
 
 export default LoginButton;
-
-//onClick={user ? logout : login}

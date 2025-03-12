@@ -1,24 +1,17 @@
-import React, { useState, useRef } from 'react';
-
-import { useContext } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import { loginContext } from './loginContext.jsx';
-
 import authenticate from "../authentication/authenticate"; 
-import getUser from '../authentication/GetUserInfo'
-import getToken from '../authentication/authenticationUtilities'
-
+import getUser from '../authentication/GetUserInfo';
+import getToken from '../authentication/authenticationUtilities';
 
 const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("Loading...")
-  const [isAuthenticating, setIsAuthenticating] = useState(true);
-  
+  const [isAuthenticating, setIsAuthenticating] = useState(true);  
   const tokenRef = useRef('');
   const hasAuthenticatedRef = useRef(false);
 
   if ( urlContainsAuthenticationParameters() ) {
-    // Update the reference value if url contains authentication parameters
-    // This is necessary to avoid re-authentication when the component re-renders
     hasAuthenticatedRef.current = true
   }
 
@@ -80,15 +73,13 @@ const UserProvider = ({ children }) => {
         tokenRef,
         message,
         isAuthenticating,
-      }}
-    >
+      }}>
       {children}
     </loginContext>
   );
 };
 
-
-// Custom hook to use the UserContext
+// Custom hook to use the Context
 const useUserContext = () => {
   const userContext = useContext(loginContext);
   if (!userContext) {
@@ -99,8 +90,8 @@ const useUserContext = () => {
 
 export { UserProvider, useUserContext };
 
-
 function urlContainsAuthenticationParameters() {
   const URL = window.location.href
+  console.log('url', URL);
   return (URL.includes('error=') || URL.includes('code='))
 }

@@ -83,3 +83,8 @@ event = "post json to backend"
 data = @{test = "proxy test hello from frontend"}}
 $jsonBody = $body | ConvertTo-Json
 Invoke-RestMethod -Uri "http://localhost:5173/api/submit-metadata" -Method POST -Headers $headers -Body $jsonBody
+
+---
+
+react json form:
+https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/form-props/

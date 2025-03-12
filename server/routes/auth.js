@@ -14,6 +14,35 @@ router.get('/loginurl', getLoginUrl)
 router.get('/logouturl', getLogOutUrl)
 router.get('/user', getUser)
 
+router.get('/hello', helloAuth);
+
+async function helloAuth (req, res) {
+  res.json({ message: 'Hello from auth route' });
+  console.log(`${req.method} ${req.url}`);
+}
+
+router.post('/submit-metadata', async (req, res) => {
+  try {
+    const formData = req.body;
+    const filePath = path.join(__dirname, '../submissions.json');
+
+    let submissions;
+    try {
+      const data = await readFile(filePath, 'utf-8');
+      submissions = JSON.parse(data);
+    } catch (err) {
+      submissions = [];
+    }
+    submissions.push(formData);
+    await writeFile(filePath, JSON.stringify(submissions, null, 2));
+
+    res.status(200).json({ message: 'Form data saved successfully!' });
+  } catch (error) {
+    console.error('Error saving form data:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 async function getToken(req, res) {
     try {      
       const authorizationCode = req.query.code; 

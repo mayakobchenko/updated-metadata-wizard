@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import { React, useState } from 'react';
+import Form from '@rjsf/core';
+import validator from '@rjsf/validator-ajv8'; 
 import ProgressBar from './ProgressBar';
-import IntroductionForm from './steps/IntroductionForm';
-//import WIZARD_STEPS_LIST from './wizardSteps';
+import schematest from './source_schemas/schematest.json';
+import datasetPart1 from './source_schemas/datasetPart1.json';
 
 const StepsWizard = () => {
 
@@ -82,11 +84,17 @@ const Experiments = () => (
     </div>
 );
 
+const Introduction = () => {
+  const handleSubmit = ({ formData }) => {
+    console.log('Submit button pushed: ', formData);
+  };
+  return (
+    <Form 
+      schema={schematest} 
+      onSubmit={handleSubmit}
+      validator={validator}
+    />
+  );
+};  
 
-const Introduction = () => (
-  <div>
-      <h3>Step 6: Introduction Form</h3>
-  </div>
-);
-//<IntroductionForm/>
 export default StepsWizard;

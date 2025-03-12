@@ -4,6 +4,7 @@ import ViteExpress from "vite-express";
 import dotenv from 'dotenv';
 import logger from './logger.js';
 import formRoutes from './routes/metadataSubmission.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config({ path: '../.env' });
 const PORT = process.env.PORT_SERVER || 4000;
@@ -18,5 +19,6 @@ app.use((req, res, next) => {
 
 //app.use(cors());
 app.use('/', formRoutes);
+app.use('/auth/', authRoutes);
   
 ViteExpress.listen(app, PORT, () => console.log(`Server running on http://localhost:${PORT}`));
