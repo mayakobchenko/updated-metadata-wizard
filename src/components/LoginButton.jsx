@@ -1,13 +1,16 @@
+import '@ant-design/v5-patch-for-react-19';
 import { Button } from "antd";
 import { LoginOutlined, LogoutOutlined, LoadingOutlined } from '@ant-design/icons';
-import ConfigProvider from './ConfigProvider';
-import { useUserContext } from "./context/userContext.jsx";
-import {login, logout} from "./authentication/authenticate"; 
+import { useContext } from 'react';
+import ConfigProvider from './ConfigProvider.jsx';
+import { LoginContext } from "./context/LoginContext.jsx";
+import {login, logout} from "./context/authenticate.jsx"; 
 
 const LoginButton = () => {
-
-    const { user, isAuthenticating } = useUserContext();
-
+    const user = useContext(LoginContext).user;
+    const isAuthenticating = useContext(LoginContext).isAuthenticating;
+    const message = useContext(LoginContext).message;
+    //console.log('login button is mounted, user:', user);
     if (isAuthenticating) {
         return (
             <ConfigProvider>
@@ -15,6 +18,9 @@ const LoginButton = () => {
                     icon={<LoadingOutlined />}>
                     Log-in
                 </Button>
+                <div>
+                <p>user: {'user'+user}, message: {message}, authenticating: {isAuthenticating}</p>
+                </div>
             </ConfigProvider>
         );
     } else {
@@ -25,6 +31,7 @@ const LoginButton = () => {
                     onClick={user ? logout : login}>
                     {user ? 'Log-out' : 'Log-in'}
                 </Button>
+                <p>user: {''+user}, message: {message}, authenticating: {''+isAuthenticating}</p>
             </ConfigProvider>
         );
     }

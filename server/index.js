@@ -21,4 +21,4 @@ app.use((req, res, next) => {
 app.use('/', formRoutes);
 app.use('/auth/', authRoutes);
   
-ViteExpress.listen(app, PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`));

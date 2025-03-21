@@ -3,7 +3,7 @@ import Form from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8'; 
 import ProgressBar from './ProgressBar';
 import schematest from './source_schemas/schematest.json';
-import datasetPart1 from './source_schemas/datasetPart1.json';
+//import datasetPart1 from './source_schemas/datasetPart1.json';
 
 const StepsWizard = () => {
 
@@ -93,7 +93,12 @@ const Introduction = () => {
       schema={schematest} 
       onSubmit={handleSubmit}
       validator={validator}
-    />
+    >
+    <div>
+      <button type='submit'>Submit customised</button>
+      <button type='button'>Cancel</button>
+    </div>
+    </Form>
   );
 };  
 

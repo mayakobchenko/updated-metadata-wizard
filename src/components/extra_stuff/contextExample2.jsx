@@ -1,9 +1,9 @@
 import { createContext } from 'react';
 
 const defaultContext = {
+    level: 0,
     user: null,
-    tokenRef: '', 
     message: 'Loading...',
-    isAuthenticating: false
 }
-export const LoginContext = createContext(defaultContext);
+
+export const LevelContext2 = createContext(defaultContext);

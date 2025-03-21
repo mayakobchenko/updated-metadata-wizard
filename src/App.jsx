@@ -1,10 +1,12 @@
 import './App.css'
 import PrivacyBanner from './components/PrivacyBanner'
 import Header from './components/Header'
-import Footer from './components/Footer';
+import Footer from './components/Footer'
 import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
 import LoginButton from './components/LoginButton'
+//import Page from './components/headersExampleContext'
+import ContextWrap from './components/context/ContextWrap'
 
 function App() {
   
@@ -15,19 +17,23 @@ function App() {
     }
   }
   return (
-    <div>
+    <div className="body-wrapper">
       <Header/>
-      <div className="container-subheader">
-        <div className="subheader-menu-container">
-          <PrivacyBanner />
-          <DropdownMenu handleMenuSelection={handleMenuSelection}/>
-          <LoginButton/>
+      <ContextWrap>
+        <div className="container-subheader">
+          <div className="subheader-menu-container">
+            <PrivacyBanner />
+            <DropdownMenu handleMenuSelection={handleMenuSelection}/>
+            <LoginButton/>
+          </div>
         </div>
-      </div>
-      <StepsWizard/>  
+        <StepsWizard/>
+      </ContextWrap>  
       <Footer />
     </div>
   )
 }
 
 export default App
+//      <Page/>
+//<LoginButton/>

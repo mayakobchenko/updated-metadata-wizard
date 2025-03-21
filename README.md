@@ -1,3 +1,6 @@
+$ node -v
+node version is used 22.14.0
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -9,7 +12,7 @@ Currently, two official plugins are available:
 
 ---
 
-following: https://react.dev/learn/build-a-react-app-from-scratch
+Started the project following: https://react.dev/learn/build-a-react-app-from-scratch
 
 ```
 npm create vite@latest updated-metadata-wizard -- --template react
@@ -18,7 +21,7 @@ npm install
 npm run dev
 ```
 
-following: https://github.com/szymmis/vite-express?tab=readme-ov-file#-installation--usage
+Started express server following: https://github.com/szymmis/vite-express?tab=readme-ov-file#-installation--usage
 
 ```
 npm add express vite-express
@@ -54,16 +57,14 @@ use context for state management: https://react.dev/learn/passing-data-deeply-wi
 
 json schema: https://rjsf-team.github.io/react-jsonschema-form/docs/
 
-## firefox error message: index.css -moz-osx-font-smoothing: grayscale;
-
----
+firefox error message: index.css -moz-osx-font-smoothing: grayscale;
 
 ```
 $ npm install concurrently --save-dev
 $ npm run server
 ```
 
-Chang evite.config.js add proxy
+Change vite.config.js add proxy to forward all requests to the backend express server
 
 The app is running on separate ports during development (to leverage each of their separate tools) and possibly serve React from Express in production.
 
@@ -76,15 +77,98 @@ Production:
 
 Build the React app into static files and serve these from your Express server. Deploy Express on a single origin so that your API and static assets run under the same domain, reducing CORS complexities.
 
-after setting up proxy:
+after setting up proxy type in PowerShell to test:
+
+```
 $headers = @{"Content-Type" = "application/json"}
 $body = @{
 event = "post json to backend"
 data = @{test = "proxy test hello from frontend"}}
 $jsonBody = $body | ConvertTo-Json
 Invoke-RestMethod -Uri "http://localhost:5173/api/submit-metadata" -Method POST -Headers $headers -Body $jsonBody
-
----
+```
 
 react json form:
+https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/form-props/
+
+https://firefox-source-docs.mozilla.org/devtools-user/debugger/how_to/use_a_source_map/index.html
+
+test api/testpoint:
+
+$headers = @{"Content-Type" = "application/json"}
+
+```
+$body = @{
+event = "post json to backend"
+data = @{test = "hello from frontend"}}
+$jsonBody = $body | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:5174/api/testpost" -Method POST -Headers $headers -Body $jsonBody
+```
+
+to test the submit data route in browser:
+http://localhost:5174/api/hello
+
+to test the auth route in browser:
+http://localhost:5174/api/auth/hello
+
+```
+$ npm list react
+$ npnm list vite
+$ npm list antd
+```
+
+antd 5 is not compatible with react 19
+
+```
+$ npm install @ant-design/v5-patch-for-react-19 --save
+```
+
+use: import '@ant-design/v5-patch-for-react-19';
+
+Redirect url is assigned when configuring the OIDC client. Possible programmatically or in the collab gui. It is possible to set many redirect urls, also for localhost.
+
+To serve the react app to a defined port:
+
+// vite.config.js
+import { defineConfig } from 'vite';
+export default defineConfig({
+server: {
+port: parseInt(process.env.VITE_PORT) || 3000, // Default to port 3000 if VITE_PORT is not set
+},
+});
+
+or change the package.json
+{
+"scripts": {
+"dev": "PORT=3000 vite"
+}
+}
+
+to start the wizard in dev mode:
+
+```
+$ cd updated-metadata-wizard
+$ npm run dev
+$ cd server
+$ npm run server
+```
+
+To find out about IP:
+$ ipconfig
+Wireless LAN adapter IPv4 Address
+
+Command Promt as administrator:
+$ netstat -ano | findstr :8080
+to identify task:
+$ tasklist | findstr 52369
+to kill:
+$ taskkill /PID <PID> /F
+
+openSSL command promt as admin:
+in cert folder:
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout key.pem -out cert.pem
+Common Name (CN) in the certificate matches the domain or IP (such as localhost or 127.0.0.1)
+press continue in browser
+
+submit button:
 https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/form-props/

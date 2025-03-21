@@ -1,4 +1,5 @@
-/*removes the default margin and padding*/
+/*removes the default browser's margin and padding*/
+/*applies to all elements in the app*/
 * {
   margin: 0;
   padding: 0;
@@ -31,6 +32,15 @@
   --input-focus-color: #686868;
   --input-tick-color: var(--button-color-primary);
   --max-content-width: 980px;    
+  --main-font-size: 100%; /* 16px browser default, scalable */
+}
+body {
+  font-size: var(--main-font-size);
+}
+.body-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Full viewport height */
 }
 .container-header {
   margin: 0 auto;
@@ -53,13 +63,13 @@
   margin-bottom: 40px;
   position: -webkit-sticky; /* Safari */
   position: sticky;
-  font-size: 14px;
+  font-size: 0.9rem;
   z-index: 9998;
   top: 0;
   box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0, 0, 0, 0.05) 0px 1px 4px 0px, rgba(0, 0, 0, 0.05) 0px 2px 8px 0px;
 }
 .subheader-menu-container {
-  margin: 0 auto 40px;
+  margin: 0 auto 2.5rem;
   padding: 5px 60px 5px 60px;
   max-width: var(--max-content-width);
   display: flex;
@@ -111,13 +121,26 @@
   position: fixed;
   bottom: 0;
   width: 100%;
-  height: 30px;
+  margin: 0.5rem 0 0 0;
 }
-/* top | left and right | bottom */
+/* top | right | bottom | left */
 .container-footer {
-  margin: 10px 20px 10px;
-  padding-top: 5px;
-  min-width: 120px;
+  margin: 0 1.2rem 0 1.2rem;
+  padding: 0.3rem 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+/* Text in page footer */
+.text-muted {
+  color: #CCCED0;
+}
+.container-footer a {
+  color: var(--button-color-primary);
+}
+.container-footer a:hover {
+  color: #CCCED0;
 }
 /*-----------------------------not edited yet by maya------------------------*/
 
@@ -314,30 +337,18 @@ input[type=radio] {
   margin-top: 10px;
   min-width: 120px;
 }
-.container-form .footer button.btn-default {
+.container-form button.btn-default {
   margin-right: 10px;
   background-color: #ffffff;
 }
 
-.container-form .footer .back-panel {
+.container-form .back-panel {
   padding-left: 0;
 }
 
-.container-form .footer .submit-panel {
+.container-form .submit-panel {
   text-align: right;
   padding-right: 0;
-}
-
-/* Text in page footer */
-.text-muted {
-  color: #CCCED0;
-}
-
-.container-footer a {
-  color: var(--button-color-primary);
-}
-.container-footer a:hover {
-  color: #CCCED0;
 }
 
 /* Global override for .ant-btn */

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useContext } from 'react';
 import { loginContext } from './loginContext.jsx';
-import authenticate from "../authentication/authenticate"; 
-import getUser from '../authentication/GetUserInfo';
-import getToken from '../authentication/authenticationUtilities';
+import authenticate from "../authentication/authenticate.js"; 
+import getUser from '../authentication/GetUserInfo.js';
+import getToken from '../authentication/authenticationUtilities.js';
 
 const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -85,6 +85,7 @@ const useUserContext = () => {
   if (!userContext) {
     throw new Error('useUserContext must be used within a UserProvider');
   }
+  console.log('userContext', userContext);
   return userContext;
 };
 

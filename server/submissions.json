@@ -46,5 +46,11 @@
     "data": {
       "test": "proxy test hello from frontend"
     }
+  },
+  {
+    "event": "post json to backend",
+    "data": {
+      "test": "proxy test hello from frontend"
+    }
   }
 ]
