@@ -1,12 +1,19 @@
 import '@ant-design/v5-patch-for-react-19';
 import { Button } from "antd";
 import { LoginOutlined, LogoutOutlined, LoadingOutlined } from '@ant-design/icons';
-import { useContext } from 'react';
+import { useContext, useReducer } from 'react';
 import ConfigProvider from './ConfigProvider.jsx';
-import { LoginContext } from "./context/LoginContext.jsx";
+import { LoginContext, LoginDispatchContext } from "./context/AuthContext.jsx";
 import {login, logout} from "./context/authenticate.jsx"; 
+//import { loginReducer} from './context/loginReducer.jsx'
 
-const LoginButton = () => {
+export default function LoginButton() {
+    //const [todos, dispatch] = useReducer(loginReducer, initialTodos);
+
+    /*const handleLogin = () => {
+      dispatch({ type: "LOGIN" });
+    };*/
+
     const user = useContext(LoginContext).user;
     const isAuthenticating = useContext(LoginContext).isAuthenticating;
     const message = useContext(LoginContext).message;
@@ -19,7 +26,7 @@ const LoginButton = () => {
                     Log-in
                 </Button>
                 <div>
-                <p>user: {'user'+user}, message: {message}, authenticating: {isAuthenticating}</p>
+                <p>user: {'user'+user} message: {message}, authenticating: {isAuthenticating}</p>
                 </div>
             </ConfigProvider>
         );
@@ -31,10 +38,10 @@ const LoginButton = () => {
                     onClick={user ? logout : login}>
                     {user ? 'Log-out' : 'Log-in'}
                 </Button>
-                <p>user: {''+user}, message: {message}, authenticating: {''+isAuthenticating}</p>
+                <p>user: {'user'+user}, message: {message}, authenticating: {''+isAuthenticating}</p>
             </ConfigProvider>
         );
     }
 }
 
-export default LoginButton;
+//export default LoginButton;

@@ -172,3 +172,21 @@ press continue in browser
 
 submit button:
 https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/form-props/
+
+docs about auth:
+https://wiki.ebrains.eu/bin/view/Collabs/the-collaboratory/Documentation%20IAM/FAQ/OIDC%20Clients%20explained/Authenticating%20with%20your%20OIDC%20client%20and%20fetching%20collab%20user%20info/#HAuthenticationflow
+
+discussion with Eivind about openminds:
+https://github.com/openMetadataInitiative/openMINDS_core/blob/v4/schemas/actors/person.schema.tpl.json
+controlled terms:
+https://github.com/openMetadataInitiative/openMINDS_controlledTerms/tree/v1/schemas
+https://github.com/openMetadataInitiative/openMINDS_instances/tree/main/instances/latest/terminologies
+
+standard modes:
+https://developer.mozilla.org/en-US/docs/Web/HTML/Quirks_Mode_and_Standards_Mode?utm_source=mozilla&utm_medium=firefox-console-errors&utm_campaign=default
+
+avoid race conditions with useEffect:
+https://react.dev/reference/react/useEffect#fetching-data-with-effects
+
+reducer: https://react.dev/learn/extracting-state-logic-into-a-reducer
+https://react.dev/learn/scaling-up-with-reducer-and-context

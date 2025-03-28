@@ -27,16 +27,14 @@ async function getLoginUrl(req, res) {
   try {
     const clientId = process.env.WIZARD_OIDC_CLIENT_ID;
     //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL;
-    let redirectUrl = 'https://127.00.0.1:8080/';//clinet needs redirect url to be resgistered
+    let redirectUrl = 'https://127.00.0.1:8080/';
     if (!redirectUrl || !clientId) {
       throw new Error('Missing required login parameters.');
     }
-    //console.log(req.query);
     if (req.query && Object.keys(req.query).length > 0) {
       const searchParamString = new URLSearchParams(req.query).toString();
       if (searchParamString) {
         redirectUrl += '?' + searchParamString;
-        //console.log('searchParam', searchParamString);
       }
     }
     const params = new URLSearchParams({
@@ -45,11 +43,37 @@ async function getLoginUrl(req, res) {
       client_id: clientId,
       scope: 'openid',
       redirect_uri: redirectUrl,
-    });      
+    });    
     res.status(200).send(AUTH_ENDPOINT + '?' + params.toString());
   } catch (error) {
-    console.error('Error occurred while fetching auth url', error.message);
+    console.error('Error fetching IAM url from login endpoint', error.message);
     res.status(500).send('Internal server error');
+  }
+}
+
+async function getAuthRequestUrl(req, res) {
+  try {
+    const clientId = process.env.WIZARD_OIDC_CLIENT_ID;
+    //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL;
+    let redirectUrl = 'https://127.00.0.1:8080/';
+    if (!redirectUrl || !clientId) {
+      throw new Error('Missing required parameters.');
+    }
+    if (req.query && Object.keys(req.query).length > 0) {
+          redirectUrl += '?' + new URLSearchParams(req.query).toString();
+      }
+    const params = new URLSearchParams({
+      prompt: 'none',
+      login: 'true',
+      response_type: 'code',
+      client_id: clientId,
+      scope: 'openid',
+      redirect_uri: redirectUrl,
+    });
+    res.status(200).send(AUTH_ENDPOINT + '?' + params.toString());
+  } catch (error) {
+    console.error('Error fetching IAM url from requesturl endpoint:', error.message);
+    res.status(500).send('My backend server error');
   }
 }
 
@@ -79,65 +103,57 @@ async function getToken(req, res) {
         client_secret: clientSecret,
         redirect_uri: redirectUrl,
       });
-      const tokenResponse = await axios.post(TOKEN_ENDPOINT, params.toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      });
-      res.status(tokenResponse.status).send(tokenResponse.data["access_token"]);
+      console.log('fetching token at backend')
+      let requestOptions = {
+        method: 'post',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: params.toString()
+      };
+      const tokenResponse = await fetch(TOKEN_ENDPOINT, requestOptions)
+      if (!tokenResponse.ok) {
+        throw new Error(`problem fetching token from IAM: ${response.status}`)
+      }
+      let tokenData = await tokenResponse.json();
+      if (tokenData["access_token"]) {
+        res.status(tokenResponse.status).send(tokenData["access_token"]);
+      } else {
+        throw new Error('Could not fetch KG token')
+      }
     } catch (error) {
-      console.error('Error occurred while fetching token:', error.message);
-      res.status(500).send('Internal server error');
+      console.error('Error fetching token from IAM:', error.message)
+      //res.status(500).send('Internal server error', error.message);
     }
   }
 
 async function getUser(req, res) {
     try {
-      const token = req.headers.authorization;
+      const token = req.headers.authorization
       if (!token) {
-        throw new Error('Missing required parameters.');
+        throw new Error('Missing required parameters.')
       }
-      const userResponse = await axios.get(USERINFO_ENDPOINT, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const userInfo = {
-          name: userResponse.data.name,
-          preferred_username: userResponse.data.preferred_username,
-          given_name: userResponse.data.given_name,
-          family_name: userResponse.data.family_name,
-          email: userResponse.data.email,
-      };
-      res.status(userResponse.status).send(userInfo);
+      const userResponse = await fetch(USERINFO_ENDPOINT, {
+        headers: { 'Authorization': `Bearer ${token}` }})
+      if (!userResponse.ok) {
+        throw new Error(`problem fetching user info: ${response.status}`)
+      } 
+      const userData = await userResponse.json()
+      if (userData){
+        const userInfo = {
+          name: userData.name,
+          preferred_username: userData.preferred_username,
+          given_name: userData.given_name,
+          family_name: userData.family_name,
+          email: userData.email,
+      }
+      res.status(userResponse.status).send(userInfo)
+      } else {
+        throw new Error('Could not fetch user data');
+      }
     } catch (error) {
       console.error('Error occurred while fetching user:', error.message);
       res.status(500).send('Internal server error');
     }
   }
-
-async function getAuthRequestUrl(req, res) {
-  try {
-    const clientId = process.env.WIZARD_OIDC_CLIENT_ID;
-    //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL;
-    let redirectUrl = 'https://127.00.0.1:8080/';
-    if (!redirectUrl || !clientId) {
-      throw new Error('Missing required parameters.');
-    }
-    if (req.query && Object.keys(req.query).length > 0) {
-          redirectUrl += '?' + new URLSearchParams(req.query).toString();
-      }
-    const params = new URLSearchParams({
-      prompt: 'none',
-      login: 'true',
-      response_type: 'code',
-      client_id: clientId,
-      scope: 'openid',
-      redirect_uri: redirectUrl,
-    });
-    res.status(200).send(AUTH_ENDPOINT + '?' + params.toString());
-  } catch (error) {
-    console.error('Error occurred while fetching auth request:', error.message);
-    res.status(500).send('Internal server error');
-  }
-}
-
 
 async function getLogOutUrl(req, res) {
     try {

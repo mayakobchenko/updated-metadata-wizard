@@ -4,6 +4,7 @@ import validator from '@rjsf/validator-ajv8';
 import ProgressBar from './ProgressBar';
 import schematest from './source_schemas/schematest.json';
 //import datasetPart1 from './source_schemas/datasetPart1.json';
+import { LoginContext } from "./context/LoginContext.jsx"
 
 const StepsWizard = () => {
 
@@ -45,7 +46,7 @@ const StepsWizard = () => {
         <ProgressBar step={currentFormStep} status={validSteps} onChanged={goToWizardStep} />
       </div>
       <h2>Step {currentFormStep + 1}</h2>
-      <CurrentStep />
+        <CurrentStep />
       <div>
         <button disabled={currentFormStep === 0} onClick={prevStep}>Back</button>
         <button disabled={currentFormStep >= steps.length - 1} onClick={nextStep}>Next</button>
@@ -85,9 +86,17 @@ const Experiments = () => (
 );
 
 const Introduction = () => {
+  //const user = useContext(LoginContext).user;
+  //console.log('user', user)
   const handleSubmit = ({ formData }) => {
     console.log('Submit button pushed: ', formData);
   };
+  /*if (user){
+    const formData = {
+      firstName: user,
+      lastName: user
+    };
+  } else {}*/
   return (
     <Form 
       schema={schematest} 
@@ -101,5 +110,5 @@ const Introduction = () => {
     </Form>
   );
 };  
-
+//      formData={formData}
 export default StepsWizard;

@@ -6,6 +6,7 @@ import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
 import LoginButton from './components/LoginButton'
 //import Page from './components/headersExampleContext'
+import TaskApp from './components/example/TaskVisit'
 import ContextWrap from './components/context/ContextWrap'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
             <LoginButton/>
           </div>
         </div>
+        <TaskApp/>
         <StepsWizard/>
       </ContextWrap>  
       <Footer />
