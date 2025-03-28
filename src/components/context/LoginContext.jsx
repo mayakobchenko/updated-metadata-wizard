@@ -7,4 +7,3 @@ const defaultContext = {
     isAuthenticating: false
 }
 export const LoginContext = createContext(defaultContext);
-export const LoginDispatchContext = createContext(null);

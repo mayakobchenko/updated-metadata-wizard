@@ -4,7 +4,7 @@ import validator from '@rjsf/validator-ajv8';
 import ProgressBar from './ProgressBar';
 import schematest from './source_schemas/schematest.json';
 //import datasetPart1 from './source_schemas/datasetPart1.json';
-import { LoginContext } from "./context/LoginContext.jsx"
+//import { LoginContext } from "./context/AuthContext.jsx"
 
 const StepsWizard = () => {
 

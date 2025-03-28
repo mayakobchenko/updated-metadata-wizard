@@ -3,7 +3,8 @@ import { Button } from "antd";
 import { LoginOutlined, LogoutOutlined, LoadingOutlined } from '@ant-design/icons';
 import { useContext, useReducer } from 'react';
 import ConfigProvider from './ConfigProvider.jsx';
-import { LoginContext, LoginDispatchContext } from "./context/AuthContext.jsx";
+//import { LoginContext, LoginDispatchContext } from "./context/AuthContext.jsx";
+import { LoginContext} from "./context/LoginContext.jsx";
 import {login, logout} from "./context/authenticate.jsx"; 
 //import { loginReducer} from './context/loginReducer.jsx'
 

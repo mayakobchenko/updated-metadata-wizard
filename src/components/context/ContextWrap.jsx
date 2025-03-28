@@ -1,9 +1,11 @@
-import React, { useState, useRef, useReducer } from 'react'
-import { LoginContext, LoginDispatchContext } from "./AuthContext.jsx"
-import { loginReducer } from "./LoginReducer.jsx"
+//import React, { useState, useRef, useReducer } from 'react'
+import React, { useState, useRef } from 'react'
+//import { LoginContext, LoginDispatchContext } from "./AuthContext.jsx"
+import { LoginContext } from "./LoginContext.jsx"
+//import { loginReducer } from "./LoginReducer.jsx"
 import {getToken, authenticate, getUser } from "./authenticate.jsx"
 
-const initialState = {user: null, message: "Loading...", isAuthenticating: true, isLogin: false};
+//const initialState = {user: null, message: "Loading...", isAuthenticating: true, isLogin: false};
 
 export default function ContextWrap({children}) {
     const [user, setUser] = useState(null)
@@ -12,7 +14,7 @@ export default function ContextWrap({children}) {
     const tokenRef = useRef('')
     const hasAuthenticatedRef = useRef(false)
     //const [loginStart, setLoginStart] = useState(false)
-    const [state, dispatch] = useReducer(loginReducer, initialState);
+    //const [state, dispatch] = useReducer(loginReducer, initialState);
 
     if ( urlContainsAuthenticationParameters() ) {
         hasAuthenticatedRef.current = true 
