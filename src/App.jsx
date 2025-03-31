@@ -8,6 +8,8 @@ import LoginButton from './components/LoginButton'
 //import Page from './components/headersExampleContext'
 import TaskApp from './components/example/TaskVisit'
 import ContextWrap from './components/context/ContextWrap'
+import AuthProvider from './components/context/AuthContext'
+import LoginButtonReducer from './components/LoginButtonReducer'
 
 function App() {
   
@@ -21,15 +23,18 @@ function App() {
     <div className="body-wrapper">
       <Header/>
       <ContextWrap>
-        <div className="container-subheader">
-          <div className="subheader-menu-container">
-            <PrivacyBanner />
-            <DropdownMenu handleMenuSelection={handleMenuSelection}/>
-            <LoginButton/>
+        <AuthProvider>
+          <div className="container-subheader">
+            <div className="subheader-menu-container">
+              <PrivacyBanner />
+              <DropdownMenu handleMenuSelection={handleMenuSelection}/>
+              <LoginButton/>
+            </div>
           </div>
-        </div>
-        <TaskApp/>
-        <StepsWizard/>
+          <LoginButtonReducer/>
+          <TaskApp/>
+          <StepsWizard/>
+        </AuthProvider>
       </ContextWrap>  
       <Footer />
     </div>
@@ -40,3 +45,6 @@ export default App
 //      <Page/>
 //<LoginButton/>
 //        <TaskApp/>
+
+// </AuthProvider>
+//<LoginButtonReducer/>
