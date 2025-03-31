@@ -6,10 +6,11 @@ import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
 import LoginButton from './components/LoginButton'
 //import Page from './components/headersExampleContext'
-import TaskApp from './components/example/TaskVisit'
-import ContextWrap from './components/context/ContextWrap'
-import AuthProvider from './components/context/AuthContext'
-import LoginButtonReducer from './components/LoginButtonReducer'
+//import TaskApp from './components/example/TaskVisit'
+//import ContextWrap from './components/context/ContextWrap'
+import AuthProvider from './components/context/AuthContextWrap'
+//import LoginButtonReducer from './components/LoginButtonReducer'
+import LoginButtonFinal from './components/LoginButtonFinal'
 
 function App() {
   
@@ -22,7 +23,6 @@ function App() {
   return (
     <div className="body-wrapper">
       <Header/>
-      <ContextWrap>
         <AuthProvider>
           <div className="container-subheader">
             <div className="subheader-menu-container">
@@ -31,11 +31,9 @@ function App() {
               <LoginButton/>
             </div>
           </div>
-          <LoginButtonReducer/>
-          <TaskApp/>
+          <LoginButtonFinal/>
           <StepsWizard/>
         </AuthProvider>
-      </ContextWrap>  
       <Footer />
     </div>
   )
@@ -48,3 +46,5 @@ export default App
 
 // </AuthProvider>
 //<LoginButtonReducer/>
+
+//      <ContextWrap>

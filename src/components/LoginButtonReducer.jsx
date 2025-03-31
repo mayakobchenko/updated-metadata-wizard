@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { AuthContext, LoginDispatchContext } from './context/AuthContext';
+import { AuthContext, LoginDispatchContext } from './context/AuthContextWrap';
 
 const LoginButtonReducer = () => {
   const state = useContext(AuthContext);
@@ -19,11 +19,14 @@ const LoginButtonReducer = () => {
     <div>
       {state.isLoggingButton ? (
         <>
-        <p>Login button state: {state.isLoggingButton}</p>
-        <button onClick={handleLogoutButton}>Logout</button>
+            <p>Login button state: {''+state.isLoggingButton}</p>
+            <button onClick={handleLogoutButton}>Logout</button>
         </>
       ) : (
-        <button onClick={handleLoginButton}>Login</button>
+        <>
+            <p>Login button state: {''+state.isLoggingButton}</p>
+            <button onClick={handleLoginButton}>Login</button>
+        </>
       )}
     </div>
   );

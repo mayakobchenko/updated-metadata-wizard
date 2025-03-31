@@ -1,17 +1,13 @@
-import { createContext } from 'react';
+import { createContext, useReducer } from 'react';
 
-export const initialState = {
+const initialState = {
     isLoggingButton: false,
-    user: null,    
-    tokenRef: '', 
-    message: 'Loading...',
-    isAuthenticating: false
+    user: null
 }
-
 export const AuthContext = createContext(initialState);
 export const LoginDispatchContext = createContext(null);
 
-/*export default function AuthProvider ({ children }) {
+export default function AuthProvider ({ children }) {
     const [state, dispatch] = useReducer(authReducer, initialState);  
     return (
       <AuthContext value={state}>
@@ -20,7 +16,7 @@ export const LoginDispatchContext = createContext(null);
         </LoginDispatchContext>
       </AuthContext>
     );
-  };*/
+  };
 
 export function authReducer(state, action) {
   switch (action.type) {

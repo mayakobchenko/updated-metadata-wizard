@@ -1,8 +1,7 @@
 //import React, { useState, useRef, useReducer } from 'react'
 import React, { useState, useRef } from 'react'
-//import { LoginContext, LoginDispatchContext } from "./AuthContext.jsx"
+//import { AuthContext, LoginDispatchContext } from "./AuthContext.jsx"
 import { LoginContext } from "./LoginContext.jsx"
-//import { loginReducer } from "./LoginReducer.jsx"
 import {getToken, authenticate, getUser } from "./authenticate.jsx"
 
 //const initialState = {user: null, message: "Loading...", isAuthenticating: true, isLogin: false};
