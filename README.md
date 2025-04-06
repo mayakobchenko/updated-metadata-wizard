@@ -190,3 +190,14 @@ https://react.dev/reference/react/useEffect#fetching-data-with-effects
 
 reducer: https://react.dev/learn/extracting-state-logic-into-a-reducer
 https://react.dev/learn/scaling-up-with-reducer-and-context
+
+Arda: Selenium or probably Playwright for the web app testing
+
+https://react.dev/learn/reusing-logic-with-custom-hooks
+
+useEffect: https://react.dev/reference/react/useEffect#fetching-data-with-effects
+
+https://react.dev/learn/reusing-logic-with-custom-hooks
+
+race condition:
+https://maxrozen.com/race-conditions-fetching-data-react-with-useeffect

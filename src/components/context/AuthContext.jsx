@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, useContext } from 'react';
 
 export const initialState = {
     isLoggingButton: false,
@@ -11,31 +11,29 @@ export const initialState = {
 export const AuthContext = createContext(initialState);
 export const LoginDispatchContext = createContext(null);
 
-/*export default function AuthProvider ({ children }) {
-    const [state, dispatch] = useReducer(authReducer, initialState);  
-    return (
-      <AuthContext value={state}>
-        <LoginDispatchContext value={dispatch}>
-           {children}
-        </LoginDispatchContext>
-      </AuthContext>
-    );
-  };*/
-
 export function authReducer(state, action) {
   switch (action.type) {
     case 'LOGIN':
       return {
         ...state,
-        isLoggingButton: true
-      };
+        isLoggingButton: true};
     case 'LOGOUT':
       return {
         ...state,
         isLoggingButton: false, 
-        user: null
-      };
+        user: null};
+    case 'USERINFO':  
+      return {
+        ...state, 
+        user: action.payload};  
     default:
       return state;
   }
 };
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
+export function useAuthDispatch() {
+  return useContext(LoginDispatchContext);
+}
