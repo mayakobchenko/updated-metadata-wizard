@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import {getToken, authenticate, getUser } from "./authenticate.jsx"
+import {getToken, authenticate, getUser } from "../context/authenticate.jsx"
 
 export function useCheckUser() {
 

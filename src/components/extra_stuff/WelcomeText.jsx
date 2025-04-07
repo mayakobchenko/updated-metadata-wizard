@@ -1,11 +1,11 @@
 //import { useCheckLogin } from "./context/useCheckLogin";
 import { useState, useEffect, useRef } from 'react'
+import authFunctions from "../context/authenticate"
 import {Box, CircularProgress, Typography,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions, Button} from "@mui/material"
-import authFunctions from "./context/authenticate"
 
 const TOKEN_URL = import.meta.env.VITE_TOKEN_ENDPOINT
 const OIDC = import.meta.env.VITE_APP_OIDC
@@ -13,6 +13,7 @@ const MY_URL = import.meta.env.VITE_APP_MY_URL
 const clientId = import.meta.env.VITE_WIZARD_OIDC_CLIENT_ID
 const USER_INFO_URL = import.meta.env.VITE_APP_USER_INFO_URL
 console.log(`Welcome text`);
+//user,tokenRef,message,isAuthenticating
 
 const handleLogin = () => {
   window.location.href = `${OIDC}?response_type=code&login=true&client_id=${clientId}&redirect_uri=${MY_URL}`;
@@ -76,22 +77,6 @@ export default function WelcomeText() {
     }
   }, [])
 
-  /*useEffect(() => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get("code");
-      if (code) {
-      fetch(`${TOKEN_URL}?code=${code}`)
-          .then((response) => response.json())
-          .then((data) => {
-          console.log(data);
-          setToken(data.token.access_token);
-          setLoginAlert(false);
-          })
-          .then(window.history.replaceState(null, null, window.location.pathname))
-          .catch((error) => console.error("Token couldn't be retrieved", error));
-      }
-  }, []);*/
-
 //Brief timeout for UX qol
   useEffect(() => {
       if (!token) {
@@ -101,7 +86,7 @@ export default function WelcomeText() {
         setShowDialog(false);
       }
   }, [token]);
-//user,tokenRef,message,isAuthenticating
+
   if (!token) {
     if (!showDialog) {
       return (
