@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { AuthContext, LoginDispatchContext } from './context/AuthContextWrap';
+import { AuthContext, LoginDispatchContext } from '../context/AuthContextWrap';
 
 const LoginButtonReducer = () => {
   const state = useContext(AuthContext);

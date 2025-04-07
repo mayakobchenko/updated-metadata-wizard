@@ -128,15 +128,18 @@ async function getToken(req, res) {
 async function getUser(req, res) {
     try {
       const token = req.headers.authorization
+      //console.log('token at server:', token);
       if (!token) {
         throw new Error('Missing required parameters.')
       }
       const userResponse = await fetch(USERINFO_ENDPOINT, {
         headers: { 'Authorization': `Bearer ${token}` }})
+      //console.log(userResponse);  
       if (!userResponse.ok) {
         throw new Error(`problem fetching user info: ${response.status}`)
       } 
       const userData = await userResponse.json()
+      //console.log(userData);
       if (userData){
         const userInfo = {
           name: userData.name,
@@ -145,6 +148,7 @@ async function getUser(req, res) {
           family_name: userData.family_name,
           email: userData.email,
       }
+      console.log('user at server:', userInfo)
       res.status(userResponse.status).send(userInfo)
       } else {
         throw new Error('Could not fetch user data');

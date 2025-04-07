@@ -8,12 +8,9 @@ import StepsWizard from './components/StepsWizard'
 //import Page from './components/headersExampleContext'
 //import TaskApp from './components/example/TaskVisit'
 //import ContextWrap from './components/context/ContextWrap'
-import AuthProvider from './components/context/AuthContextWrap'
-//import LoginButtonReducer from './components/LoginButtonReducer'
+//import AuthProvider from './components/context/AuthContextWrap'
 //import LoginButtonFinal from './components/LoginButtonFinal'
-//import StatusBar from './components/example/NetworkStatus'
-//import SaveButton from './components/example/SaveButton'
-import { StatusBar, SaveButton } from './components/example/StatusSaveButtonTogether'
+//import { StatusBar, SaveButton } from './components/example/StatusSaveButtonTogether' //online status example
 import WelcomeText from './components/WelcomeText'
 //import EnvComponent from './components/context/OnMount'
 
@@ -36,8 +33,6 @@ function App() {
             </div>
           </div>
           <WelcomeText/>
-          <StatusBar/>
-          <SaveButton/>
           <StepsWizard/>
 
       <Footer />
@@ -47,6 +42,8 @@ function App() {
 
 export default App
 
+//          <StatusBar/>
+//<SaveButton/>
 //          <EnvComponent/>
 //</AuthProvider>            <LoginButtonFinal/>
 //      <Page/>
@@ -54,6 +51,5 @@ export default App
 //        <TaskApp/>
 
 // </AuthProvider>
-//<LoginButtonReducer/>
 
 //      <ContextWrap>

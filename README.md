@@ -201,3 +201,10 @@ https://react.dev/learn/reusing-logic-with-custom-hooks
 
 race condition:
 https://maxrozen.com/race-conditions-fetching-data-react-with-useeffect
+
+npm install @mui/material @emotion/react @emotion/styled
+
+Same Origin Policy CORS issue was fixed by a workaround - fetching user info from the KG endpoint
+Otherwise, indicate explicitly the app url while creating a client to allow for CORS
+
+technical support: https://chat.ebrains.eu/channel/tech-support
