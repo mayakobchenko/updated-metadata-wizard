@@ -2,9 +2,10 @@ import { React, useState } from 'react';
 import Form from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8'; 
 import ProgressBar from './ProgressBar';
-import schematest from './source_schemas/schematest.json';
+//import schematest from './source_schemas/schematest.json';
 //import datasetPart1 from './source_schemas/datasetPart1.json';
-//import { LoginContext } from "./context/AuthContext.jsx"
+import general from './source_schemas/general.json'
+import { useAuthContext } from './context/AuthProviderContext';
 
 const StepsWizard = () => {
 
@@ -86,22 +87,36 @@ const Experiments = () => (
 );
 
 const Introduction = () => {
-  //const user = useContext(LoginContext).user;
-  //console.log('user', user)
+  const userInfo = useAuthContext();
+  //console.log('user', userInfo.user)
+  const userName = userInfo?.user?.fullname;
+  const emailUser = userInfo?.user?.email;
   const handleSubmit = ({ formData }) => {
     console.log('Submit button pushed: ', formData);
   };
-  /*if (user){
-    const formData = {
-      firstName: user,
-      lastName: user
-    };
-  } else {}*/
+  const formData = userName
+  ? {
+    contactperson: { 
+      firstName: userName,
+      lastName: userName,
+      email: emailUser
+    },
+    ticketNumber: "",
+  } 
+  : {
+    contactperson: { 
+      firstName: '',
+      lastName: '',
+      email: ''
+    },
+    ticketNumber: "",
+  }    
   return (
     <Form 
-      schema={schematest} 
+      schema={general} 
       onSubmit={handleSubmit}
       validator={validator}
+      formData={formData}
     >
     <div>
       <button type='submit'>Submit customised</button>
@@ -110,5 +125,5 @@ const Introduction = () => {
     </Form>
   );
 };  
-//      formData={formData}
+
 export default StepsWizard;

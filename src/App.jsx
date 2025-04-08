@@ -7,7 +7,7 @@ import StepsWizard from './components/StepsWizard'
 //import LoginButton from './components/LoginButton'
 //import ContextWrap from './components/context/ContextWrap'
 import AuthProvider from './components/context/AuthProviderContext'
-//import LoginButtonFinal from './components/LoginButtonFinal'
+import LoginButtonFinal from './components/LoginButtonFinal'
 //import WelcomeText from './components/WelcomeText'
 import WelcomeAlert from './components/WelcomeAlert'
 
@@ -27,6 +27,7 @@ function App() {
             <div className="subheader-menu-container">
               <PrivacyBanner />
               <DropdownMenu handleMenuSelection={handleMenuSelection}/>
+              <LoginButtonFinal/>
             </div>
           </div>
           <WelcomeAlert/>
