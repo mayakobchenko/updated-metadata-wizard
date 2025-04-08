@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react'
 //import { AuthContext, LoginDispatchContext } from "./AuthContext.jsx"
 import { LoginContext } from "./LoginContext.jsx"
-import {getToken, authenticate, getUser } from "./authenticate.jsx"
+import {getToken, authenticate, getUser } from "../../context/authenticate.jsx"
 
 //const initialState = {user: null, message: "Loading...", isAuthenticating: true, isLogin: false};
 

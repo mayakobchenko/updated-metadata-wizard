@@ -1,5 +1,5 @@
 import React, { useReducer, useState, useRef} from 'react';
-import {getToken, authenticate, getUser } from "./authenticate.jsx"
+import {getToken, authenticate, getUser } from "../../context/authenticate.jsx"
 import { AuthContext, LoginDispatchContext, authReducer, initialState } from "./AuthContext.jsx"
 
 export default function AuthProvider ({ children }) {

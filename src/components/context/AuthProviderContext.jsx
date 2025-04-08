@@ -1,4 +1,4 @@
-import { createContext, useReducer } from 'react';
+import { createContext, useReducer, useContext } from 'react';
 
 //const [loginAlert, setLoginAlert] = useState(true);
 //const [token, setToken] = useState(null);
@@ -11,7 +11,7 @@ const initialState = {
     loginAlert: true,    
     token: null, 
     user: null, 
-    message: 'Loading...',
+    message: "Loading...",
     isAuthenticating: true
 }
 export const AuthContext = createContext(initialState);
@@ -39,8 +39,41 @@ export function authReducer(state, action) {
       return {
         ...state,
         isLoggingButton: false, 
-        user: null
+        user: null,
+        token: null,
+        message: "Loading...",
+        loginAlert: true,
+        isAuthenticating: true
       };
+    case 'gotToken':
+        return {
+            ...state, 
+            token: action.text,
+            message: "Retrieving user info..."
+        } ;
+    case 'loginError':
+        return {
+            ...state,
+            isAuthenticating: false
+        } ;
+    case 'redirect':
+    return {
+        ...state, 
+        message: "Redirecting to EBRAINS IAM..."
+    };
+    case 'code':
+        return {
+            ...state, 
+            message: "Authenticating...",
+            loginAlert: false
+    };
+    case 'user':
+    return {
+        ...state, 
+        user: action.text,
+        isAuthenticating: false,
+        loginAlert: false
+    };        
     default:
       return state;
   }

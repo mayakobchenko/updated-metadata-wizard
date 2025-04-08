@@ -1,4 +1,5 @@
 import { useAuth } from "./context/useAuth";
+import { useAuthContext } from './context/AuthProviderContext';
 import { useState, useEffect } from 'react'
 import {Box, CircularProgress, Typography,
   Dialog,
@@ -18,8 +19,10 @@ const handleLogin = () => {
 };
 
 export default function WelcomeText() {
-
-  const userInfo = useAuth();
+  
+  useAuth();
+  //const userInfo = useAuth();
+  const userInfo = useAuthContext();
   const [showDialog, setShowDialog] = useState(false);
 
 //Brief timeout for UX qol

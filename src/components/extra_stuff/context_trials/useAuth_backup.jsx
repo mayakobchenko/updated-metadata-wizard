@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import authFunctions from "./authenticate"
+import authFunctions from "../../context/authenticate"
 
 console.log(`useAuth is working`);
 

@@ -6,7 +6,7 @@ import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
 //import LoginButton from './components/LoginButton'
 //import ContextWrap from './components/context/ContextWrap'
-//import AuthProvider from './components/context/AuthContextWrap'
+import AuthProvider from './components/context/AuthProviderContext'
 //import LoginButtonFinal from './components/LoginButtonFinal'
 //import WelcomeText from './components/WelcomeText'
 import WelcomeAlert from './components/WelcomeAlert'
@@ -22,7 +22,7 @@ function App() {
   return (
     <div className="body-wrapper">
       <Header/>
-
+          <AuthProvider>
           <div className="container-subheader">
             <div className="subheader-menu-container">
               <PrivacyBanner />
@@ -31,7 +31,7 @@ function App() {
           </div>
           <WelcomeAlert/>
           <StepsWizard/>
-
+          </AuthProvider>
       <Footer />
     </div>
   )
