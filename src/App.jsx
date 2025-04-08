@@ -4,11 +4,8 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
-//import LoginButton from './components/LoginButton'
-//import ContextWrap from './components/context/ContextWrap'
 import AuthProvider from './components/context/AuthProviderContext'
-import LoginButtonFinal from './components/LoginButtonFinal'
-//import WelcomeText from './components/WelcomeText'
+import LoginButton from './components/LoginButton'
 import WelcomeAlert from './components/WelcomeAlert'
 
 function App() {
@@ -27,7 +24,7 @@ function App() {
             <div className="subheader-menu-container">
               <PrivacyBanner />
               <DropdownMenu handleMenuSelection={handleMenuSelection}/>
-              <LoginButtonFinal/>
+              <LoginButton/>
             </div>
           </div>
           <WelcomeAlert/>
@@ -40,6 +37,11 @@ function App() {
 
 export default App
 
+
+
+
+//here is the logic of my trials
+//import WelcomeText from './components/WelcomeText'
 //          <StatusBar/>
 //<SaveButton/>
 //          <EnvComponent/>
