@@ -5,6 +5,7 @@ import ProgressBar from './ProgressBar';
 //import schematest from './source_schemas/schematest.json';
 //import datasetPart1 from './source_schemas/datasetPart1.json';
 import general from './source_schemas/general.json'
+//import uischema from './source_schemas/uischema.json'
 import { useAuthContext } from './context/AuthProviderContext';
 
 const StepsWizard = () => {
@@ -125,5 +126,5 @@ const Introduction = () => {
     </Form>
   );
 };  
-
+//      uiSchema={uischema}
 export default StepsWizard;

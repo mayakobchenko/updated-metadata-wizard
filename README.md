@@ -207,4 +207,7 @@ npm install @mui/material @emotion/react @emotion/styled
 Same Origin Policy CORS issue was fixed by a workaround - fetching user info from the KG endpoint
 Otherwise, indicate explicitly the app url while creating a client to allow for CORS
 
-technical support: https://chat.ebrains.eu/channel/tech-support
+Swagger for KG endpoints:
+https://core.kg.ebrains.eu/swagger-ui/index.html
+
+ebrains technical support chat: https://chat.ebrains.eu/channel/tech-support
