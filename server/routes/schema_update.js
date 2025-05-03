@@ -1,8 +1,7 @@
+//import fetchControlledTerms from '../KG_utils/fetchControlledTerms'
+import { fetchCoreSchemaInstances } from '../KG_utils/fetchCoreSchemaInstances.js'
 
-var fetchControlledTerms = require('../kg-util/fetchControlledTerms');
-var fetchCoreSchemaInstances = require('../kg-util/fetchCoreSchemaInstances'); //   Todo?
-
-configObject = [
+const configObject = [
     {
         openMindsType: "Person",
         typeProperties: ["familyName", "givenName"]
@@ -29,9 +28,11 @@ configObject = [
     // }
 
 
-module.exports = fetchDataFromKg;
-
-async function fetchDataFromKg() {
-    console.log('Fetching data from KG')
-    await Promise.all( [fetchCoreSchemaInstances(configObject), fetchControlledTerms()] )
+export default async function fetchDataFromKg() {
+    console.log('fetchCoreSchemaInstances')
+    console.log(configObject)
+    await fetchCoreSchemaInstances(configObject)
+    //await fetchControlledTerms()
 }
+
+fetchDataFromKg()

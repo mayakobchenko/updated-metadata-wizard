@@ -1,3 +1,17 @@
+Goal of this project:
+to make the wizard to be a user friendly representation of the KG editor
+
+to start the wizard in dev mode:
+
+```
+$ cd updated-metadata-wizard
+$ npm run dev
+$ cd server
+$ npm run server
+```
+
+Development notes:
+
 $ node -v
 node version is used 22.14.0
 

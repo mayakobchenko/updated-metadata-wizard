@@ -1,0 +1,109 @@
+    // List of controlled terms to fetch instances for (Todo: get this from import)
+    // IMPORTANT: DatasetLicense should not be a part of this list because it is a manual
+    // entry that does not correspond with any openMINDS schema.
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url';
+import { writeFile } from 'fs/promises';
+import {getRequestOptions} from './kgAuthentication.js'
+//import {studyTargetTerms} from './constants.js'
+
+const API_BASE_URL = "https://core.kg.ebrains.eu/";
+const API_ENDPOINT = "v3/instances";
+const QUERY_PARAMS = ["stage=RELEASED", "space=controlled", "type=https://openminds.ebrains.eu/controlledTerms/"];
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'controlledTerms')
+
+fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
+    if (err) {
+        if (err.code === 'EEXIST') {
+            console.log("Directory already exists.");
+        } else {
+            console.log(err);
+        }
+    } else {
+        console.log("New directory for controlled terms successfully created.");
+    }
+});
+
+export default async function fetchControlledTerms () {
+    const requestOptions = await getRequestOptions();
+    //const response = await fetch("https://core.kg.ebrains.eu/v3/users/me", requestOptions)
+    const CONTROLLED_TERMS = ["PreparationType", "Technique", "ContributionType", 
+                            "SemanticDataType", "ExperimentalApproach"];
+    //CONTROLLED_TERMS = CONTROLLED_TERMS.concat(studyTargetTerms);
+    const fetchPromises = CONTROLLED_TERMS.map(async (CONTROLLED_TERMS) => {
+        //let queryUrl = API_BASE_URL + API_ENDPOINT + "?" + QUERY_PARAMS.join("&") + CONTROLLED_TERMS[i];
+        const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${CONTROLLED_TERMS}`;
+        try {
+            await fetchInstances(queryUrl, requestOptions, CONTROLLED_TERMS);
+        } catch (error) {
+            console.error(`Error fetching instances for ${CONTROLLED_TERMS}:`, error);}
+    });
+    await Promise.all(fetchPromises);
+    /*return new Promise((resolve, reject) => {
+        for (let i = 0; i < CONTROLLED_TERMS.length; i++){
+            let completedRequests = 0;
+            let queryUrl = API_BASE_URL + API_ENDPOINT + "?" + QUERY_PARAMS.join("&") + CONTROLLED_TERMS[i];
+            instanceName = CONTROLLED_TERMS[i];
+            fetchInstance(queryUrl, requestOptions, instanceName)
+                .then(() => {
+                    completedRequests++;
+                    if (completedRequests === CONTROLLED_TERMS.length) {
+                        resolve();
+                    }
+                })
+                .catch(err => {
+                    console.log('Error fetching controlled terms: ' + err);
+                    reject(err);
+                })
+        }
+    });*/
+}
+async function fetchInstances(apiQueryUrl, requestOptions, controlledTerm) {
+    try {
+        const response = await fetch(apiQueryUrl, requestOptions);
+        if (response.status === 200) {
+            const data = await response.json();
+            await parseAndSaveData(data, controlledTerm);
+        } else { throw new Error('Error fetching instances for ' + controlledTerm + '. Status code: ' + response.status);}
+    } catch (error) {
+        console.log(`Error fetching instances for ${controlledTerm}:`, error);
+    }
+}
+/*function fetchInstance(apiQueryUrl, requestOptions, instanceName) { //&&modified by Archana&&//
+    return new Promise((resolve, reject) => {
+        fetch(apiQueryUrl, requestOptions)
+            .then( response => response.json() )             // Get response promise
+                .then( data => parseAndSaveData(data, instanceName).then( () => resolve() ) )//&&modified by Archana&&//
+            .catch( error => {reject(error); console.log(error.type) } )
+    });
+}*/
+
+async function parseAndSaveData (data, instanceName) {   
+    let InstanceList = [];
+        try {
+            for (let thisInstance of data.data) {
+                let newInstance = { "identifier": thisInstance["@id"] }
+                newInstance["name"] = thisInstance["https://openminds.ebrains.eu/vocab/name"]
+                InstanceList.push(newInstance)
+            };  
+            InstanceList.sort((a, b) => a.name.localeCompare(b.name))  //sort alphabetically
+            //instanceName = instanceName.charAt(0).toLowerCase() + instanceName.slice(1); // Make first letter of instance name lowercase
+            //const jsonStr = JSON.stringify(resultforjson, null, 2);           
+            const filename = `${instanceName}.json`;
+            const filePath = path.join(OUTPUT_DIR, filename);
+
+            await writeFile(filePath, JSON.stringify(InstanceList, null, 2));
+            //await fs.promises.writeFile(filePath, jsonStr);
+            console.log('File with instances for ' + instanceName + ' written successfully');
+        } catch (error) {
+            console.error(`Error while parsing and saving data for ${instanceName}:`, error);
+        }
+}
+
+// - - - Simple api query using axios
+// apiURL = "https://api.github.com/repos/HumanBrainProject/openMINDS/commits/documentation";
+// axios.get( apiURL )
+// .then( response => console.log(response) )
