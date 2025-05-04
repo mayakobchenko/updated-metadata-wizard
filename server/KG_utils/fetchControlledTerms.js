@@ -29,7 +29,6 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
 
 export default async function fetchControlledTerms () {
     const requestOptions = await getRequestOptions();
-    //const response = await fetch("https://core.kg.ebrains.eu/v3/users/me", requestOptions)
     const CONTROLLED_TERMS = ["PreparationType", "Technique", "ContributionType", 
                             "SemanticDataType", "ExperimentalApproach"];
     //CONTROLLED_TERMS = CONTROLLED_TERMS.concat(studyTargetTerms);
@@ -42,24 +41,6 @@ export default async function fetchControlledTerms () {
             console.error(`Error fetching instances for ${CONTROLLED_TERMS}:`, error);}
     });
     await Promise.all(fetchPromises);
-    /*return new Promise((resolve, reject) => {
-        for (let i = 0; i < CONTROLLED_TERMS.length; i++){
-            let completedRequests = 0;
-            let queryUrl = API_BASE_URL + API_ENDPOINT + "?" + QUERY_PARAMS.join("&") + CONTROLLED_TERMS[i];
-            instanceName = CONTROLLED_TERMS[i];
-            fetchInstance(queryUrl, requestOptions, instanceName)
-                .then(() => {
-                    completedRequests++;
-                    if (completedRequests === CONTROLLED_TERMS.length) {
-                        resolve();
-                    }
-                })
-                .catch(err => {
-                    console.log('Error fetching controlled terms: ' + err);
-                    reject(err);
-                })
-        }
-    });*/
 }
 async function fetchInstances(apiQueryUrl, requestOptions, controlledTerm) {
     try {
@@ -72,14 +53,6 @@ async function fetchInstances(apiQueryUrl, requestOptions, controlledTerm) {
         console.log(`Error fetching instances for ${controlledTerm}:`, error);
     }
 }
-/*function fetchInstance(apiQueryUrl, requestOptions, instanceName) { //&&modified by Archana&&//
-    return new Promise((resolve, reject) => {
-        fetch(apiQueryUrl, requestOptions)
-            .then( response => response.json() )             // Get response promise
-                .then( data => parseAndSaveData(data, instanceName).then( () => resolve() ) )//&&modified by Archana&&//
-            .catch( error => {reject(error); console.log(error.type) } )
-    });
-}*/
 
 async function parseAndSaveData (data, instanceName) {   
     let InstanceList = [];

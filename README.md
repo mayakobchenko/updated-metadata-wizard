@@ -10,6 +10,13 @@ $ cd server
 $ npm run server
 ```
 
+API endpoints:
+
+```
+https://api.nettskjema.no/v3/swagger-ui/index.html
+https://core.kg.ebrains.eu/swagger-ui/index.html
+```
+
 Development notes:
 
 $ node -v
