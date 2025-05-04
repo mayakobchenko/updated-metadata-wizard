@@ -1,4 +1,4 @@
-import {NETTSKJEMA_QUESTIONS_ID, DRF_ID} from './constants.js';
+import {QUESTIONS_ID} from './nettskjemaElements.js'
 
 export async function fetchSubmission(submissionId, tokenNettskjema) {
     try {
@@ -21,22 +21,19 @@ export async function fetchSubmission(submissionId, tokenNettskjema) {
     }
 }
 
-export async function fetchAnswers(submissionData) {
-    const datasetElementId = NETTSKJEMA_QUESTIONS_ID['DatasetID'];
-    let result;
+export async function fetchAnswers(submissionData, skjemaField) {
+    let result
+    let answer 
+    const skjemaFieldId = QUESTIONS_ID[skjemaField]
     try{
         if (!submissionData || !Array.isArray(submissionData['answers'])) {
-            throw new Error("Invalid submission data or missing answers field");
-        }
-        result = submissionData['answers'].find(item => item.elementId === datasetElementId);
-        if (!result) {
-            throw new Error("DatasetID not found in nettskjema");
-        }
-        const datasetID = result['textAnswer'];
-        return datasetID;
-    }catch (error) {
-        throw new Error(`Problem fetching dataset version id from the nettskjema:: ${error.message}`);
-    };    
+            throw new Error("Invalid submission data or missing answers field")} 
+        const answersData = submissionData['answers']
+        result = answersData.find(item => item.elementId === skjemaFieldId)
+        if (!result) {throw new Error("Answer not found in nettskjema")}
+        if (result['elementType'] === 'QUESTION_MULTILINE') {answer = result['textAnswer']}
+        return answer
+    } catch (error) {throw new Error(`Problem fetching answers from nettskjema:: ${error.message}`)}   
 }
 
 export async function fetchPosition(extractedSubmissionId, tokenNettskjema, positionAnswerCode) {

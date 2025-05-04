@@ -8,8 +8,6 @@ const clientId = process.env.NETTSKJEMA_CLIENT_ID
 const clientSecret = process.env.NETTSKJEMA_CLIENT_SECRET
 const tokenEndpointUrl = process.env.TOKEN_ENDPOINT_URL
 
-console.log(clientId)
-
 export async function fetchTokenNettskjema() {
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')  
     try {
