@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import logger from './logger.js';
 import formRoutes from './routes/metadataSubmission.js';
 import authRoutes from './routes/auth.js';
+import KGinfoRoutes from './routes/infoKG.js'
 
 dotenv.config({ path: '../.env' });
 const PORT = process.env.PORT_SERVER || 4000;
@@ -24,5 +25,6 @@ app.use((req, res, next) => {
 
 app.use('/', formRoutes);
 app.use('/auth/', authRoutes);
+app.use('/kginfo/', KGinfoRoutes);
   
 ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`));

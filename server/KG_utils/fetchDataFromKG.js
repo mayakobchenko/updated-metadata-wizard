@@ -25,8 +25,8 @@ const configObject = [
     await Promise.all( [fetchCoreSchemaInstances(configObject), fetchControlledTerms()] )
 }*/
 try {
-    //await fetchCoreSchemaInstances(configObject)
-    await fetchControlledTerms()
+    await fetchCoreSchemaInstances(configObject)
+    //await fetchControlledTerms()
 } catch (error) {
     console.log(`Error running fetchCore...bla bla`, error);
 }

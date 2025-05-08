@@ -14,7 +14,8 @@ export async function getRequestOptions() {
             Authorization: "Bearer " + token, 
             'User-Agent': "python-requests/2.25.0",
             'Content-Type': 'application/json',
-            'Content-Encoding': 'gzip, deflate'
+            'Content-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
         };               
     const requestOptions = {headers: requestHeader};
     return requestOptions;
@@ -34,7 +35,7 @@ export async function getTokenFromServiceAccount(clientSecret) {
     try{
         const response = await fetch(endpointURL, requestOptions);
         if (!response.ok) {
-            throw new Error(`OIDC_CLIENT_ID is "restricted-access-email" cannot fetch KG token: ${response.status}`);
+            throw new Error(`OIDC client is not allowed to fetch KG token: ${response.status}`);
           }
         const jsonData = await response.json();
         if (jsonData.access_token) {

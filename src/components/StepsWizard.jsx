@@ -7,6 +7,7 @@ import ProgressBar from './ProgressBar';
 import general from './source_schemas/general.json'
 //import uischema from './source_schemas/uischema.json'
 import { useAuthContext } from './context/AuthProviderContext';
+import Contributors from './Contributors';
 
 const StepsWizard = () => {
 
@@ -74,12 +75,6 @@ const Funding = () => (
       <h3>Step 4: Funding</h3>
     </div>
   );
-
-const Contributors = () => (
-<div>
-    <h3>Step 5: Contributors</h3>
-</div>
-);  
 
 const Experiments = () => (
     <div>
