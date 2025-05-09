@@ -76,7 +76,7 @@ async function parseAndSaveData(data, typeName, propertyNameList) {
         }
         const jsonStr = JSON.stringify(typeInstanceList, null, 2);
         const filename = `${typeName}.json`;
-        const filePath = path.join(OUTPUT_DIR, filename);
+        const filePath = path.join(OUTPUT_DIR, filename)
         await fs.promises.writeFile(filePath, jsonStr);
         console.log('File with instances for ' + typeName + ' written successfully');
     } catch (error) {

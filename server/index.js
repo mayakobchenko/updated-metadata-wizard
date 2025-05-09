@@ -1,30 +1,38 @@
-import express from 'express';
-import ViteExpress from "vite-express";
+import express from 'express'
+import ViteExpress from "vite-express"
 //import cors from 'cors'; 
-import dotenv from 'dotenv';
-import logger from './logger.js';
-import formRoutes from './routes/metadataSubmission.js';
-import authRoutes from './routes/auth.js';
+import dotenv from 'dotenv'
+import logger from './logger.js'
+import formRoutes from './routes/metadataSubmission.js'
+import authRoutes from './routes/auth.js'
 import KGinfoRoutes from './routes/infoKG.js'
+import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 
-dotenv.config({ path: '../.env' });
-const PORT = process.env.PORT_SERVER || 4000;
-const app = express();
+dotenv.config({ path: '../.env' })
+const PORT = process.env.PORT_SERVER || 4000
+const app = express()
 
-app.use(express.json());
+app.use(express.json())
 app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.url}`);
+    logger.info(`${req.method} ${req.url}`)
     //console.log(`${req.method} ${req.url}`);
-    next();
-});
+    next()
+})
 
 // CORS Middleware Toggle
 // if (process.env.ENABLE_CORS === 'true') {
 //     app.use(cors());
 // }
+//app.use(cors());
 
-app.use('/', formRoutes);
-app.use('/auth/', authRoutes);
-app.use('/kginfo/', KGinfoRoutes);
+// Schedule fetching every 5 minutes (300000 ms), 24 hours (86400000 ms)
+setInterval(fetchDataFromKg, 300000);
+
+// Fetch initially when the server starts
+fetchDataFromKg()
+
+app.use('/', formRoutes)
+app.use('/auth/', authRoutes)
+app.use('/kginfo/', KGinfoRoutes)
   
-ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`));
+ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`))

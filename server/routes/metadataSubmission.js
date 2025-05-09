@@ -1,7 +1,7 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { writeFile, readFile } from 'fs/promises';
+import express from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { writeFile, readFile } from 'fs/promises'
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);

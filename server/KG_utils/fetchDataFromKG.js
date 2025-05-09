@@ -1,5 +1,5 @@
-import fetchControlledTerms from './fetchControlledTerms.js'
-//import {fetchCoreSchemaInstances} from './fetchCoreSchemaInstances.js'
+//import fetchControlledTerms from './fetchControlledTerms.js'
+import {fetchCoreSchemaInstances} from './fetchCoreSchemaInstances.js'
 
 const configObject = [
     {
@@ -24,9 +24,19 @@ const configObject = [
     console.log('Fetching data from KG')
     await Promise.all( [fetchCoreSchemaInstances(configObject), fetchControlledTerms()] )
 }*/
-try {
+
+/*try {
     await fetchCoreSchemaInstances(configObject)
     //await fetchControlledTerms()
 } catch (error) {
-    console.log(`Error running fetchCore...bla bla`, error);
+    console.log("error running fetchCoreSchemaInstances", error)
+}*/
+
+export default async function fetchDataFromKg() {
+    try {
+        await fetchCoreSchemaInstances(configObject)
+        //await fetchControlledTerms()
+    } catch (error) {
+        console.log("error running fetchCoreSchemaInstances", error)
+    }
 }
