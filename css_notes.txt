@@ -1,0 +1,38 @@
+3 types of elements:
+
+1. block element  
+default block element - paragraf takes the whole line of the window
+
+2. inline block element 
+takes as much space as it needs to, default: imgae and input
+
+3. inline element 
+bold text 
+
+css property display  - to switch between block and inline block
+
+display: inline-block;
+display: block;
+https://github.com/SuperSimpleDev/html-css-course/tree/main/2-copy-of-code/lesson-08/intro-to-html/styles
+
+----------------------------------------------------------------
+div element
+https://github.com/SuperSimpleDev/html-css-course/tree/main/2-copy-of-code/lesson-09
+
+div is a box, by default is block element
+div can contain any other elements inside the box
+
+
+“Floats” let you put block-level elements side-by-side instead of on top of each other.
+Float-based layouts have mostly been replaced with Flexbox in modern websites.
+Our recommendation is to use flexbox to lay out your web pages as much as possible, 
+reserving floats for when you need text to flow around a box (i.e., a magazine-style layout) 
+or when you need to support legacy web browsers.
+
+https://developer.mozilla.org/
+
+google: MDN html element
+<strong> and <em> elements.
+
+
+https://internetingishard.netlify.app/html-and-css/advanced-positioning/

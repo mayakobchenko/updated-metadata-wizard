@@ -21,13 +21,13 @@ function App() {
       <Header/>
           <AuthProvider>
           <div className="container-subheader">
-            <div className="subheader-menu-container">
-              <PrivacyBanner />
+            <div className="privacy-banner"><PrivacyBanner /></div>
+            <div className="login-container">
               <DropdownMenu handleMenuSelection={handleMenuSelection}/>
-              <LoginButton/>
+              <div className="login-button"><LoginButton/></div>
             </div>
           </div>
-          <WelcomeAlert/>
+          <WelcomeAlert/> 
           <StepsWizard/>
           </AuthProvider>
       <Footer />

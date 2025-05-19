@@ -232,3 +232,46 @@ Swagger for KG endpoints:
 https://core.kg.ebrains.eu/swagger-ui/index.html
 
 ebrains technical support chat: https://chat.ebrains.eu/channel/tech-support
+
+relevant matlab codes from Eivind:
+https://github.com/Neural-Systems-at-UIO/SHAREbrain/tree/main?tab=readme-ov-file
+
+currently used wizard:
+https://github.com/HumanBrainProject/ebrains_wizard/wiki/Templates
+https://github.com/HumanBrainProject/ebrains_wizard/wiki/Templates#source-schemas
+https://github.com/HumanBrainProject/ebrains_wizard
+
+swagger:
+released
+https://openminds.ebrains.eu/controlledTerms/BiologicalSex
+space: controlled
+https://core.kg.ebrains.eu/v3/instances?stage=RELEASED&type=https%3A%2F%2Fopenminds.ebrains.eu%2FcontrolledTerms%2FBiologicalSex&space=controlled
+
+jupiter notebooks:
+https://wiki.ebrains.eu/bin/view/Collabs/curation-workflow/data-sharing-collab/upload-wizard-metadata
+
+Matlab package that is updated via github actions when openminds is updated - Eivind:
+https://github.com/openMetadataInitiative/openMINDS_MATLAB
+
+https://github.com/Neural-Systems-at-UIO/SHAREbrain/tree/main?tab=readme-ov-file
+
+matlab addon: openminds package install
+p = openminds.core.Person()
+p.familyName = "Eivind"
+C = openminds.collection(p)
+p.contactInformation = openminds.core.ContactInformation('email', 'eivihe@uio.no')
+C.save('test.json')
+
+myspace preprod
+editor
+Swagger instance payload example
+{
+"@type": "https://openminds.ebrains.eu/core/Person",
+"https://openminds.ebrains.eu/vocab/familyName": "Eivind"
+}
+
+subjects:
+https://github.com/ehennestad/openMINDS-MATLAB-GUI
+
+css:
+https://internetingishard.netlify.app/html-and-css/advanced-positioning/

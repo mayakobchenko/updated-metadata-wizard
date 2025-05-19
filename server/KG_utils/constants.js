@@ -102,3 +102,12 @@ export const keywordSet = [
     // "ParcellationEntityVersion",
     // "CustomAnatomicalEntity",
 
+export const subjectProperties = [
+  "BiologicalSex",
+  "AgeCategory",
+  "Species",
+  "Handedness",
+  //"Technique",
+  "Laterality",
+  "TissueSampleType"
+]

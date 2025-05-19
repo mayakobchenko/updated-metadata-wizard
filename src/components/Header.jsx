@@ -1,15 +1,14 @@
 const Header = () => {
     return (
         <div>
-          <div className="container-header">
-          <img 
-              src="/EBRAINS-Curation-Services.png" 
-              alt="EBRAINS Curation Services Logo" 
-              width="100%" 
-              style={{ margin: "5px", marginLeft: "auto", marginRight: "auto" }} 
-            />
+          <div className="container-logo">
+            <img 
+                src="/EBRAINS-Curation-Services.png" 
+                alt="EBRAINS Curation Services Logo" 
+                width="100%" 
+              />
           </div>
-          <div className="container-gradient"></div>
+          <div className="gradient-line"></div>
         </div>
     );
   };

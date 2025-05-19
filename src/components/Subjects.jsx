@@ -1,52 +1,45 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
 
-export default function Contributors () {
-    //const [formData, setFormData] = useState(null);
-    const [dropdownOptions, setDropdownOptions] = useState([])
-    const [contributors, setContributors] = useState([])
+export default function Subjects () {
+    const [agecategory, setAgeCat] = useState([])
+    const [biosex, setBiosex] = useState([])
     const [isNewChecked, setNewIsChecked] = useState(false)
 
     const formSchema = [
-        { name: 'firstName', label: 'First Name', type: 'text' },
-        { name: 'lastName', label: 'Last Name', type: 'text' },
-        { name: 'Consortium', label: 'Consortium: ', type: 'dropdown' },
-        { name: 'Contributors', label: 'Select a person from the EBRAINS Knowledge Graph: ', type: 'dropdown' }
+        { name: 'subjectName', label: 'Subject/Tissue/Sample Group ID', type: 'text' },
+        { name: 'biologicalSex', label: 'Biological sex: ', type: 'dropdown' },
+        { name: 'ageCategory', label: 'Age category: ', type: 'dropdown' }
     ]
     const additionalFields = [
         { name: 'extraField1', label: 'Extra Field 1', type: 'text' },
         { name: 'extraField2', label: 'Extra Field 2', type: 'text' }
     ]
-    /*const dropdownOptions = [
-        { id: 1, name: 'Oscar', surname: 'Vitweis'},
-        { id: 2, name: 'Harry', surname: 'Harraldson'},
-        { id: 3, name: 'Tomas', surname: 'Blueberry'},
-    ];*/
     useEffect(() => {
-        const fetchDropdownOptions = async () => {
+        const fetchBioSex = async () => {
         try {
-            const url = 'api/kginfo/consortium'
+            const url = 'api/subjects/sex'
             const response = await fetch(url)
             if (!response.ok) {
-                throw new Error(`There is a problem fetching info about consortiums from backend: ${response.status}`)}
+                throw new Error(`There is a problem fetching info about bio sex from backend: ${response.status}`)}
             const data = await response.json()
-            setDropdownOptions(data.consortium)
+            setBiosex(data.biosex)
             } catch (error) {
-                console.error('Error fetching consortiums from backend:', error)}
+                console.error('Error fetching info from backend:', error)}
             }
-        const fetchContributors = async () => {
+        const fetchAgeCat = async () => {
             try {
-                const url = 'api/kginfo/contributorsfile'
+                const url = 'api/subjects/agecategory'
                 const response = await fetch(url)
                 if (!response.ok) {
-                    throw new Error(`There is a problem fetching info about consortiums from backend: ${response.status}`)}
+                    throw new Error(`There is a problem fetching info about age categories from backend: ${response.status}`)}
                 const data = await response.json()
-                setContributors(data.person)
+                setAgeCat(data.age_cat)
                 } catch (error) {
-                    console.error('Error fetching consortiums from backend:', error)}
+                    console.error('Error fetching age categories from backend:', error)}
                 }
-            fetchDropdownOptions()
-            fetchContributors()
+            fetchBioSex()
+            fetchAgeCat()
         }, [])
 
     const handleSubmit = (event) => {
@@ -66,7 +59,7 @@ export default function Contributors () {
 
     return (
         <div>
-            <h3>Step 5: Imported Contributors</h3>
+            <h3>Step 7: Subjects</h3>
             <form onSubmit={handleSubmit}>
                 <div>
                     <label>
@@ -74,12 +67,12 @@ export default function Contributors () {
                             type="checkbox"
                             checked={isNewChecked}
                             onChange={handleNewPersonCheck}/>
-                        This person is not on Ebrains knowledge graph
+                        Add new subject 
                     </label>
                 </div>
                 {isNewChecked && (
                 <div>
-                    <h3>Additional Form</h3>
+                    <h3>New subject</h3>
                     {additionalFields.map(field => (
                         <div key={field.name}>
                             <label>{field.label}</label>
@@ -89,25 +82,25 @@ export default function Contributors () {
                 </div>)}
                 {formSchema.map(field => {
                     if (field.type === 'dropdown') {
-                        if (field.name === 'Contributors') {
+                        if (field.name === 'biologicalSex') {
                             return (
                                 <div key={field.name}>
                                     <label>{field.label}</label>
                                     <select name={field.name}>
-                                        {contributors.map(entry => (
-                                            <option key={entry.identifier} value={[entry.familyName, entry.givenName, entry.identifier]}>
-                                                {entry.familyName} {entry.givenName}
+                                        {biosex.map(entry => (
+                                            <option key={entry.identifier} value={[entry.name, entry.identifier]}>
+                                                {entry.name}
                                             </option>))}
                                     </select>
                                 </div>)
-                        } else if (field.name === 'Consortium') {
+                        } else if (field.name === 'ageCategory') {
                             return (
                                 <div key={field.name}>
                                     <label>{field.label}</label>
                                     <select name={field.name}>
-                                        {dropdownOptions.map(option => (
-                                            <option key={option.identifier} value={[option.fullName, option.identifier]}>
-                                                {option.fullName}
+                                        {agecategory.map(opt => (
+                                            <option key={opt.identifier} value={[opt.name, opt.identifier]}>
+                                                {opt.name}
                                             </option>))}
                                     </select>
                                 </div>)

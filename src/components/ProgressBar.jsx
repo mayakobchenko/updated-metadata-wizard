@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import { Popover, Steps } from 'antd';
 import ConfigProvider from './ConfigProvider';
 
-const STEPS_NAMES = [ "Introduction", "Dataset part 1", "Dataset part 2", "Funding", "Contributors", "Experiments" ];
+const STEPS_NAMES = [ "Introduction", "Dataset part 1", "Dataset part 2", "Funding", "Contributors", "Experiments", "Subjects" ];
 const NUM_STEPS = STEPS_NAMES.length;
 
 const customDot = (dot, { status, index }) => {

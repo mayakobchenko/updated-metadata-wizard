@@ -14,7 +14,7 @@ let toggleExpandNotice = function () {
 }
   
 const PrivacyBanner = () => (
-<div className="privacy-notice">
+<div>
   <div>
     <span className="notice-content">This form stores personal information. </span>
     <button onClick={toggleExpandNotice} className="link-button" id="notice-button">Show more</button>

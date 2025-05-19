@@ -40,55 +40,60 @@ body {
 .body-wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 100vh; /* Full viewport height */
+  align-items: center;
+  justify-content: flex-start;
+  /*min-height: 100vh;*/ /* Full viewport height */
 }
-.container-header {
+.container-logo {
   margin: 0 auto;
-  padding: 0px 60px 0px 60px;
+  padding: 0 60px;
   max-width: var(--max-content-width);
-  z-index: 9997;
 }
-.container-gradient {
-  background-image: linear-gradient(to left,  var(--ebrains-color-light), var(--ebrains-color-medium), var(--ebrains-color-dark));
-  height: 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  color: white;
-  z-index: 9996;
+.container-logo img {
+  display: block; /* Remove bottom space */
+  margin: 0; /* Explicitly remove default margin */
+}
+.gradient-line {
+  width: 100vw; 
+  height: 0.35rem; 
+  background: linear-gradient(to left, var(--ebrains-color-light), var(--ebrains-color-medium), var(--ebrains-color-dark)); /* Your gradient */
 }
 .container-subheader {
   background-color: var(--form-background-color);
-  margin-bottom: 40px;
+  margin-bottom: 1rem;
   position: -webkit-sticky; /* Safari */
   position: sticky;
   font-size: 0.9rem;
-  z-index: 9998;
+  z-index: 9;
   top: 0;
-  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0, 0, 0, 0.05) 0px 1px 4px 0px, rgba(0, 0, 0, 0.05) 0px 2px 8px 0px;
-}
-.subheader-menu-container {
-  margin: 0 auto 2.5rem;
-  padding: 5px 60px 5px 60px;
-  max-width: var(--max-content-width);
+  width: 100vw;
   display: flex;
   justify-content: space-between;
+  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0, 0, 0, 0.05) 0px 1px 4px 0px, rgba(0, 0, 0, 0.05) 0px 2px 8px 0px;
 }
-.privacy-notice {
+.login-container {
+  /*margin: 0 2.5rem;*/
+  /*padding: 5px 60px 5px 60px;*/
+  padding: 0.5rem 5rem;
+  display: flex;
+  justify-content: flex-end;
+  /*max-width: var(--max-content-width);*/
+}
+.login-button {
+  margin-left: 1.3rem;
+}
+.privacy-banner {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start; 
-  /* width: 70%;
-  display: inline-block;
-  text-align: left;
-  margin: 0 auto; */
+  padding: 0.5rem 5rem;
+  transition: max-height 0.3s ease;
 }
-.notice-container {
+/*.notice-container {
   display: flex;
   justify-content: flex-start;
-}
+}*/
 .notice-content {
   /*margin-right: 5px;*/
   margin: 0 auto;

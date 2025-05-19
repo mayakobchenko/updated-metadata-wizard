@@ -7,7 +7,8 @@ import ProgressBar from './ProgressBar';
 import general from './source_schemas/general.json'
 //import uischema from './source_schemas/uischema.json'
 import { useAuthContext } from './context/AuthProviderContext';
-import Contributors from './Contributors';
+import Contributors from './Contributors'
+import Subjects from './Subjects'
 
 const StepsWizard = () => {
 
@@ -19,6 +20,7 @@ const StepsWizard = () => {
     { id: 3, component: Funding },
     { id: 4, component: Contributors },
     { id: 5, component: Experiments },
+    { id: 6, component: Subjects },
   ];
   const nextStep = () => {
     if (currentFormStep < steps.length - 1) {
