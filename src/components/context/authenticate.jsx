@@ -5,15 +5,22 @@ const userMap = {
     email: 'http://schema.org/email'
 };
 const authFunctions = {
+
+getTicket: async function getTicket () {
+    const ticketNumber = new URLSearchParams(window.location.search).get('TicketNumber')
+    console.log('ticketNumber:', ticketNumber)
+    return ticketNumber
+},
+
 login: async function login () {
     //console.log('login redirecting to IAM service')
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(window.location.search)
     try {
         let url = 'api/auth/loginurl'  
-        url += '?' + urlParams.toString();
+        url += '?' + urlParams.toString()
         const urlResponse = await fetch(url)
         if (!urlResponse.ok) {
-            throw new Error(`Failed to fetch IAM link from backend: ${urlResponse.status}`);
+            throw new Error(`Failed to fetch IAM link from backend: ${urlResponse.status}`)
         }
         window.location.href = await urlResponse.text();
     } catch (error) {
@@ -61,7 +68,7 @@ getToken: async function getToken() {
       if (!tokenResponse.ok) {
         throw new Error(`Failed to fetch token from backend: ${tokenResponse.status}`);
       }
-      return tokenResponse.text();
+      return tokenResponse.text()
     } catch (error) {
       console.error('Error occurred while fetching token from backend:', error.message);
     }

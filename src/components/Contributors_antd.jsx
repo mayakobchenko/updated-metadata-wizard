@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Select, Checkbox, Space } from 'antd'; // Import Space from Ant Design
-import ConfigProvider from './ConfigProvider';
+import ConfigProvider from './ConfigProvider'
 
-const { Option } = Select;
+const { Option } = Select
 
 export default function ContributorsAntd() {
     const [consortium, setConsortium] = useState([]);

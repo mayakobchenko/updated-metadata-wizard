@@ -32,6 +32,8 @@ export function useAuth () {
         if (!hasAuthenticatedRef.current) {
           authFunctions.authenticate()
           dispatch({type: 'redirect'})
+          //const ticket = authFunctions.getTicket()
+          //dispatch({type: 'ticket', text: ticket})
         } else {
           if (window.location.href.includes('error=')) {
             handleLoginError()

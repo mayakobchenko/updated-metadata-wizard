@@ -70,12 +70,6 @@ export default function WelcomeText() {
       </Dialog>
     );
   }
-
-    /*return (
-      <div>
-          <p>{userInfo.user ? `Welcome, ${userInfo.user.fullname}!` : 'Please log in'}</p>
-      </div>
-    )  */
   
 }
 

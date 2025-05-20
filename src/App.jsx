@@ -29,8 +29,8 @@ function App() {
               <div className="login-button"><LoginButton/></div>
             </div>
           </div> 
-          <WelcomeAlert/>
           <div className='container-form'><StepsWizard/></div>
+          <WelcomeAlert/>
           </AuthProvider>
       <Footer />
     </div>

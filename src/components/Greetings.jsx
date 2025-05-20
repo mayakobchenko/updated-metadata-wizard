@@ -1,8 +1,8 @@
-import { useAuth } from "./context/useAuth";
+//import { useAuth } from "./context/useAuth";
 import { useAuthContext } from './context/AuthProviderContext';
 
 export default function Greetings() {
-    useAuth();
+    /*useAuth();*/
     const userInfo = useAuthContext();  
     return (
     <div>

@@ -1,15 +1,9 @@
-import { React, useState } from 'react';
-import Form from '@rjsf/core';
-import validator from '@rjsf/validator-ajv8'; 
+import { React, useState } from 'react'
+import { useAuthContext } from './context/AuthProviderContext'
 import ProgressBar from './ProgressBar'
-import RichTextWidget from './customWidgets'
-//import schematest from './source_schemas/schematest.json';
-//import datasetPart1 from './source_schemas/datasetPart1.json';
-import general from './source_schemas/general.json'
-//import uischema from './source_schemas/uischema.json'
-import { useAuthContext } from './context/AuthProviderContext';
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
+import Introduction from './Introduction'
 import * as uiSchemaModule from './Schemas/uiSchema.json'
 export const uiSchema = uiSchemaModule.default
 
@@ -17,7 +11,7 @@ const StepsWizard = () => {
 
   const [currentFormStep, setCurrentFormStep] = useState(0);  
   const steps = [
-    { id: 0, component: Introduction },
+    { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
     { id: 2, component: Dataset2 },
     { id: 3, component: Funding },
@@ -86,47 +80,14 @@ const Experiments = () => (
         <h3>Step 6: Experiments</h3>
     </div>
 );
-
-const Introduction = () => {
-  const userInfo = useAuthContext();
-  //console.log('user', userInfo.user)
-  const userName = userInfo?.user?.fullname;
-  const emailUser = userInfo?.user?.email;
-  const handleSubmit = ({ formData }) => {
-    console.log('Submit button pushed: ', formData);
-  };
-  const formData = userName
-  ? {
-    contactperson: { 
-      firstName: userName,
-      lastName: userName,
-      email: emailUser
-    },
-    ticketNumber: "",
-  } 
-  : {
-    contactperson: { 
-      firstName: '',
-      lastName: '',
-      email: ''
-    },
-    ticketNumber: "",
-  }    
+function Intro () {
+  const userInfo = useAuthContext()
   return (
-    <Form 
-      widgets={{richtext: RichTextWidget}}
-      schema={general} 
-      uiSchema={uiSchema}
-      onSubmit={handleSubmit}
-      validator={validator}
-      formData={formData}
-    >
     <div>
-      <button type='submit'>Submit customised</button>
-      <button type='button'>Cancel</button>
+        <h3>Step 1: Introduction</h3>
+        <p>{userInfo.user ? `Welcome, ${userInfo.user.fullname}!` : 'Please log in'}</p>
+        <Introduction/>
     </div>
-    </Form>
-  );
-};  
-//      uiSchema={uischema}
-export default StepsWizard;
+  )}
+
+export default StepsWizard
