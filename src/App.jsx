@@ -7,6 +7,7 @@ import StepsWizard from './components/StepsWizard'
 import AuthProvider from './components/context/AuthProviderContext'
 import LoginButton from './components/LoginButton'
 import WelcomeAlert from './components/WelcomeAlert'
+import Greetings from './components/Greetings'
 
 function App() {
   
@@ -22,13 +23,14 @@ function App() {
           <AuthProvider>
           <div className="container-subheader">
             <div className="privacy-banner"><PrivacyBanner /></div>
+            <div className="greetings"><Greetings/></div>
             <div className="login-container">
-              <DropdownMenu handleMenuSelection={handleMenuSelection}/>
+              <div className='dropdown-menu'><DropdownMenu handleMenuSelection={handleMenuSelection}/></div>
               <div className="login-button"><LoginButton/></div>
             </div>
-          </div>
-          <WelcomeAlert/> 
-          <StepsWizard/>
+          </div> 
+          <WelcomeAlert/>
+          <div className='container-form'><StepsWizard/></div>
           </AuthProvider>
       <Footer />
     </div>

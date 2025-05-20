@@ -1,16 +1,11 @@
 import { createContext, useReducer, useContext } from 'react';
 
-//const [loginAlert, setLoginAlert] = useState(true);
-//const [token, setToken] = useState(null);
-//const [user, setUser] = useState(null);
-//const [message, setMessage] = useState("Loading...")
-//const [isAuthenticating, setIsAuthenticating] = useState(true);
-
 const initialState = {
     isLoggingButton: false,
     loginAlert: true,    
     token: null, 
     user: null, 
+    ticket: null,
     message: "Loading...",
     isAuthenticating: true
 }
@@ -73,7 +68,12 @@ export function authReducer(state, action) {
         user: action.text,
         isAuthenticating: false,
         loginAlert: false
-    };        
+    };      
+    case 'ticket':
+      return {
+          ...state, 
+          ticket: action.text
+      };   
     default:
       return state;
   }

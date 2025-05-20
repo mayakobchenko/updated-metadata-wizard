@@ -1,4 +1,3 @@
-//Eivind's code to get urls from the backend express server 
 const USER_INFO_URL = import.meta.env.VITE_APP_USER_INFO_URL
 const userMap = {
     username: 'http://schema.org/alternateName',
@@ -7,7 +6,7 @@ const userMap = {
 };
 const authFunctions = {
 login: async function login () {
-    console.log('login redirecting to IAM service')
+    //console.log('login redirecting to IAM service')
     const urlParams = new URLSearchParams(window.location.search);
     try {
         let url = 'api/auth/loginurl'  
@@ -19,7 +18,6 @@ login: async function login () {
         window.location.href = await urlResponse.text();
     } catch (error) {
         throw new Error ('Error occurred while logging in:', error.message)
-        //console.error('Error occurred while logging in:', error.message);
     }
 },
 
@@ -36,7 +34,6 @@ authenticate: async function authenticate() {
         window.location.href = await urlResponse.text();
     } catch (error) {
         throw new Error(`Could not fetch IAM url: ${error.message}`);
-        //console.error('Could not fetch IAM url:', error.message);
     }
 },
 
@@ -78,10 +75,8 @@ getUser: async function getUser(token) {
         throw new Error(`Failed to get user, status: ${userResponse.status}`);
       }
       const data = await userResponse.json();  
-      //console.log('user at backend:', userResponse)
       console.log(data);
       return data;
-      //return userResponse.text();
     } catch (error) {console.error('Error fetching user from backend:', error.message);
   }
 },
@@ -99,36 +94,7 @@ getUserKG: async function getUserKG(token) {
         })
         return userInfo;
     } 
-    catch (error) {console.error('Error fetching user from backend:', error.message);}
-
-
-    /*return new Promise((resolve, reject) => {
-      let xhr = new XMLHttpRequest();
-      if (process.env.NODE_ENV === "development") {
-        let target_url = process.env.REACT_APP_BACKEND_URL;
-        xhr.open("GET", `${target_url}/getuser`, true);
-      }
-      else {
-        xhr.open("GET", `getuser`, true);
-      }
-      console.log("Authorization", token);
-      xhr.setRequestHeader("Authorization", token);
-      xhr.send();
-      xhr.onreadystatechange = function () {
-        if (xhr.status == 200 && xhr.readyState == 4) {
-          let user = xhr.responseText;
-          user = JSON.parse(user);
-          resolve(user);
-        }
-        if (xhr.status == 400 && xhr.readyState == 4) {
-          reject("Error");
-        }
-      };
-    })*/
-
+    catch (error) {console.error('Error fetching user from backend:', error.message)}}
 }
 
-}
-
-export default authFunctions;
-//export default { getToken, login, logout, authenticate, getUser };
+export default authFunctions

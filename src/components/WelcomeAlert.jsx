@@ -12,7 +12,6 @@ const OIDC = import.meta.env.VITE_APP_OIDC
 const MY_URL = import.meta.env.VITE_APP_MY_URL
 const clientId = import.meta.env.VITE_WIZARD_OIDC_CLIENT_ID
 //const USER_INFO_URL = import.meta.env.VITE_APP_USER_INFO_URL
-console.log(`Welcome text`);
 
 const handleLogin = () => {
   window.location.href = `${OIDC}?response_type=code&login=true&client_id=${clientId}&redirect_uri=${MY_URL}`;
@@ -21,7 +20,6 @@ const handleLogin = () => {
 export default function WelcomeText() {
   
   useAuth();
-  //const userInfo = useAuth();
   const userInfo = useAuthContext();
   const [showDialog, setShowDialog] = useState(false);
 
@@ -73,11 +71,11 @@ export default function WelcomeText() {
     );
   }
 
-    return (
+    /*return (
       <div>
-          <h1>{userInfo.user ? `Welcome, ${userInfo.user.fullname}!` : 'Problem to get user info'}</h1>
+          <p>{userInfo.user ? `Welcome, ${userInfo.user.fullname}!` : 'Please log in'}</p>
       </div>
-    )  
+    )  */
   
 }
 

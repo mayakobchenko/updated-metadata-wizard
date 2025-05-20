@@ -1,14 +1,17 @@
 import { React, useState } from 'react';
 import Form from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8'; 
-import ProgressBar from './ProgressBar';
+import ProgressBar from './ProgressBar'
+import RichTextWidget from './customWidgets'
 //import schematest from './source_schemas/schematest.json';
 //import datasetPart1 from './source_schemas/datasetPart1.json';
 import general from './source_schemas/general.json'
 //import uischema from './source_schemas/uischema.json'
 import { useAuthContext } from './context/AuthProviderContext';
-import Contributors from './Contributors'
+import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
+import * as uiSchemaModule from './Schemas/uiSchema.json'
+export const uiSchema = uiSchemaModule.default
 
 const StepsWizard = () => {
 
@@ -18,7 +21,7 @@ const StepsWizard = () => {
     { id: 1, component: Dataset1 },
     { id: 2, component: Dataset2 },
     { id: 3, component: Funding },
-    { id: 4, component: Contributors },
+    { id: 4, component: ContributorsAntd },
     { id: 5, component: Experiments },
     { id: 6, component: Subjects },
   ];
@@ -111,7 +114,9 @@ const Introduction = () => {
   }    
   return (
     <Form 
+      widgets={{richtext: RichTextWidget}}
       schema={general} 
+      uiSchema={uiSchema}
       onSubmit={handleSubmit}
       validator={validator}
       formData={formData}

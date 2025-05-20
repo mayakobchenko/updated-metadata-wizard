@@ -74,7 +74,7 @@ body {
 .login-container {
   /*margin: 0 2.5rem;*/
   /*padding: 5px 60px 5px 60px;*/
-  padding: 0.5rem 5rem;
+  padding: 0.5rem 4rem 0.5rem 2rem;
   display: flex;
   justify-content: flex-end;
   /*max-width: var(--max-content-width);*/
@@ -82,18 +82,24 @@ body {
 .login-button {
   margin-left: 1.3rem;
 }
+/*.dropdown-menu:hover {
+color: var(-button-color-primary-active-hover);
+}*/
+.greetings {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 1.1rem;
+  padding: 0.5rem 2rem;
+}
 .privacy-banner {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: flex-start; 
-  padding: 0.5rem 5rem;
+  padding: 0.5rem 2rem 0.5rem 4rem;
   transition: max-height 0.3s ease;
 }
-/*.notice-container {
-  display: flex;
-  justify-content: flex-start;
-}*/
 .notice-content {
   /*margin-right: 5px;*/
   margin: 0 auto;
@@ -147,25 +153,19 @@ body {
 .container-footer a:hover {
   color: #CCCED0;
 }
-/*-----------------------------not edited yet by maya------------------------*/
-
-.ant-dropdown {
-  z-index: 9999;
+.container-form {
+  margin-top: 1rem;
+  margin-bottom: 3rem;
+  margin-left: 3rem;
+  margin-right: 3rem;
+  padding: 40px 60px 60px 60px;
+  background-color: var(--form-background-color);
+  border-radius: 20px;
 }
+/*-----------------------------not edited yet by maya------------------------*/
 
 .notice {
   background-color: var(--form-background-color);
-}
-
-.container-form {
-  margin-top: 20px;
-  margin-bottom: 50px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 40px 60px 60px 60px;
-  max-width: var(--max-content-width);
-  background-color: var(--form-background-color);
-  border-radius: 20px;
 }
 
 /* Some specific component styling */

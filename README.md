@@ -275,3 +275,6 @@ https://github.com/ehennestad/openMINDS-MATLAB-GUI
 
 css:
 https://internetingishard.netlify.app/html-and-css/advanced-positioning/
+
+some codes and help pages:
+https://drive.ebrains.eu/library/f5cf4964-f095-49bd-8c34-e4ffda05a497/Data%20Curation/
