@@ -6,15 +6,15 @@ import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
 import AuthProvider from './components/context/AuthProviderContext'
 import LoginButton from './components/LoginButton'
-import WelcomeAlert from './components/WelcomeAlert'
 import Greetings from './components/Greetings'
 
 function App() {
   
-  function handleMenuSelection(selectedOption) {
-    if (!!selectedOption) {
-      setSelectedAction(selectedOption);
-      setUpdateKey(Date.now());
+  function handleMenuSelection(selection) {
+    if (selection) {
+      console.log('dropdown menu selected:', selection)
+      {/*setSelectedAction(selection);
+    setUpdateKey(Date.now());*/}
     }
   }
   return (
@@ -30,7 +30,6 @@ function App() {
             </div>
           </div> 
           <div className='container-form'><StepsWizard/></div>
-          <WelcomeAlert/>
           </AuthProvider>
       <Footer />
     </div>

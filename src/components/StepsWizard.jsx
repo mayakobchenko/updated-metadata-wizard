@@ -1,10 +1,13 @@
 import { React, useState } from 'react'
-import { useAuthContext } from './context/AuthProviderContext'
+import { useAuthDispatch, useAuthContext } from './context/AuthProviderContext'
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
 import Introduction from './Introduction'
+import WelcomeAlert from './WelcomeAlert'
 import * as uiSchemaModule from './Schemas/uiSchema.json'
+import MountingFlag from './MountingFlag'
+//import GetTicketUrl from './GetTicket'
 export const uiSchema = uiSchemaModule.default
 
 const StepsWizard = () => {
@@ -47,7 +50,9 @@ const StepsWizard = () => {
       <div>
         <ProgressBar step={currentFormStep} status={validSteps} onChanged={goToWizardStep} />
       </div>
-      <h2>Step {currentFormStep + 1}</h2>
+      {/*<h2>Step {currentFormStep + 1}</h2>*/}
+        <MountingFlag />
+        {/*<GetTicketUrl />*/}
         <CurrentStep />
       <div>
         <button disabled={currentFormStep === 0} onClick={prevStep}>Back</button>
@@ -80,14 +85,30 @@ const Experiments = () => (
         <h3>Step 6: Experiments</h3>
     </div>
 );
+
 function Intro () {
+  /*const dispatch = useAuthDispatch()
+  const ticketNumber = sessionStorage.getItem('ticketNumber')
+  if (ticketNumber) {
+    dispatch({ type: 'ticket', text: ticketNumber})
+  }*/
+
   const userInfo = useAuthContext()
-  return (
-    <div>
-        <h3>Step 1: Introduction</h3>
-        <p>{userInfo.user ? `Welcome, ${userInfo.user.fullname}!` : 'Please log in'}</p>
-        <Introduction/>
-    </div>
-  )}
+  if (userInfo.user) {
+    return (
+      <div>
+          <h3>Welcome to the EBRAINS Metadata Wizard!</h3>
+          {/*<p>Thank you for choosing EBRAINS to share your research data. 
+            In this form, you can describe key aspects of your dataset so 
+            that other researchers will be able to find, reuse and cite your work. 
+            You can use the navigation bar above to explore the different sections and 
+            categories of metadata collected through this form.</p>*/}
+      <Introduction/>
+      </div>
+    )
+  }
+  return (<WelcomeAlert/>)
+
+}
 
 export default StepsWizard

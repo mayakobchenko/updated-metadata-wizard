@@ -6,7 +6,7 @@ export default function Greetings() {
     const userInfo = useAuthContext();  
     return (
     <div>
-        <p>{userInfo.user ? `Welcome, ${userInfo.user.fullname}!` : 'Please log in'}</p>
+        <p>{userInfo.user ? `Hello, ${userInfo.user.given_name} ${userInfo.user.family_name}!` : 'Hello!'}</p>
     </div>
     )  
     

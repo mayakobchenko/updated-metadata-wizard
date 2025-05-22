@@ -1,31 +1,33 @@
 import React from 'react'
 import { Form as AntForm, Input, Button, Space } from 'antd'
 import ConfigProvider from './ConfigProvider'
-import { useAuthContext } from './context/AuthProviderContext'
-//import { useAuth } from "./context/useAuth";
+import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction() {
-  //useAuth();
   const userInfo = useAuthContext();
-  const userName = userInfo?.user?.fullname;
+  const firstName = userInfo?.user?.given_name;  //fullname
+  const familyName = userInfo?.user?.family_name;
   const emailUser = userInfo?.user?.email;
+  const ticketnum = userInfo?.ticket;
 
   const initialValues = {
     contactperson: {
-      firstName: userName || '',
-      lastName: userName || '',
+      firstName: firstName || '',
+      familyName: familyName || '',
       email: emailUser
     },
-    ticketNumber: ''
+    ticketNumber: ticketnum || ''
   };
 
   const handleSubmit = (values) => {
     console.log('Submit button pushed: ', values);
-    // Optionally handle submission logic here
   };
 
   return (
     <ConfigProvider>
+      <div>
+        <p>Contact person</p>
+      </div>
       <AntForm
         layout="vertical"
         initialValues={initialValues}
@@ -34,15 +36,15 @@ export default function Introduction() {
         <AntForm.Item
           label="First Name"
           name={['contactperson', 'firstName']} // Nested names for contactperson
-          rules={[{ required: true, message: 'Please input your first name!' }]}
+          rules={[{ required: true, message: 'Please input your full name!' }]}
         >
           <Input />
         </AntForm.Item>
 
         <AntForm.Item
-          label="Last Name"
-          name={['contactperson', 'lastName']}
-          rules={[{ required: true, message: 'Please input your last name!' }]}
+          label="Family Name"
+          name={['contactperson', 'familyName']} // Nested names for contactperson
+          rules={[{ required: true, message: 'Please input your full name!' }]}
         >
           <Input />
         </AntForm.Item>

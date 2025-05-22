@@ -1,6 +1,7 @@
 import React from 'react';
 import { DownloadOutlined, UploadOutlined, DeleteOutlined, MenuOutlined } from '@ant-design/icons';
 import { Dropdown, Space } from 'antd';
+import ConfigProvider from './ConfigProvider';
 
 const items = [
   {
@@ -20,42 +21,37 @@ const items = [
   },
 ];
 
-const DropdownMenu = ({handleMenuSelection}) => {
-
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
-
-  React.useEffect(() => {
-    function handleResize() {
-      if (window.innerWidth < 700) {
-        setIsCollapsed(true)
-      } else {
-        setIsCollapsed(false)
-      }
+const DropdownMenu = ({ handleMenuSelection }) => {
+  const handleMenuClick = (info) => {
+    const { key } = info; 
+    const selectedItem = items.find(item => item.key === key);
+    if (selectedItem) {
+        //console.log('Menu item clicked:', selectedItem.label);
+        handleMenuSelection(selectedItem.label); 
+    } else {
+        console.warn('Dropdown menu is not working:', key); 
     }
-    window.addEventListener('resize', handleResize)
-  })
-
-  const handleMenuClick = (item) => { 
-    handleMenuSelection(items[item.key - 1].label) }
-  
-  const handleButtonClick = (e) => {
-    handleMenuSelection('Download form data')
-    };
+};
 
   const menuProps = {
-    items,
-    onClick: handleMenuClick,
+      items,
+      onClick: handleMenuClick,
   };
 
   return (
-    <div>
+    <ConfigProvider>
       <Space wrap>
-        <Dropdown.Button menu={menuProps} onClick={handleButtonClick} icon={<MenuOutlined />} title={'Download form data'}>
-        { isCollapsed ? <DownloadOutlined /> : "Download form data" }
-        </Dropdown.Button>
+          <Dropdown.Button
+              menu={menuProps}
+              onClick={() => handleMenuSelection('Download form data')}
+              icon={<MenuOutlined />}
+              title={'Download form data'}
+          >
+              Download form data
+          </Dropdown.Button>
       </Space>
-    </div> 
-  )
+    </ConfigProvider>  
+  );
 };
 
 export default DropdownMenu;

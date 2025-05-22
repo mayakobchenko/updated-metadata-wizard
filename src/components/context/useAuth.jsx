@@ -32,8 +32,6 @@ export function useAuth () {
         if (!hasAuthenticatedRef.current) {
           authFunctions.authenticate()
           dispatch({type: 'redirect'})
-          //const ticket = authFunctions.getTicket()
-          //dispatch({type: 'ticket', text: ticket})
         } else {
           if (window.location.href.includes('error=')) {
             handleLoginError()
@@ -42,10 +40,10 @@ export function useAuth () {
             authFunctions.getToken()
               .then( (token) => {
                 handleTokenReceived(token);
-                authFunctions.getUser(token);
-                return authFunctions.getUserKG(token); })
+                return authFunctions.getUser(token);
+                /*return authFunctions.getUserKG(token);*/ })
                   .then( (user) => {
-                    //console.log(user.username)
+                    console.log(user)
                     setUser(user)
                     dispatch({type: 'user', text: user});})
           } else {

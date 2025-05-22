@@ -5,13 +5,6 @@ const userMap = {
     email: 'http://schema.org/email'
 };
 const authFunctions = {
-
-getTicket: async function getTicket () {
-    const ticketNumber = new URLSearchParams(window.location.search).get('TicketNumber')
-    console.log('ticketNumber:', ticketNumber)
-    return ticketNumber
-},
-
 login: async function login () {
     //console.log('login redirecting to IAM service')
     const urlParams = new URLSearchParams(window.location.search)
@@ -82,7 +75,7 @@ getUser: async function getUser(token) {
         throw new Error(`Failed to get user, status: ${userResponse.status}`);
       }
       const data = await userResponse.json();  
-      console.log(data);
+      //console.log(data);
       return data;
     } catch (error) {console.error('Error fetching user from backend:', error.message);
   }
