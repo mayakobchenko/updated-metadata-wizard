@@ -29,6 +29,7 @@ export function useAuth () {
         window.history.replaceState({}, document.title, url.toString());
       }
     useEffect(() => {
+      let isMounted = true;
         if (!hasAuthenticatedRef.current) {
           authFunctions.authenticate()
           dispatch({type: 'redirect'})
@@ -37,22 +38,44 @@ export function useAuth () {
             handleLoginError()
           } else if (window.location.href.includes('code=')) {
             dispatch({type: 'code'})
-            authFunctions.getToken()
+            
+            const fetchUserData = async () => {
+              try {
+                  const token = await authFunctions.getToken();
+                  const user = await authFunctions.getUser(token);
+      
+                  if (isMounted) {
+                      setUser(user);
+                      dispatch({ type: 'user', text: user });
+                  }
+              } catch (error) {
+                  console.error('Unable to fetch user data:', error);
+              }
+          };
+      
+          fetchUserData();
+
+           /* authFunctions.getToken()
               .then( (token) => {
                 handleTokenReceived(token);
                 const user_server = authFunctions.getUser(token);
-                console.log('got from backend:', user_server)
-                /*return authFunctions.getUser(token);*/
-                return authFunctions.getUserKG(token); })
+                console.log(user_server)
+                return user_server; })
                   .then( (user) => {
                     console.log(user)
                     setUser(user)
-                    dispatch({type: 'user', text: user});})
+                    dispatch({type: 'user', text: user});})*/
+
+
           } else {
-          }
-        }
+          }}
+        return () => {
+          isMounted = false };
       }, [])
 }
+
+                /*return authFunctions.getUser(token);*/
+                /*return authFunctions.getUserKG(token);*/
 
 function urlContainsAuthenticationParameters() {
     const URL = window.location.href

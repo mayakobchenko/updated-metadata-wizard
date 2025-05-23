@@ -280,3 +280,9 @@ some codes and help pages:
 https://drive.ebrains.eu/library/f5cf4964-f095-49bd-8c34-e4ffda05a497/Data%20Curation/
 
 https://127.0.0.1:8080/?TicketNumber=12345
+
+add read me following rules here:
+code metafile https://github.com/Neural-Systems-at-UIO/LocaliZoom/blob/master/codemeta.json
+
+code meta file, licence MIT
+fork old wizard and new wizard to NeSyS

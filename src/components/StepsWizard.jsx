@@ -1,14 +1,12 @@
 import { React, useState } from 'react'
-import { useAuthDispatch, useAuthContext } from './context/AuthProviderContext'
+import { useAuthContext } from './context/AuthProviderContext'
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
-import * as uiSchemaModule from './Schemas/uiSchema.json'
-import MountingFlag from './MountingFlag'
+//import MountingFlag from './MountingFlag'
 //import GetTicketUrl from './GetTicket'
-export const uiSchema = uiSchemaModule.default
 
 const StepsWizard = () => {
 
@@ -51,7 +49,7 @@ const StepsWizard = () => {
         <ProgressBar step={currentFormStep} status={validSteps} onChanged={goToWizardStep} />
       </div>
       {/*<h2>Step {currentFormStep + 1}</h2>*/}
-        <MountingFlag />
+        {/*<MountingFlag />*/}
         {/*<GetTicketUrl />*/}
         <CurrentStep />
       <div>

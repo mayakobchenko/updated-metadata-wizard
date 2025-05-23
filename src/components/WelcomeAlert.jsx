@@ -1,6 +1,7 @@
 import { useAuth } from "./context/useAuth";
 import { useAuthContext } from './context/AuthProviderContext';
 import { useState, useEffect } from 'react'
+import LoadingSpinner from './LoadingSpinner'
 import {Box, CircularProgress, Typography,
   Dialog,
   DialogTitle,
@@ -36,7 +37,8 @@ export default function WelcomeText() {
   if (!userInfo.token) {
     if (!showDialog) {
       return (
-        <Box
+        <LoadingSpinner/>
+        /*<Box
           sx={{
             display: "flex",
             justifyContent: "center",
@@ -49,7 +51,7 @@ export default function WelcomeText() {
             Wizard is loading ...
           </Typography>
           <CircularProgress size={25} />
-        </Box>
+        </Box>*/
       );
     }
     return (

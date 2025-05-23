@@ -1,6 +1,6 @@
 import express from 'express'
 import ViteExpress from "vite-express"
-//import cors from 'cors'; 
+import cors from 'cors'; 
 import dotenv from 'dotenv'
 import logger from './logger.js'
 import formRoutes from './routes/metadataSubmission.js'
@@ -20,11 +20,15 @@ app.use((req, res, next) => {
     next()
 })
 
+app.use(cors({
+    origin: 'https://127.0.0.1:8080', // port for react
+    credentials: true
+}));
+
 // CORS Middleware Toggle
 // if (process.env.ENABLE_CORS === 'true') {
 //     app.use(cors());
 // }
-//app.use(cors());
 
 // Schedule fetching every 5 minutes (300000 ms), 24 hours (86400000 ms)
 setInterval(fetchDataFromKg, 86400000);

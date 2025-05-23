@@ -5,8 +5,8 @@ import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction() {
   const userInfo = useAuthContext();
-  const firstName = userInfo?.user?.given_name;  //fullname
-  const familyName = userInfo?.user?.family_name;
+  const firstName = userInfo?.user?.fullname;  //fullname from getuserKG   given_name from getUser
+  const familyName = userInfo?.user?.fullname;  //family_name
   const emailUser = userInfo?.user?.email;
   const ticketnum = userInfo?.ticket;
 
