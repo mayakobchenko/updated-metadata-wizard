@@ -286,3 +286,28 @@ code metafile https://github.com/Neural-Systems-at-UIO/LocaliZoom/blob/master/co
 
 code meta file, licence MIT
 fork old wizard and new wizard to NeSyS
+
+Eszter: keywords can be added as any other property, so there is no separate endpoint. However, the tricky thing with keywords is that a long list of schemas can be linked as a keyword:
+Regarding documentation, there is https://docs.kg.ebrains.eu/ that I know of apart from the swagger. If there is anything else, Oliver can point you to it.
+
+Maja discussion:
+in the wizard
+prefill from nettskjema contact person
+check with curator about ebrains account
+short title
+authors, contributors
+affiliations
+search in the dropdown for persons from KG
+added new person should be controlled by curators first
+corresponding author should be prefilled from the custodian
+
+data descritor formating is compatible to nature scientific
+
+data descriptor
+summary keep
+version specification keep
+
+data records in the data descriptor
+check with Eszter adn Eivind if there is already any script for automatic prefil
+
+prefill all we discussed with Maja to wizard and concentrate on subjects

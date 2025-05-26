@@ -1,5 +1,5 @@
 import { React, useState } from 'react'
-import { useAuthContext } from './context/AuthProviderContext'
+import { useAuthDispatch, useAuthContext } from './context/AuthProviderContext'
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
@@ -10,6 +10,7 @@ import WelcomeAlert from './WelcomeAlert'
 
 const StepsWizard = () => {
 
+  const [formData, setFormData] = useState({id0: {}, id1: {}, id2: {}, id3: {}, id4: {}, id5: {}, id6: {}})
   const [currentFormStep, setCurrentFormStep] = useState(0);  
   const steps = [
     { id: 0, component: Intro },
@@ -20,41 +21,51 @@ const StepsWizard = () => {
     { id: 5, component: Experiments },
     { id: 6, component: Subjects },
   ];
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+        ...prev,
+        [`id${currentFormStep}`]: {
+            ...prev[`id${currentFormStep}`],
+            [name]: value,
+        }
+    }))}
   const nextStep = () => {
     if (currentFormStep < steps.length - 1) {
-        setCurrentFormStep(currentFormStep + 1);
-    }
-  };
+        setCurrentFormStep(currentFormStep + 1)}}
   const prevStep = () => {
     if (currentFormStep > 0) {
-        setCurrentFormStep(currentFormStep - 1);
-    }
-  };
+        setCurrentFormStep(currentFormStep - 1)}}
   const initializeValidSteps = () => {
-    return Array(steps.length).fill(false)
-  }
-  const CurrentStep = steps[currentFormStep].component;
-  const validSteps = initializeValidSteps();
+    return Array(steps.length).fill(false)}
+  const CurrentStep = steps[currentFormStep].component
+  const validSteps = initializeValidSteps()
 
   const goToWizardStep = (nextWizardStep) => {
     if (typeof nextWizardStep === "number") {
-      nextWizardStep = steps[nextWizardStep].id;
-    }
-    setCurrentFormStep(nextWizardStep);
-  };
-  
+      nextWizardStep = steps[nextWizardStep].id}
+    setCurrentFormStep(nextWizardStep)}
+
+  const saveToJson = () => {
+    const json = JSON.stringify(formData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'formData.json';
+    a.click();
+    URL.revokeObjectURL(url)}
+
   return (
     <div>
       <div>
         <ProgressBar step={currentFormStep} status={validSteps} onChanged={goToWizardStep} />
       </div>
-      {/*<h2>Step {currentFormStep + 1}</h2>*/}
-        {/*<MountingFlag />*/}
-        {/*<GetTicketUrl />*/}
-        <CurrentStep />
+        <CurrentStep onChange={handleInputChange}  data={formData[`step${currentFormStep}`]}/>
       <div>
-        <button disabled={currentFormStep === 0} onClick={prevStep}>Back</button>
-        <button disabled={currentFormStep >= steps.length - 1} onClick={nextStep}>Next</button>
+        {currentFormStep > 0 && ( <button onClick={prevStep}>Back</button>)}
+        {currentFormStep < steps.length - 1 && (<button onClick={nextStep}>Next</button>)}
+        {currentFormStep === steps.length - 1 && (<button onClick={saveToJson}>Save</button>)}
       </div>
     </div>
   );
@@ -84,29 +95,21 @@ const Experiments = () => (
     </div>
 );
 
-function Intro () {
-  /*const dispatch = useAuthDispatch()
-  const ticketNumber = sessionStorage.getItem('ticketNumber')
-  if (ticketNumber) {
-    dispatch({ type: 'ticket', text: ticketNumber})
-  }*/
-
+function Intro ({ onChange, data }) {
   const userInfo = useAuthContext()
   if (userInfo.user) {
     return (
       <div>
-          <h3>Welcome to the EBRAINS Metadata Wizard!</h3>
-          {/*<p>Thank you for choosing EBRAINS to share your research data. 
-            In this form, you can describe key aspects of your dataset so 
-            that other researchers will be able to find, reuse and cite your work. 
-            You can use the navigation bar above to explore the different sections and 
-            categories of metadata collected through this form.</p>*/}
-      <Introduction/>
+          <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
+          <p>Thank you for choosing EBRAINS to share your research data. 
+            While filling out this form, please remember to consider all data related 
+            to the dataset that you wish to publish on EBRAINS. Once you complete the form, 
+            metadata describing your dataset will be curated according to the openMINDS standard.</p>
+      <Introduction onChange={onChange} data={data}/>
       </div>
-    )
-  }
-  return (<WelcomeAlert/>)
-
-}
+    )}
+return (<WelcomeAlert/>)}
 
 export default StepsWizard
+
+{/*<MountingFlag />*/}

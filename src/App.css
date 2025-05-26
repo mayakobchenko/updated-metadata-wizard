@@ -30,6 +30,7 @@
   --button-color-error-active-hover: #822c2e;
   --button-color-error-active: #822c2ee0;
   --input-focus-color: #686868;
+  --title-underline: #e5e5e5;
   --input-tick-color: var(--button-color-primary);
   --max-content-width: 980px;    
   --main-font-size: 100%; /* 16px browser default, scalable */
@@ -161,6 +162,13 @@ color: var(-button-color-primary-active-hover);
   padding: 40px 60px 60px 60px;
   background-color: var(--form-background-color);
   border-radius: 20px;
+}
+.step-title {
+  border-bottom: 1px solid var(--title-underline);
+  margin-bottom: 20px;
+  margin-top: 20px;
+  font-size: 21px;
+  color: #333
 }
 /*-----------------------------not edited yet by maya------------------------*/
 

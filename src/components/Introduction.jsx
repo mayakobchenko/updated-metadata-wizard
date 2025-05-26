@@ -4,11 +4,15 @@ import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction() {
+  const ticketString = localStorage.getItem('ticket')
+  const ticketObject = JSON.parse(ticketString);
+  const ticketNumber = ticketObject.number; 
+  console.log(ticketNumber)
+
   const userInfo = useAuthContext();
   const firstName = userInfo?.user?.fullname;  //fullname from getuserKG   given_name from getUser
   const familyName = userInfo?.user?.fullname;  //family_name
   const emailUser = userInfo?.user?.email;
-  const ticketnum = userInfo?.ticket;
 
   const initialValues = {
     contactperson: {
@@ -16,17 +20,17 @@ export default function Introduction() {
       familyName: familyName || '',
       email: emailUser
     },
-    ticketNumber: ticketnum || ''
+    ticketNumber: ticketNumber || ''
   };
 
   const handleSubmit = (values) => {
-    console.log('Submit button pushed: ', values);
+    console.log('Introduction Submit button pushed: ', values);
   };
 
   return (
     <ConfigProvider>
       <div>
-        <p>Contact person</p>
+        <p className="step-title">Contact person</p>
       </div>
       <AntForm
         layout="vertical"
