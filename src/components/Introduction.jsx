@@ -7,25 +7,28 @@ export default function Introduction({ onChange, data }) {
   const ticketString = localStorage.getItem('ticket')
   const ticketObject = JSON.parse(ticketString);
   const ticketNumber = ticketObject.number; 
-  //console.log(ticketNumber)
-
-  const userInfo = useAuthContext();
-  const firstName = userInfo?.user?.fullname;  //fullname from getuserKG   given_name from getUser
-  const familyName = userInfo?.user?.fullname;  //family_name
-  const emailUser = userInfo?.user?.email;
-
+  
+  const userInfo = useAuthContext()
   const initialValues = {
     contactperson: {
-      firstName: firstName || '',
-      familyName: familyName || '',
-      email: emailUser
-    },
-    ticketNumber: ticketNumber || ''
-  };
+      firstName: data.contactperson?.firstName || userInfo?.user?.fullname || '',
+      familyName: data.contactperson?.familyName || userInfo?.user?.fullname || '',
+      email: data.contactperson?.email || userInfo?.user?.email || ''},
+    ticketNumber: data.ticketNumber || ticketNumber  || ''}
 
-  const handleSubmit = (values) => {
-    console.log('Introduction Submit button pushed: ', values);
-  };
+  /*const handleValuesChange = (changedValues) => {
+    const updatedData = {
+      ...data,
+      contactperson: {
+        ...data.contactperson,
+        ...changedValues.contactperson},
+      ticketNumber: changedValues.ticketNumber || data.ticketNumber}
+    onChange(updatedData)}*/
+  const handleValuesChange = (changedValues, allValues) => {
+    //console.log('Changed Values:', changedValues);
+   // console.log('All Values:', allValues);
+    onChange(allValues)
+  };  
 
   return (
     <ConfigProvider>
@@ -35,50 +38,38 @@ export default function Introduction({ onChange, data }) {
       <AntForm
         layout="vertical"
         initialValues={initialValues}
-        onFinish={onChange} // Use onFinish for Ant Design forms
+        onValuesChange={handleValuesChange}
       >
         <AntForm.Item
           label="First Name"
-          name={['contactperson', 'firstName']} // Nested names for contactperson
-          rules={[{ required: true, message: 'Please input your full name!' }]}
-        >
+          name={['contactperson', 'firstName']} 
+          rules={[{ required: true, message: 'Please input your full name!' }]}>
           <Input />
         </AntForm.Item>
 
         <AntForm.Item
           label="Family Name"
-          name={['contactperson', 'familyName']} // Nested names for contactperson
-          rules={[{ required: true, message: 'Please input your full name!' }]}
-        >
+          name={['contactperson', 'familyName']} 
+          rules={[{ required: true, message: 'Please input your full name!' }]}>
           <Input />
         </AntForm.Item>
 
         <AntForm.Item
           label="Email"
           name={['contactperson', 'email']}
-          rules={[{ required: true, message: 'Please input your email!' }]}
-        >
+          rules={[{ required: true, message: 'Please input your email!' }]}>
           <Input />
         </AntForm.Item>
 
         <AntForm.Item
           label="Ticket Number"
           name="ticketNumber"
-          rules={[{ required: true, message: 'Please input your ticket number!' }]}
-        >
+          rules={[{ required: true, message: 'Please input your ticket number!' }]}>
           <Input />
         </AntForm.Item>
         
         {/* Add additional form fields as necessary */}
 
-        <Space>
-          <Button type="primary" htmlType="submit">
-            Submit Customized
-          </Button>
-          <Button type="button" onClick={() => console.log('Cancel')}>
-            Cancel
-          </Button>
-        </Space>
       </AntForm>
     </ConfigProvider>
   );

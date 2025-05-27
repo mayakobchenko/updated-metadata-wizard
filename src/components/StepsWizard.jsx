@@ -1,5 +1,5 @@
 import { React, useState } from 'react'
-import { useAuthDispatch, useAuthContext } from './context/AuthProviderContext'
+import { useAuthContext } from './context/AuthProviderContext'
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
@@ -9,8 +9,15 @@ import WelcomeAlert from './WelcomeAlert'
 
 const StepsWizard = () => {
 
-  const [formData, setFormData] = useState({})
-  const [currentFormStep, setCurrentFormStep] = useState(0);  
+  //const [formData, setFormData] = useState({})
+  const [formData, setFormData] = useState({
+    contactperson: {
+      firstName: '',
+      familyName: '',
+      email: ''},
+    ticketNumber: ''})
+  //const [currentFormStep, setCurrentFormStep] = useState(0);  
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const steps = [
     { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
@@ -20,38 +27,26 @@ const StepsWizard = () => {
     { id: 5, component: Experiments },
     { id: 6, component: Subjects },
   ];
-  const handleInputChange = (e) => {
-    console.log('Event:', e); 
-    if (!e || !e.target) {
-        console.error('Event or event target is undefined');
-        return; 
-    }
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-        ...prev,
-        [`id${currentFormStep}`]: {
-            ...prev[`id${currentFormStep}`],
-            [name]: value,
-        }
-    }))
-    console.log('form data:', formData)
-  }
+
+  const handleInputChange = (data) => {
+    setFormData((prev) => ({ ...prev, ...data }))}
 
   const nextStep = () => {
-    if (currentFormStep < steps.length - 1) {
-        setCurrentFormStep(currentFormStep + 1)}}
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex((prev) => prev + 1)}}
   const prevStep = () => {
-    if (currentFormStep > 0) {
-        setCurrentFormStep(currentFormStep - 1)}}
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex((prev) => prev - 1)}}
+
+  const CurrentStep = steps[currentStepIndex].component
+      
   const initializeValidSteps = () => {
     return Array(steps.length).fill(false)}
-  const CurrentStep = steps[currentFormStep].component
   const validSteps = initializeValidSteps()
-
   const goToWizardStep = (nextWizardStep) => {
     if (typeof nextWizardStep === "number") {
       nextWizardStep = steps[nextWizardStep].id}
-    setCurrentFormStep(nextWizardStep)}
+    setCurrentStepIndex(nextWizardStep)}
 
   const saveToJson = () => {
     const json = JSON.stringify(formData, null, 2);
@@ -61,22 +56,38 @@ const StepsWizard = () => {
     a.href = url;
     a.download = 'formData.json';
     a.click();
-    URL.revokeObjectURL(url)}
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div>
       <div>
-        <ProgressBar step={currentFormStep} status={validSteps} onChanged={goToWizardStep} />
+        <ProgressBar step={currentStepIndex} status={validSteps} onChanged={goToWizardStep} />
       </div>
-        <CurrentStep onChange={handleInputChange}  data={formData[`step${currentFormStep}`]}/>
+        <CurrentStep onChange={handleInputChange}  data={formData}/>
       <div>
-        {currentFormStep > 0 && ( <button onClick={prevStep}>Back</button>)}
-        {currentFormStep < steps.length - 1 && (<button onClick={nextStep}>Next</button>)}
-        {currentFormStep === steps.length - 1 && (<button onClick={saveToJson}>Save</button>)}
+        {currentStepIndex > 0 && ( <button onClick={prevStep}>Back</button>)}
+        {currentStepIndex < steps.length - 1 && (<button onClick={nextStep}>Next</button>)}
+        {currentStepIndex === steps.length - 1 && (<button onClick={saveToJson}>Save</button>)}
       </div>
     </div>
   );
 };
+
+function Intro ({ onChange, data }) {
+  const userInfo = useAuthContext()
+  if (userInfo?.user) {
+    return (
+      <div>
+          <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
+          <p>Thank you for choosing EBRAINS to share your research data. 
+            While filling out this form, please remember to consider all data related 
+            to the dataset that you wish to publish on EBRAINS. Once you complete the form, 
+            metadata describing your dataset will be curated according to the openMINDS standard.</p>
+      <Introduction onChange={onChange} data={data}/>
+      </div>
+    )}
+return (<WelcomeAlert/>)}
 
 const Dataset1 = () => (
   <div>
@@ -101,21 +112,6 @@ const Experiments = () => (
         <h3>Step 6: Experiments</h3>
     </div>
 );
-
-function Intro ({ onChange, data }) {
-  const userInfo = useAuthContext()
-  if (userInfo.user) {
-    return (
-      <div>
-          <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
-          <p>Thank you for choosing EBRAINS to share your research data. 
-            While filling out this form, please remember to consider all data related 
-            to the dataset that you wish to publish on EBRAINS. Once you complete the form, 
-            metadata describing your dataset will be curated according to the openMINDS standard.</p>
-      <Introduction onChange={onChange} data={data}/>
-      </div>
-    )}
-return (<WelcomeAlert/>)}
 
 export default StepsWizard
 
