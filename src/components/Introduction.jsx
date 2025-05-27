@@ -1,12 +1,12 @@
 import React from 'react'
-import { Form as AntForm, Input, Button, Space } from 'antd'
+import { Form as AntForm, Input } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction({ onChange, data }) {
   const ticketString = localStorage.getItem('ticket')
-  const ticketObject = JSON.parse(ticketString);
-  const ticketNumber = ticketObject.number; 
+  const ticketObject = JSON.parse(ticketString)
+  const ticketNumber = ticketObject.number
   
   const userInfo = useAuthContext()
   const initialValues = {
@@ -16,19 +16,12 @@ export default function Introduction({ onChange, data }) {
       email: data.contactperson?.email || userInfo?.user?.email || ''},
     ticketNumber: data.ticketNumber || ticketNumber  || ''}
 
-  /*const handleValuesChange = (changedValues) => {
-    const updatedData = {
-      ...data,
-      contactperson: {
-        ...data.contactperson,
-        ...changedValues.contactperson},
-      ticketNumber: changedValues.ticketNumber || data.ticketNumber}
-    onChange(updatedData)}*/
+    //Ant Design Event Mechanism to keep track of changes
   const handleValuesChange = (changedValues, allValues) => {
     //console.log('Changed Values:', changedValues);
    // console.log('All Values:', allValues);
     onChange(allValues)
-  };  
+  }
 
   return (
     <ConfigProvider>

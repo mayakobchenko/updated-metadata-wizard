@@ -99,7 +99,10 @@ export default function ContributorsAntd() {
                                         name={field.name}
                                         rules={[{ required: true, message: `Please select a ${field.label.toLowerCase()}!` }]}
                                     >
-                                        <Select style={{ minWidth: 240 }}>
+                                        <Select style={{ minWidth: 240 }}
+                                        showSearch 
+                                        filterOption={(input, option) => 
+                                            option.children.toLowerCase().includes(input.toLowerCase())}>
                                             {options.map(option => (
                                                 <Option key={option.identifier} value={option.identifier}>
                                                     {option.fullName || `${option.familyName} ${option.givenName}`}
@@ -123,11 +126,6 @@ export default function ContributorsAntd() {
                             );
                         })}
 
-                        <Form.Item>
-                            <Button type="primary" htmlType="submit">
-                                Submit
-                            </Button>
-                        </Form.Item>
                     </Space>
                 </Form>
             </ConfigProvider>
