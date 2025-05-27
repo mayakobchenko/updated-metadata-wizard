@@ -3,11 +3,11 @@ import { Form as AntForm, Input, Button, Space } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
-export default function Introduction() {
+export default function Introduction({ onChange, data }) {
   const ticketString = localStorage.getItem('ticket')
   const ticketObject = JSON.parse(ticketString);
   const ticketNumber = ticketObject.number; 
-  console.log(ticketNumber)
+  //console.log(ticketNumber)
 
   const userInfo = useAuthContext();
   const firstName = userInfo?.user?.fullname;  //fullname from getuserKG   given_name from getUser
@@ -35,7 +35,7 @@ export default function Introduction() {
       <AntForm
         layout="vertical"
         initialValues={initialValues}
-        onFinish={handleSubmit} // Use onFinish for Ant Design forms
+        onFinish={onChange} // Use onFinish for Ant Design forms
       >
         <AntForm.Item
           label="First Name"

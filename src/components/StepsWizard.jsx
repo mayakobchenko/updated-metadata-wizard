@@ -6,11 +6,10 @@ import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
 //import MountingFlag from './MountingFlag'
-//import GetTicketUrl from './GetTicket'
 
 const StepsWizard = () => {
 
-  const [formData, setFormData] = useState({id0: {}, id1: {}, id2: {}, id3: {}, id4: {}, id5: {}, id6: {}})
+  const [formData, setFormData] = useState({})
   const [currentFormStep, setCurrentFormStep] = useState(0);  
   const steps = [
     { id: 0, component: Intro },
@@ -22,6 +21,11 @@ const StepsWizard = () => {
     { id: 6, component: Subjects },
   ];
   const handleInputChange = (e) => {
+    console.log('Event:', e); 
+    if (!e || !e.target) {
+        console.error('Event or event target is undefined');
+        return; 
+    }
     const { name, value } = e.target;
     setFormData((prev) => ({
         ...prev,
@@ -29,7 +33,10 @@ const StepsWizard = () => {
             ...prev[`id${currentFormStep}`],
             [name]: value,
         }
-    }))}
+    }))
+    console.log('form data:', formData)
+  }
+
   const nextStep = () => {
     if (currentFormStep < steps.length - 1) {
         setCurrentFormStep(currentFormStep + 1)}}
