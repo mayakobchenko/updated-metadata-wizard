@@ -26,8 +26,7 @@ export default function Subjects ({ onChange, data }) {
                 throw new Error(`There is a problem fetching info about bio sex from backend: ${response.status}`)}
             const data = await response.json()
             setBiosex(data.biosex)
-            } catch (error) {
-                console.error('Error fetching info from backend:', error)}}
+            } catch (error) {console.error('Error fetching info from backend:', error)}}
         const fetchAgeCat = async () => {
             try {
                 const url = 'api/subjects/agecategory'
@@ -36,8 +35,7 @@ export default function Subjects ({ onChange, data }) {
                     throw new Error(`There is a problem fetching info about age categories from backend: ${response.status}`)}
                 const data = await response.json()
                 setAgeCat(data.age_cat)
-                } catch (error) {
-                    console.error('Error fetching age categories from backend:', error)}}
+                } catch (error) {console.error('Error fetching age categories from backend:', error)}}
             fetchBioSex()
             fetchAgeCat()
         }, [])

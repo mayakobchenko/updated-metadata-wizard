@@ -11,15 +11,8 @@ export default function Introduction({ onChange, data }) {
     dataset1: {
       dataTitle: data.dataset1?.dataTitle || userInfo?.nettskjemaInfo?.dataTitle || '',
       briefSummary: data.dataset1?.briefSummary || userInfo?.nettskjemaInfo?.briefSummary || '',
-      shortTitle: data.dataset1?.shortTitle || '',
-    }}
-
-    //Ant Design Event Mechanism to keep track of changes
-  const handleValuesChange = (changedValues, allValues) => {
-    console.log('Changed Values:', changedValues);
-    console.log('All Values:', allValues);
-   onChange(allValues)
-  }
+      shortTitle: data.dataset1?.shortTitle || ''}}
+  const handleValuesChange = (changedValues, allValues) => {onChange(allValues)}
 
   return (
     <ConfigProvider>

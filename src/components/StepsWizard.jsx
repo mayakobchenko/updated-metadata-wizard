@@ -11,27 +11,6 @@ import Dataset1 from './Dataset1'
 //npm install file-saver
 
 const StepsWizard = () => {
- /* const [formData, setFormData] = useState({
-    contactperson: {
-      firstName: '',
-      familyName: '',
-      email: ''},
-    custodian: {
-      firstName: '',
-      familyName: '',
-      email: '',
-      orcid: ''},  
-    ticketNumber: '',
-    nettskjemaId: '',
-    dataset: {
-      dataTitle: '',
-      briefSummary: '',
-      shortTitle: ''},
-    funding: {},
-    contributors: { 
-      firstName: '',     
-      lastName: ''},
-  }); */
   const [formData, setFormData] = useState({})
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const steps = [
@@ -41,8 +20,7 @@ const StepsWizard = () => {
     { id: 3, component: Funding },
     { id: 4, component: ContributorsAntd },
     { id: 5, component: Experiments },
-    { id: 6, component: Subjects },
-  ];
+    { id: 6, component: Subjects }]
 
   const handleInputChange = (data) => {
     console.log('Updated Form Data:', data)

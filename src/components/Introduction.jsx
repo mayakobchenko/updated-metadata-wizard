@@ -1,5 +1,5 @@
 import React from 'react'
-import { Form as AntForm, Input } from 'antd'
+import { Form as AntForm, Input, Checkbox } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
@@ -9,7 +9,6 @@ export default function Introduction({ onChange, data }) {
   //const ticketNumber = ticketObject.number
   //userInfo?.user?.fullname
   //userInfo?.user?.email
-
   const userInfo = useAuthContext()
   const initialValues = {
     ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
@@ -22,16 +21,14 @@ export default function Introduction({ onChange, data }) {
       firstName: data.custodian?.firstName || userInfo?.nettskjemaInfo?.custodionaFirstName || '',
       familyName: data.custodian?.familyName || userInfo?.nettskjemaInfo?.custodianSurname || '',
       email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || '',
-      orcid: data.custodian?.orcid || userInfo?.nettskjemaInfo?.custodianORCID || ''
-    }}
-
-    //Ant Design Event Mechanism to keep track of changes
+      orcid: data.custodian?.orcid || userInfo?.nettskjemaInfo?.custodianORCID || ''},
+    IntroConfirmed: data.IntroConfirmed || false} 
   const handleValuesChange = (changedValues, allValues) => {
-    console.log('Changed Values:', changedValues);
-    console.log('All Values:', allValues);
-   onChange(allValues)
-  }
-
+    //console.log('Changed Values:', changedValues)
+    //console.log('All Values:', allValues)
+    if (changedValues.isConfirmed !== undefined) {
+      allValues.isConfirmed = changedValues.isConfirmed}
+   onChange(allValues)}
   const checkEmail = (rule, value, callback) => {
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     if (emailPattern.test(value)) {
@@ -105,6 +102,11 @@ export default function Introduction({ onChange, data }) {
           name="nettskjemaId"
           rules={[{ required: false }]}>
           <Input />
+        </AntForm.Item>
+        <AntForm.Item name="IntroConfirmed" valuePropName="checked" noStyle>
+          <Checkbox>
+              I confirm that the information entered is correct.
+          </Checkbox>
         </AntForm.Item>
       </AntForm>
     </ConfigProvider>
