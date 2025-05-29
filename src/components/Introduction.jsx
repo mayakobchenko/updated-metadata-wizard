@@ -12,12 +12,17 @@ export default function Introduction({ onChange, data }) {
 
   const userInfo = useAuthContext()
   const initialValues = {
+    ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
+    nettskjemaId: data.nettskjemaId || userInfo?.nettskjemaId  || '',
     contactperson: {
       firstName: data.contactperson?.firstName || userInfo?.nettskjemaInfo?.contactFirstName || '',
       familyName: data.contactperson?.familyName || userInfo?.nettskjemaInfo?.contactSurname || '',
       email: data.contactperson?.email || userInfo?.nettskjemaInfo?.contactEmail || ''},
-    ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
-    nettskjemaId: data.nettskjemaId || userInfo?.nettskjemaId  || ''}
+    custodian: {
+      firstName: data.custodian?.firstName || userInfo?.nettskjemaInfo?.custodionaFirstName || '',
+      familyName: data.custodian?.familyName || userInfo?.nettskjemaInfo?.custodianSurname || '',
+      email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || ''
+    }}
 
     //Ant Design Event Mechanism to keep track of changes
   const handleValuesChange = (changedValues, allValues) => {
@@ -48,32 +53,56 @@ export default function Introduction({ onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="First Name"
+          label="First name"
           name={['contactperson', 'firstName']} 
           rules={[{ required: true, message: 'Please input your full name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Family Name"
+          label="Family name"
           name={['contactperson', 'familyName']} 
-          rules={[{ required: true, message: 'Please input your full name!' }]}>
+          rules={[{ required: true, message: 'Please enter your family name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
           label="Email"
           name={['contactperson', 'email']}
           rules={[
-            { required: true, message: 'Please input your E-mail!' },
+            { required: true, message: 'Please enter your E-mail!' },
             { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
+        <div>
+          <p className="step-title">Data custodian</p>
+        </div>
         <AntForm.Item
-          label="Nettskjema Id"
-          name="nettskjemaId"
-          rules={[{ required: true, message: 'Please input your nettskjema Id!' }]}>
+          label="Custodians first name"
+          name={['custodian', 'firstName']} 
+          rules={[{ required: true, message: 'Please enter custodians first name!' }]}>
           <Input />
         </AntForm.Item>
+        <AntForm.Item
+          label="Custodians family name"
+          name={['custodian', 'familyName']} 
+          rules={[{ required: true, message: 'Please enter custodians family name!' }]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
+          label="Custodians email"
+          name={['custodian', 'email']} 
+          rules={[{ required: true, message: 'Please enter custodians email!' }]}>
+          <Input />
+        </AntForm.Item>
+
       </AntForm>
     </ConfigProvider>
   );
 }
+
+
+/*       <AntForm.Item
+          label="Nettskjema Id"
+          name="nettskjemaId"
+          rules={[{ required: true, message: 'Please input your nettskjema Id!' }]}>
+          <Input />
+        </AntForm.Item> */

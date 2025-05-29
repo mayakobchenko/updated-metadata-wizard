@@ -170,6 +170,46 @@ color: var(-button-color-primary-active-hover);
   font-size: 21px;
   color: #333
 }
+.buttons-save-next-back {
+  display: flex;
+  justify-content: space-between;
+}
+.spacer {
+  flex-grow: 1; /*  push the next button to the right */
+}
+/*.back-button {
+    padding: 10px 20px; 
+    background-color: #007bff; 
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}*/
+
+.next-back-button {
+  color: #ffffff;
+  min-width: 100px;
+  background-color: var(--button-color-primary);
+  border-color: var(--button-color-primary);
+  border-radius: 5px;
+}
+.next-back-button:hover {
+  background-color: var(--button-color-primary-hover);
+  border-color: var(--button-color-primary-hover);
+  cursor: pointer;
+}
+.next-back-button:active {
+  background-color: var(--button-color-primary-active);
+  border-color: var(--button-color-primary-active);
+}
+.next-back-button:hover:active {
+  background-color: var(--button-color-primary-active-hover);
+  border-color: var(--button-color-primary-active-hover);
+}
+.next-back-button:hover:disabled {
+  background-color: var(--button-color-primary-active-hover);
+  border-color: var(--button-color-primary-active-hover);
+}
 /*-----------------------------not edited yet by maya------------------------*/
 
 .notice {

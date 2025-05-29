@@ -34,7 +34,9 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "IfContactCustodian": 5990410,
     "NameCustodian": 5990414,
     "SurnameCustodian": 5990415,
-    "EmailCustodian": 5990416
+    "EmailCustodian": 5990416,
+    "BriefSummary": 6159880,   //options
+    "Title": 5990449
 
 }
 //answer option id
@@ -100,37 +102,25 @@ async function getNettskjemaInfo (req, res) {
             throw new Error("Invalid submission data or missing answers field") }
         const answers = submissionData['answers']
 
-        let contactFirstName     
-        contactFirstName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactFirstName);
-        if (!contactFirstName) {throw new Error("Could not find conact first name in nettskjema")}
-        const contactFirst = contactFirstName['textAnswer']
-
-        let contactSecondName     
-        contactSecondName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactSurname)
-        if (!contactSecondName) {throw new Error("Could not find conact second name in nettskjema")}
-        const contactSurname = contactSecondName['textAnswer']
-
-        let contactEmail     
-        contactEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactEmail)
-        if (!contactEmail) {throw new Error("Could not find conact email in nettskjema")}
-        const contEmail = contactEmail['textAnswer']
-        const contactInfo = [contactFirst, contactSurname, contEmail]
-
+        const contactFirstName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactFirstName)?.textAnswer ?? null
+        const contactSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactSurname)?.textAnswer ?? null
+        const contactEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactEmail)?.textAnswer ?? null
+        const ContactInfo = [contactFirstName, contactSurname, contactEmail]
+        //check if contact person is the data custodian
         let CustodianInfo 
-        custodian = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.IfContactCustodian)
-        if (custodian['answerOptionIds']===ANSWERS_ID.YesContactcustodian) {
-            CustodianInfo = contactInfo} 
-        else if (custodian['answerOptionIds']===ANSWERS_ID.NoContactCustodian) {
-            const custodianName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.NameCustodian)
-            const custodianSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.SurnameCustodian)
-            const custodianEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.EmailCustodian)
+        const ifcustodian = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.IfContactCustodian)?.answerOptionIds ?? null
+        if (ifcustodian[0]===ANSWERS_ID.YesContactcustodian) { CustodianInfo = ContactInfo} 
+        else if (ifcustodian[0]===ANSWERS_ID.NoContactCustodian) {
+            const custodianName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.NameCustodian)?.textAnswer ?? null
+            const custodianSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.SurnameCustodian)?.textAnswer ?? null
+            const custodianEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.EmailCustodian)?.textAnswer ?? null
             CustodianInfo = [custodianName, custodianSurname, custodianEmail]}
         
+        const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null    
+        const briefSummary = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.BriefSummary)?.textAnswer ?? null
+        const DataInfo = [dataTitle, briefSummary]
 
-
-        console.log( contactInfo )
-
-        res.status(200).json({ message: `Nettskjema id: ${submissionId}`, nettskjemaInfo: contactInfo })
+        res.status(200).json({ ContactInfo: ContactInfo,  CustodianInfo: CustodianInfo, DataInfo: DataInfo})
     } catch (error) {
         console.error('Error fetching info from zammad', error.message)
         res.status(500).send('Internal server error')}

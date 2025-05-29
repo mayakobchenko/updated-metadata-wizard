@@ -5,6 +5,7 @@ import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
+import Dataset1 from './Dataset1'
 //import MountingFlag from './MountingFlag'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
@@ -84,10 +85,14 @@ const StepsWizard = () => {
         <ProgressBar step={currentStepIndex} status={validSteps} onChanged={goToWizardStep} />
       </div>
         <CurrentStep onChange={handleInputChange}  data={formData}/>
-      <div>
-        {currentStepIndex > 0 && ( <button onClick={prevStep}>Back</button>)}
-        {currentStepIndex < steps.length - 1 && (<button onClick={nextStep}>Next</button>)}
-        {currentStepIndex === steps.length - 1 && (<button onClick={downloadJson}>Save</button>)}
+      <div className="buttons-save-next-back">
+        {currentStepIndex > 0 && (
+            <button onClick={prevStep} className="next-back-button">Back</button>)}
+        <div className="spacer"></div> {/* Spacer for alignment */}
+        {currentStepIndex < steps.length - 1 && (
+            <button onClick={nextStep} className="next-back-button">Next</button>)}
+        {currentStepIndex === steps.length - 1 && (
+            <button onClick={downloadJson} className="save-button">Save</button>)}
       </div>
     </div>
   );

@@ -38,13 +38,14 @@ export function useAuth () {
                 const nettskjemaId = await authFunctions.zammad(ticketNumber)
                 dispatch({type: 'nettskjemaId', text: nettskjemaId})
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-                const contact = nettskjemaInfo.nettskjemaInfo
-                const contactInfo = {contactFirstName: contact[0], 
-                                     contactSurname: contact[1], 
-                                     contactEmail: contact[2]}
-                dispatch({type: 'nettskjemaInfo', text: contactInfo})
-                //console.log('contact info', nettskjemaInfo)
-
+                const skjemaInfo = {contactFirstName: nettskjemaInfo.ContactInfo[0], 
+                                     contactSurname: nettskjemaInfo.ContactInfo[1], 
+                                     contactEmail: nettskjemaInfo.ContactInfo[2],
+                                    custodionaFirstName: nettskjemaInfo.CustodianInfo[0],
+                                    custodianSurname: nettskjemaInfo.CustodianInfo[1],
+                                    custodianEmail: nettskjemaInfo.CustodianInfo[2],
+                                    dataTitle: nettskjemaInfo.DataInfo[0]}
+                dispatch({type: 'nettskjemaInfo', text: skjemaInfo})
               
                 /*const ticketObject = { number: ticketNumber }
                 if (ticketNumber) {
