@@ -34,7 +34,9 @@ export function useAuth () {
         if (hasTicketRef.current) {
             try {
                 const ticketNumber = await authFunctions.getTicket()
-                //console.log('ticketNumber:', ticketNumber)
+                console.log('ticketNumber:', ticketNumber)
+                const nettskjemaId = await authFunctions.zammad(ticketNumber)
+                console.log('nettskjemaId:', nettskjemaId)
                 const ticketObject = { number: ticketNumber };
                 if (ticketNumber) {
                     localStorage.setItem('ticket', JSON.stringify(ticketObject))}

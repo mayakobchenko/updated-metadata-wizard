@@ -1,7 +1,9 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
+import { Form, Input, Select, Checkbox, Space } from 'antd'
+import ConfigProvider from './ConfigProvider'
 
-export default function Subjects () {
+export default function Subjects ({ onChange, data }) {
     const [agecategory, setAgeCat] = useState([])
     const [biosex, setBiosex] = useState([])
     const [isNewChecked, setNewIsChecked] = useState(false)
@@ -25,8 +27,7 @@ export default function Subjects () {
             const data = await response.json()
             setBiosex(data.biosex)
             } catch (error) {
-                console.error('Error fetching info from backend:', error)}
-            }
+                console.error('Error fetching info from backend:', error)}}
         const fetchAgeCat = async () => {
             try {
                 const url = 'api/subjects/agecategory'
@@ -36,8 +37,7 @@ export default function Subjects () {
                 const data = await response.json()
                 setAgeCat(data.age_cat)
                 } catch (error) {
-                    console.error('Error fetching age categories from backend:', error)}
-                }
+                    console.error('Error fetching age categories from backend:', error)}}
             fetchBioSex()
             fetchAgeCat()
         }, [])
@@ -53,9 +53,16 @@ export default function Subjects () {
         }, {})
         console.log('Form Values:', formValues)
     }
-    const handleNewPersonCheck = () => {
-        setNewIsChecked(prevState => !prevState);
-    }
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        onChange({ [name]: value }); // Directly map the name to the input value
+        setFormData(prev => ({
+            ...prev,
+            [name]: value,
+        }))}
+
+    const handleNewSubjectCheck = () => {
+        setNewIsChecked(prevState => !prevState)}
 
     return (
         <div>
@@ -66,7 +73,7 @@ export default function Subjects () {
                         <input
                             type="checkbox"
                             checked={isNewChecked}
-                            onChange={handleNewPersonCheck}/>
+                            onChange={handleNewSubjectCheck}/>
                         Add new subject 
                     </label>
                 </div>

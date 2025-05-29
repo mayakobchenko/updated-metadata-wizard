@@ -18,10 +18,16 @@ export default function Introduction({ onChange, data }) {
 
     //Ant Design Event Mechanism to keep track of changes
   const handleValuesChange = (changedValues, allValues) => {
-    //console.log('Changed Values:', changedValues);
-   // console.log('All Values:', allValues);
-    onChange(allValues)
+    console.log('Changed Values:', changedValues);
+    console.log('All Values:', allValues);
+   onChange(allValues)
   }
+
+  const checkEmail = (rule, value, callback) => {
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    if (emailPattern.test(value)) {
+      return callback()}
+    callback('Price enter a valid email address')}
 
   return (
     <ConfigProvider>
@@ -31,38 +37,33 @@ export default function Introduction({ onChange, data }) {
       <AntForm
         layout="vertical"
         initialValues={initialValues}
-        onValuesChange={handleValuesChange}
-      >
+        onValuesChange={handleValuesChange}>
         <AntForm.Item
           label="First Name"
           name={['contactperson', 'firstName']} 
           rules={[{ required: true, message: 'Please input your full name!' }]}>
           <Input />
         </AntForm.Item>
-
         <AntForm.Item
           label="Family Name"
           name={['contactperson', 'familyName']} 
           rules={[{ required: true, message: 'Please input your full name!' }]}>
           <Input />
         </AntForm.Item>
-
         <AntForm.Item
           label="Email"
           name={['contactperson', 'email']}
-          rules={[{ required: true, message: 'Please input your email!' }]}>
+          rules={[
+            { required: true, message: 'Please input your E-mail!' },
+            { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
-
         <AntForm.Item
           label="Ticket Number"
           name="ticketNumber"
           rules={[{ required: true, message: 'Please input your ticket number!' }]}>
           <Input />
         </AntForm.Item>
-        
-        {/* Add additional form fields as necessary */}
-
       </AntForm>
     </ConfigProvider>
   );

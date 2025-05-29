@@ -11,6 +11,22 @@ getTicket: async function getTicket () {
     return ticketNumber
 },
 
+zammad: async function zammad (ticketNumber) {
+    try {
+        console.log(ticketNumber)
+        const response = await fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch zammad info from backend: ${response.status}`)
+        }
+        console.log(response)
+        const data = await response.text()
+        console.log('Ticket Details:', data)
+        return data
+    } catch (error) {
+        throw new Error ('Error occurred while fetching zammad ticket info:', error.message)
+    }
+},
+
 login: async function login () {
     //console.log('login redirecting to IAM service')
     const urlParams = new URLSearchParams(window.location.search)

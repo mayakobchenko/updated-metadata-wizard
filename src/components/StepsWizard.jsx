@@ -6,16 +6,29 @@ import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
 //import MountingFlag from './MountingFlag'
+//import { saveAs } from 'file-saver'
+//npm install file-saver
 
 const StepsWizard = () => {
-
-  //const [formData, setFormData] = useState({})
   const [formData, setFormData] = useState({
     contactperson: {
       firstName: '',
       familyName: '',
-      email: ''},
-    ticketNumber: ''})
+      email: '',
+    },
+    ticketNumber: '',
+    dataset: {
+      // Define fields related to dataset steps here
+    },
+    funding: {
+      // Fields for the funding step
+    },
+    contributors: {
+      contributorId: '', // For selected contributors
+      firstName: '',     // Additional fields for new contributors
+      lastName: '',
+    },
+  });
   //const [currentFormStep, setCurrentFormStep] = useState(0);  
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const steps = [
@@ -29,6 +42,7 @@ const StepsWizard = () => {
   ];
 
   const handleInputChange = (data) => {
+    console.log('Updated Form Data:', data)
     setFormData((prev) => ({ ...prev, ...data }))}
 
   const nextStep = () => {
@@ -48,15 +62,20 @@ const StepsWizard = () => {
       nextWizardStep = steps[nextWizardStep].id}
     setCurrentStepIndex(nextWizardStep)}
 
-  const saveToJson = () => {
+  const downloadJson = () => {
     const json = JSON.stringify(formData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'formData.json';
+    a.download = 'metadata.json';
     a.click();
     URL.revokeObjectURL(url);
+  }
+  const saveToJson = () => {
+    const json = JSON.stringify(formData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    saveAs(blob, 'formData.json'); // Use 'file-saver' to save the JSON file
   }
 
   return (
@@ -68,7 +87,7 @@ const StepsWizard = () => {
       <div>
         {currentStepIndex > 0 && ( <button onClick={prevStep}>Back</button>)}
         {currentStepIndex < steps.length - 1 && (<button onClick={nextStep}>Next</button>)}
-        {currentStepIndex === steps.length - 1 && (<button onClick={saveToJson}>Save</button>)}
+        {currentStepIndex === steps.length - 1 && (<button onClick={downloadJson}>Save</button>)}
       </div>
     </div>
   );
@@ -116,3 +135,4 @@ const Experiments = () => (
 export default StepsWizard
 
 {/*<MountingFlag />*/}
+//https://react-hook-form.com/docs/useform/getvalues
