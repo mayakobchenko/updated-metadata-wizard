@@ -35,7 +35,7 @@ app.use(cors({
 setInterval(fetchDataFromKg, 86400000);
 
 // Fetch initially when the server starts
-fetchDataFromKg()
+//fetchDataFromKg()
 
 app.use('/', formRoutes)
 app.use('/auth/', authRoutes)

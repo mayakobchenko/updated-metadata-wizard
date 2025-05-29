@@ -36,8 +36,8 @@ const configObject = [
 export default async function fetchDataFromKg() {
     try {
         await fetchLicenses()
-        //await fetchCoreSchemaInstances(configObject)
-        //await fetchControlledTerms()
+        await fetchCoreSchemaInstances(configObject)
+        await fetchControlledTerms()
     } catch (error) {
         console.log("error running fetchCoreSchemaInstances", error)
     }

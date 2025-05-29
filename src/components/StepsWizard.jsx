@@ -11,26 +11,28 @@ import Dataset1 from './Dataset1'
 //npm install file-saver
 
 const StepsWizard = () => {
-  const [formData, setFormData] = useState({
+ /* const [formData, setFormData] = useState({
     contactperson: {
       firstName: '',
       familyName: '',
+      email: ''},
+    custodian: {
+      firstName: '',
+      familyName: '',
       email: '',
-    },
+      orcid: ''},  
     ticketNumber: '',
+    nettskjemaId: '',
     dataset: {
-      // Define fields related to dataset steps here
-    },
-    funding: {
-      // Fields for the funding step
-    },
-    contributors: {
-      contributorId: '', // For selected contributors
-      firstName: '',     // Additional fields for new contributors
-      lastName: '',
-    },
-  });
-  //const [currentFormStep, setCurrentFormStep] = useState(0);  
+      dataTitle: '',
+      briefSummary: '',
+      shortTitle: ''},
+    funding: {},
+    contributors: { 
+      firstName: '',     
+      lastName: ''},
+  }); */
+  const [formData, setFormData] = useState({})
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const steps = [
     { id: 0, component: Intro },
