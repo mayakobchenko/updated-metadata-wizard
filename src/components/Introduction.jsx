@@ -7,6 +7,7 @@ export default function Introduction({ onChange, data }) {
   const ticketString = localStorage.getItem('ticket')
   const ticketObject = JSON.parse(ticketString)
   const ticketNumber = ticketObject.number
+  //const nettskjemaId = ticketObject.nettskjema
   
   const userInfo = useAuthContext()
   const initialValues = {

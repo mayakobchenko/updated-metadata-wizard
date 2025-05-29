@@ -13,17 +13,28 @@ getTicket: async function getTicket () {
 
 zammad: async function zammad (ticketNumber) {
     try {
-        console.log(ticketNumber)
         const response = await fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`);
         if (!response.ok) {
-            throw new Error(`Failed to fetch zammad info from backend: ${response.status}`)
+            throw new Error(`Failed to fetch zammad info from express server: ${response.status}`)
         }
-        console.log(response)
-        const data = await response.text()
-        console.log('Ticket Details:', data)
-        return data
+        const data = await response.json()
+        const nettskjemaId = data.submissionId
+        return nettskjemaId
     } catch (error) {
         throw new Error ('Error occurred while fetching zammad ticket info:', error.message)
+    }
+},
+
+nettskjema: async function nettskjema (nettskjemaId) {
+    try {
+        const response = await fetch(`/api/zammad/nettskjema?NettskjemaId=${nettskjemaId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch nettskjema info from my express: ${response.status}`)
+        }
+        const data = await response.json()
+        return data
+    } catch (error) {
+        throw new Error ('Error occurred while fetching nettskjema info from backend:', error.message)
     }
 },
 

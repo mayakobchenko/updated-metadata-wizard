@@ -34,10 +34,10 @@ export function useAuth () {
         if (hasTicketRef.current) {
             try {
                 const ticketNumber = await authFunctions.getTicket()
-                console.log('ticketNumber:', ticketNumber)
                 const nettskjemaId = await authFunctions.zammad(ticketNumber)
-                console.log('nettskjemaId:', nettskjemaId)
-                const ticketObject = { number: ticketNumber };
+                const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
+
+                const ticketObject = { number: ticketNumber, nettskjema: nettskjemaId };
                 if (ticketNumber) {
                     localStorage.setItem('ticket', JSON.stringify(ticketObject))}
             } catch (error) {
@@ -56,11 +56,11 @@ export function useAuth () {
             .then( (token) => {
               handleTokenReceived(token);
               const user_server = authFunctions.getUser(token);
-              console.log('got from backend:', user_server)
+              //console.log('got from backend:', user_server)
               /*return authFunctions.getUser(token);*/
               return authFunctions.getUserKG(token); })
                 .then( (user) => {
-                  console.log(user)
+                  //console.log(user)
                   setUser(user)
                   dispatch({type: 'user', text: user});})}
       }}, [])
