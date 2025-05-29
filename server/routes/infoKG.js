@@ -3,6 +3,7 @@ import {getRequestOptions} from '../KG_utils/kgAuthentication.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { readFile } from 'fs/promises'
+//https://core.kg.ebrains.eu/swagger-ui/index.html
 
 const router = express.Router()
 
@@ -12,6 +13,7 @@ const __dirname = path.dirname(__filename)
 router.get('/contributors', getContributors)
 router.get('/consortium', getConsortium)
 router.get('/contributorsfile', getContributorsfile)
+//router.get('/licenses', getLicenses)
 
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"

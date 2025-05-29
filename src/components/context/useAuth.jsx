@@ -44,7 +44,9 @@ export function useAuth () {
                                     custodionaFirstName: nettskjemaInfo.CustodianInfo[0],
                                     custodianSurname: nettskjemaInfo.CustodianInfo[1],
                                     custodianEmail: nettskjemaInfo.CustodianInfo[2],
-                                    dataTitle: nettskjemaInfo.DataInfo[0]}
+                                    custodianORCID: nettskjemaInfo.CustodianInfo[3],
+                                    dataTitle: nettskjemaInfo.DataInfo[0],
+                                    briefSummary: nettskjemaInfo.DataInfo[1]}
                 dispatch({type: 'nettskjemaInfo', text: skjemaInfo})
               
                 /*const ticketObject = { number: ticketNumber }

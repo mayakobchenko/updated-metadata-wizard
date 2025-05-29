@@ -22,10 +22,8 @@ router.get('/nettskjema', getNettskjemaInfo)
 //https://api.nettskjema.no/v3/swagger-ui/index.html
 //https://support.humanbrainproject.eu/#ticket/zoom/{ticket_id} 
 const searchTitle = 'EBRAINS Curation Request Accepted'
-//const ticketId = 36369676
-//const ticketNumber = 4825517
-//Ticket#4825517
 //skjema id = 386195
+//https://127.0.0.1:8080/?TicketNumber=4825517
 
 const NETTSKJEMA_ELEMENTS_ID = {
     "ContactSurname": 5990407,
@@ -35,8 +33,10 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "NameCustodian": 5990414,
     "SurnameCustodian": 5990415,
     "EmailCustodian": 5990416,
+    "ORCIDcustodian": 5990417,
+    "ORCIDgroupLeader": 5990421,
     "BriefSummary": 6159880,   //options
-    "Title": 5990449
+    "Title":  6159879 
 
 }
 //answer option id
@@ -87,6 +87,7 @@ async function getNettskjemaInfo (req, res) {
         if (!response.ok) {throw new Error('Error fetching nettskjema token: ' + response.status)}  
         const data = await response.json()
         const nettskjemaToken = data.access_token 
+        //to use swagger:
         //console.log(nettskjemaToken)
         if (!nettskjemaToken) {throw new Error('Nettskjema token not received.')}
         const submissionResponse = await fetch(`https://api.nettskjema.no/v3/form/submission/${submissionId}`, {
@@ -106,19 +107,23 @@ async function getNettskjemaInfo (req, res) {
         const contactSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactSurname)?.textAnswer ?? null
         const contactEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactEmail)?.textAnswer ?? null
         const ContactInfo = [contactFirstName, contactSurname, contactEmail]
+        const custodianORCID = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDcustodian)?.textAnswer ?? null
         //check if contact person is the data custodian
         let CustodianInfo 
         const ifcustodian = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.IfContactCustodian)?.answerOptionIds ?? null
-        if (ifcustodian[0]===ANSWERS_ID.YesContactcustodian) { CustodianInfo = ContactInfo} 
+        if (ifcustodian[0]===ANSWERS_ID.YesContactcustodian) { 
+            CustodianInfo = ContactInfo
+            CustodianInfo = [...CustodianInfo, custodianORCID]} 
         else if (ifcustodian[0]===ANSWERS_ID.NoContactCustodian) {
             const custodianName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.NameCustodian)?.textAnswer ?? null
             const custodianSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.SurnameCustodian)?.textAnswer ?? null
             const custodianEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.EmailCustodian)?.textAnswer ?? null
-            CustodianInfo = [custodianName, custodianSurname, custodianEmail]}
+            CustodianInfo = [custodianName, custodianSurname, custodianEmail, custodianORCID]}
         
         const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null    
         const briefSummary = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.BriefSummary)?.textAnswer ?? null
         const DataInfo = [dataTitle, briefSummary]
+        //console.log(CustodianInfo)
 
         res.status(200).json({ ContactInfo: ContactInfo,  CustodianInfo: CustodianInfo, DataInfo: DataInfo})
     } catch (error) {

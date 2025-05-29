@@ -7,7 +7,7 @@
 import fs from 'fs'
 import path from 'path'
 import {getRequestOptions} from './kgAuthentication.js'
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -16,15 +16,9 @@ const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err) {
-        if (err.code === 'EEXIST') {
-            console.log("Directory already exists.");
-        } else {
-            console.log(err);
-        }
-    } else {
-        console.log("New directory successfully created.");
-    }
-});
+        if (err.code === 'EEXIST') {console.log("Directory already exists.")} 
+        else {console.log(err)}
+    } else {console.log("New directory successfully created.")}})
 
 export const fetchCoreSchemaInstances = async (typeSpecifications) => {
     const requestOptions = await getRequestOptions();
@@ -66,13 +60,10 @@ async function parseAndSaveData(data, typeName, propertyNameList) {
             for (let propertyName of propertyNameList) {
                 const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`;
                 if (thisInstance[vocabName] !== undefined) {
-                    isEmpty = false;
-                    newInstance[propertyName] = thisInstance[vocabName];
-                }
-            }
+                    isEmpty = false
+                    newInstance[propertyName] = thisInstance[vocabName]}}
             if (!isEmpty) {
-                typeInstanceList.push(newInstance);
-            }
+                typeInstanceList.push(newInstance)}
         }
         const jsonStr = JSON.stringify(typeInstanceList, null, 2);
         const filename = `${typeName}.json`;
@@ -80,6 +71,5 @@ async function parseAndSaveData(data, typeName, propertyNameList) {
         await fs.promises.writeFile(filePath, jsonStr);
         console.log('File with instances for ' + typeName + ' written successfully');
     } catch (error) {
-        console.error(`Error while parsing and saving data for ${typeName}:`, error);
-    }
+        console.error(`Error while parsing and saving data for ${typeName}:`, error)}
 }

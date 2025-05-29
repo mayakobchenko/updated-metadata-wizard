@@ -21,7 +21,8 @@ export default function Introduction({ onChange, data }) {
     custodian: {
       firstName: data.custodian?.firstName || userInfo?.nettskjemaInfo?.custodionaFirstName || '',
       familyName: data.custodian?.familyName || userInfo?.nettskjemaInfo?.custodianSurname || '',
-      email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || ''
+      email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || '',
+      orcid: data.custodian?.orcid || userInfo?.nettskjemaInfo?.custodianORCID || ''
     }}
 
     //Ant Design Event Mechanism to keep track of changes
@@ -93,7 +94,18 @@ export default function Introduction({ onChange, data }) {
           rules={[{ required: true, message: 'Please enter custodians email!' }]}>
           <Input />
         </AntForm.Item>
-
+        <AntForm.Item
+          label="Custodians ORCID"
+          name={['custodian', 'orcid']} 
+          rules={[{ required: false}]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
+          label="Nettskjema Id"
+          name="nettskjemaId"
+          rules={[{ required: false }]}>
+          <Input />
+        </AntForm.Item>
       </AntForm>
     </ConfigProvider>
   );

@@ -1,6 +1,5 @@
-    // List of controlled terms to fetch instances for (Todo: get this from import)
-    // IMPORTANT: DatasetLicense should not be a part of this list because it is a manual
-    // entry that does not correspond with any openMINDS schema.
+// IMPORTANT: DatasetLicense should not be a part of this list because it is a manual
+// entry that does not correspond with any openMINDS schema.
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url';
@@ -90,12 +89,10 @@ const apiURL = "https://api.github.com/repos/HumanBrainProject/openMINDS/commits
 
 async function fetchCommits() {
     try {
-        const response = await fetch(apiURL);
-        
+        const response = await fetch(apiURL);     
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-
         const data = await response.json(); // Parse the JSON response
         console.log(data); // Log the retrieved data
     } catch (error) {

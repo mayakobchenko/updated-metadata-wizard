@@ -113,12 +113,6 @@ function Intro ({ onChange, data }) {
     )}
 return (<WelcomeAlert/>)}
 
-const Dataset1 = () => (
-  <div>
-    <h3>Step 2: Dataset part 1</h3>
-  </div>
-);
-
 const Dataset2 = () => (
   <div>
     <h3>Step 3: Dataset part 2</h3>

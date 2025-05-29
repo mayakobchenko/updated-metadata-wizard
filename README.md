@@ -242,6 +242,7 @@ https://github.com/HumanBrainProject/ebrains_wizard/wiki/Templates#source-schema
 https://github.com/HumanBrainProject/ebrains_wizard
 
 swagger:
+https://core.kg.ebrains.eu/swagger-ui/index.html
 released
 https://openminds.ebrains.eu/controlledTerms/BiologicalSex
 space: controlled
