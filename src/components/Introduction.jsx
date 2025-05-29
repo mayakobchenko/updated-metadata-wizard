@@ -4,18 +4,20 @@ import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction({ onChange, data }) {
-  const ticketString = localStorage.getItem('ticket')
-  const ticketObject = JSON.parse(ticketString)
-  const ticketNumber = ticketObject.number
-  //const nettskjemaId = ticketObject.nettskjema
-  
+  //const ticketString = localStorage.getItem('ticket')
+  //const ticketObject = JSON.parse(ticketString)
+  //const ticketNumber = ticketObject.number
+  //userInfo?.user?.fullname
+  //userInfo?.user?.email
+
   const userInfo = useAuthContext()
   const initialValues = {
     contactperson: {
-      firstName: data.contactperson?.firstName || userInfo?.user?.fullname || '',
-      familyName: data.contactperson?.familyName || userInfo?.user?.fullname || '',
-      email: data.contactperson?.email || userInfo?.user?.email || ''},
-    ticketNumber: data.ticketNumber || ticketNumber  || ''}
+      firstName: data.contactperson?.firstName || userInfo?.nettskjemaInfo?.contactFirstName || '',
+      familyName: data.contactperson?.familyName || userInfo?.nettskjemaInfo?.contactSurname || '',
+      email: data.contactperson?.email || userInfo?.nettskjemaInfo?.contactEmail || ''},
+    ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
+    nettskjemaId: data.nettskjemaId || userInfo?.nettskjemaId  || ''}
 
     //Ant Design Event Mechanism to keep track of changes
   const handleValuesChange = (changedValues, allValues) => {
@@ -40,6 +42,12 @@ export default function Introduction({ onChange, data }) {
         initialValues={initialValues}
         onValuesChange={handleValuesChange}>
         <AntForm.Item
+          label="Ticket Number"
+          name="ticketNumber"
+          rules={[{ required: true, message: 'Please input your ticket number!' }]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
           label="First Name"
           name={['contactperson', 'firstName']} 
           rules={[{ required: true, message: 'Please input your full name!' }]}>
@@ -60,9 +68,9 @@ export default function Introduction({ onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Ticket Number"
-          name="ticketNumber"
-          rules={[{ required: true, message: 'Please input your ticket number!' }]}>
+          label="Nettskjema Id"
+          name="nettskjemaId"
+          rules={[{ required: true, message: 'Please input your nettskjema Id!' }]}>
           <Input />
         </AntForm.Item>
       </AntForm>

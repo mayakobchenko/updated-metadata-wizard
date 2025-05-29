@@ -34,12 +34,21 @@ export function useAuth () {
         if (hasTicketRef.current) {
             try {
                 const ticketNumber = await authFunctions.getTicket()
+                dispatch({type: 'ticket', text: ticketNumber})
                 const nettskjemaId = await authFunctions.zammad(ticketNumber)
+                dispatch({type: 'nettskjemaId', text: nettskjemaId})
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
+                const contact = nettskjemaInfo.nettskjemaInfo
+                const contactInfo = {contactFirstName: contact[0], 
+                                     contactSurname: contact[1], 
+                                     contactEmail: contact[2]}
+                dispatch({type: 'nettskjemaInfo', text: contactInfo})
+                //console.log('contact info', nettskjemaInfo)
 
-                const ticketObject = { number: ticketNumber, nettskjema: nettskjemaId };
+              
+                /*const ticketObject = { number: ticketNumber }
                 if (ticketNumber) {
-                    localStorage.setItem('ticket', JSON.stringify(ticketObject))}
+                    localStorage.setItem('ticket', JSON.stringify(ticketObject))}*/
             } catch (error) {
                 console.error('Error fetching ticket:', error)
             }}}
@@ -55,14 +64,14 @@ export function useAuth () {
           authFunctions.getToken()
             .then( (token) => {
               handleTokenReceived(token);
-              const user_server = authFunctions.getUser(token);
-              //console.log('got from backend:', user_server)
+              const user_server = authFunctions.getUser(token)
+              console.log('got from backend:', user_server)
               /*return authFunctions.getUser(token);*/
-              return authFunctions.getUserKG(token); })
+              return authFunctions.getUserKG(token)})
                 .then( (user) => {
                   //console.log(user)
                   setUser(user)
-                  dispatch({type: 'user', text: user});})}
+                  dispatch({type: 'user', text: user})})}
       }}, [])
 }
 

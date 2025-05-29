@@ -5,9 +5,11 @@ const initialState = {
     loginAlert: true,    
     token: null, 
     user: null, 
-    ticket: null,
+    ticketNumber: null,
+    nettskjemaId: null,
     message: "Loading...",
-    isAuthenticating: true
+    isAuthenticating: true, 
+    nettskjemaInfo: null
 }
 export const AuthContext = createContext(initialState);
 export const AuthDispatch = createContext(null);
@@ -72,8 +74,18 @@ export function authReducer(state, action) {
     case 'ticket':
       return {
           ...state, 
-          ticket: action.text
-      };   
+          ticketNumber: action.text
+      }; 
+      case 'nettskjemaId':
+        return {
+            ...state, 
+            nettskjemaId: action.text
+        }; 
+      case 'nettskjemaInfo':
+        return {
+            ...state, 
+            nettskjemaInfo: action.text
+        };     
     default:
       return state;
   }

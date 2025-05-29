@@ -31,9 +31,17 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "ContactSurname": 5990407,
     "ContactFirstName" : 5990406,
     "ContactEmail": 5990408, 
+    "IfContactCustodian": 5990410,
+    "NameCustodian": 5990414,
+    "SurnameCustodian": 5990415,
+    "EmailCustodian": 5990416
 
-};
-
+}
+//answer option id
+const ANSWERS_ID = {
+    "YesContactcustodian": 14472467,
+    "NoContactCustodian": 14472468
+}
 async function getZammadInfo (req, res) {
     try {
         let ticket
@@ -68,7 +76,6 @@ async function getNettskjemaInfo (req, res) {
         let info
         if (req.query){ info = req.query }
         const submissionId = info.NettskjemaId
-        console.log(submissionId)
         const nettskjemaAuth = Buffer.from(`${nettskjemaClient}:${nettskjemaSecret}`).toString('base64')
         const response = await fetch(nettskjemaEndpoint, {
             method: 'POST',
@@ -97,11 +104,33 @@ async function getNettskjemaInfo (req, res) {
         contactFirstName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactFirstName);
         if (!contactFirstName) {throw new Error("Could not find conact first name in nettskjema")}
         const contactFirst = contactFirstName['textAnswer']
-        console.log(contactFirst)
+
+        let contactSecondName     
+        contactSecondName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactSurname)
+        if (!contactSecondName) {throw new Error("Could not find conact second name in nettskjema")}
+        const contactSurname = contactSecondName['textAnswer']
+
+        let contactEmail     
+        contactEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactEmail)
+        if (!contactEmail) {throw new Error("Could not find conact email in nettskjema")}
+        const contEmail = contactEmail['textAnswer']
+        const contactInfo = [contactFirst, contactSurname, contEmail]
+
+        let CustodianInfo 
+        custodian = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.IfContactCustodian)
+        if (custodian['answerOptionIds']===ANSWERS_ID.YesContactcustodian) {
+            CustodianInfo = contactInfo} 
+        else if (custodian['answerOptionIds']===ANSWERS_ID.NoContactCustodian) {
+            const custodianName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.NameCustodian)
+            const custodianSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.SurnameCustodian)
+            const custodianEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.EmailCustodian)
+            CustodianInfo = [custodianName, custodianSurname, custodianEmail]}
+        
 
 
+        console.log( contactInfo )
 
-        res.status(200).json({ message: `Nettskjema id: ${submissionId}`, answers })
+        res.status(200).json({ message: `Nettskjema id: ${submissionId}`, nettskjemaInfo: contactInfo })
     } catch (error) {
         console.error('Error fetching info from zammad', error.message)
         res.status(500).send('Internal server error')}
