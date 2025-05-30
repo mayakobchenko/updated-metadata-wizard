@@ -6,6 +6,9 @@ import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
 import Dataset1 from './Dataset1'
+import Dataset2 from './Dataset2'
+import Funding from './Funding'
+import Experiments from './Experiments'
 //import MountingFlag from './MountingFlag'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
@@ -92,24 +95,6 @@ function Intro ({ onChange, data }) {
       </div>
     )}
 return (<WelcomeAlert/>)}
-
-const Dataset2 = () => (
-  <div>
-    <h3>Step 3: Dataset part 2</h3>
-  </div>
-);
-
-const Funding = () => (
-    <div>
-      <h3>Step 4: Funding</h3>
-    </div>
-  );
-
-const Experiments = () => (
-    <div>
-        <h3>Step 6: Experiments</h3>
-    </div>
-);
 
 export default StepsWizard
 
