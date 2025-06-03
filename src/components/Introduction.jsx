@@ -4,9 +4,9 @@ import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction({ onChange, data }) {
-  //const ticketString = localStorage.getItem('ticket')
-  //const ticketObject = JSON.parse(ticketString)
-  //const ticketNumber = ticketObject.number
+  const ticketString = localStorage.getItem('ticket')
+  const ticketObject = JSON.parse(ticketString)
+  const ticketNumber = ticketObject.number
   //userInfo?.user?.fullname
   //userInfo?.user?.email
   const userInfo = useAuthContext()

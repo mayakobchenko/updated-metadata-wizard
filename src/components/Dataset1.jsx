@@ -1,11 +1,13 @@
 import React from 'react'
-import { Form as AntForm, Input, Checkbox } from 'antd'
+import { useState, useEffect } from 'react'
+import { Form as AntForm, Input, Checkbox, Select, Space, Button  } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 const { TextArea } = Input
 
 export default function Dataset1({ onChange, data }) {
+  const [license, setLicense] = useState([])
   const userInfo = useAuthContext()
   const initialValues = {
     dataset1: {
@@ -27,6 +29,24 @@ export default function Dataset1({ onChange, data }) {
     { label: 'Yes', value: 'Yes' },
     { label: 'No', value: 'No' },
   ]
+  const [form] = AntForm.useForm()
+  const formSchema = [
+    { name: 'License', label: 'License: ', type: 'dropdown' }]
+
+  useEffect(() => {
+    form.setFieldsValue(data)}, [data, form])
+  useEffect(() => {
+    const fetchLicenses = async () => {
+    try {
+        const url = 'api/kginfo/license'
+        const response = await fetch(url)
+        if (!response.ok) {
+            throw new Error(`There is a problem fetching licenses from backend: ${response.status}`)}
+        const data = await response.json()
+        setLicense(data.license)
+        } catch (error) {console.error('Error fetching info from backend:', error)}}
+        fetchLicenses()
+    }, [])
   return (
     <ConfigProvider>
       <div>
@@ -89,6 +109,27 @@ export default function Dataset1({ onChange, data }) {
           rules={[{ required: true, message: 'Please select at least one option!' }]}>
           <Checkbox.Group options={optionsYesNo} style={{ padding: '20px' }}/>
         </AntForm.Item>
+        {/*<Space>
+        {formSchema.map(field => {
+                        if (field.type === 'dropdown') {
+                            const options = field.name
+                            return (
+                                <AntForm.Item
+                                    key={field.name}
+                                    label={field.label}
+                                    name={field.name}
+                                    rules={[{ required: true, message: `Please select a ${field.label.toLowerCase()}!` }]}>
+                                    <Select style={{ minWidth: 240 }}
+                                    showSearch 
+                                    filterOption={(input, option) => 
+                                        option.children.toLowerCase().includes(input.toLowerCase())}>
+                                        {options.map(option => (
+                                            <Option key={option.identifier} value={option.identifier}>
+                                                {option.fullName || ''}
+                                            </Option>))}
+                                    </Select>
+                                </AntForm.Item>)}})}
+                                        </Space>*/}
 
 
       </AntForm>

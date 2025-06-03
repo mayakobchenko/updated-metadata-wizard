@@ -46,15 +46,18 @@ const StepsWizard = () => {
       nextWizardStep = steps[nextWizardStep].id}
     setCurrentStepIndex(nextWizardStep)}
 
-  const downloadJson = () => {
-    const json = JSON.stringify(formData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'metadata.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    const downloadJson = () => {
+      // Assuming formData is defined and contains your data
+      const json = JSON.stringify(formData, null, 2); // Use JSON, not json
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'metadata_wizard.json';
+      document.body.appendChild(a); // Append to body to work in Firefox
+      a.click();
+      document.body.removeChild(a); // Clean up
+      URL.revokeObjectURL(url);
   }
   const saveToJson = () => {
     const json = JSON.stringify(formData, null, 2);

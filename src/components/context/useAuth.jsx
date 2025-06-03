@@ -48,10 +48,10 @@ export function useAuth () {
                                     dataTitle: nettskjemaInfo.DataInfo[0],
                                     briefSummary: nettskjemaInfo.DataInfo[1]}
                 dispatch({type: 'nettskjemaInfo', text: skjemaInfo})
-              
-                /*const ticketObject = { number: ticketNumber }
+              //local storage ticket for redirect
+                const ticketObject = { number: ticketNumber }
                 if (ticketNumber) {
-                    localStorage.setItem('ticket', JSON.stringify(ticketObject))}*/
+                    localStorage.setItem('ticket', JSON.stringify(ticketObject))}
             } catch (error) {
                 console.error('Error fetching ticket:', error)
             }}}

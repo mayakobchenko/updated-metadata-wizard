@@ -63,6 +63,7 @@ export default function Subjects ({ onChange, data }) {
         setNewIsChecked(prevState => !prevState)}
 
     return (
+        <ConfigProvider>
         <div>
             <h3>Step 7: Subjects</h3>
             <form onSubmit={handleSubmit}>
@@ -120,5 +121,6 @@ export default function Subjects ({ onChange, data }) {
                 <button type="submit">Submit</button>
             </form>
         </div>
+        </ConfigProvider>
     );
 }

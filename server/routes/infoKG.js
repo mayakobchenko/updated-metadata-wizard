@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename)
 router.get('/contributors', getContributors)
 router.get('/consortium', getConsortium)
 router.get('/contributorsfile', getContributorsfile)
+router.get('/license', getLicense)
 //router.get('/licenses', getLicenses)
 
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
@@ -96,4 +97,16 @@ async function getContributorsfile(req, res) {
       res.status(500).send('Internal server error')}
   }  
 
+async function getLicense (req, res) {
+  const filePath = path.join(__dirname, '../data/kg-instances/Licenses.json')
+  try {
+    let license
+    try {
+      const data = await readFile(filePath, 'utf-8')
+      license = JSON.parse(data)} catch (err) {license = []} 
+  res.status(200).json({ license })
+  } catch (error) {
+    console.error('Error fetching contributors from KG', error.message)
+    res.status(500).send('Internal server error')}
+  }
 export default router
