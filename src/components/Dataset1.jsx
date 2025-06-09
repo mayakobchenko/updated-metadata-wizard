@@ -1,14 +1,17 @@
-import React from 'react'
 import { useState, useEffect } from 'react'
-import { Form as AntForm, Input, Checkbox, Select, Space, Button  } from 'antd'
+import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio  } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 const { TextArea } = Input
+const { Option } = Select
 
 export default function Dataset1({ onChange, data }) {
   const [license, setLicense] = useState([])
+  const [embargo, setEmbargo] = useState(data.dataset1?.embargo || false)
+  const [copyright, setCopyright] = useState(data.dataset1?.copyright || '')
   const userInfo = useAuthContext()
+
   const initialValues = {
     dataset1: {
       dataTitle: data.dataset1?.dataTitle || userInfo?.nettskjemaInfo?.dataTitle || '',
@@ -17,8 +20,17 @@ export default function Dataset1({ onChange, data }) {
       optionsData: data.dataset1?.optionsData || '',
       embargo: data.dataset1?.embargo || false,
       copyright: data.dataset1?.copyright || false,
+      license: data.dataset1?.license || '',
+      embargoDate: data.dataset1?.embargoDate || null,
     }}
-  const handleValuesChange = (changedValues, allValues) => {onChange(allValues)}
+
+  const handleValuesChange = (changedValues, allValues) => {
+    if (changedValues['dataset1']?.embargo !== undefined) {
+    setEmbargo(changedValues['dataset1'].embargo)}
+    if (changedValues['dataset1']?.copyright) {
+    setCopyright(changedValues['dataset1'].copyright)}
+    onChange(allValues)}
+
   const optionsData = [
     { label: 'Experimental data', value: 'Experimental data' },
     { label: 'Simulated data', value: 'Simulated data' },
@@ -29,12 +41,14 @@ export default function Dataset1({ onChange, data }) {
     { label: 'Yes', value: 'Yes' },
     { label: 'No', value: 'No' },
   ]
-  const [form] = AntForm.useForm()
-  const formSchema = [
-    { name: 'License', label: 'License: ', type: 'dropdown' }]
+    const optionsCopyright = [
+    { label: 'Person', value: 'Person' },
+    { label: 'Organization', value: 'Organization' },
+  ]
+  //const [form] = AntForm.useForm()
 
-  useEffect(() => {
-    form.setFieldsValue(data)}, [data, form])
+ /* useEffect(() => {
+    form.setFieldsValue(data)}, [data, form])*/
   useEffect(() => {
     const fetchLicenses = async () => {
     try {
@@ -44,7 +58,7 @@ export default function Dataset1({ onChange, data }) {
             throw new Error(`There is a problem fetching licenses from backend: ${response.status}`)}
         const data = await response.json()
         setLicense(data.license)
-        } catch (error) {console.error('Error fetching info from backend:', error)}}
+        } catch (error) {console.error('Error fetching licence from backend:', error)}}
         fetchLicenses()
     }, [])
   return (
@@ -99,38 +113,54 @@ export default function Dataset1({ onChange, data }) {
           your data for a certain period of time. Under the embargo period,
           only some of the metadata (e.g. information about subjects, aims etc.)
           will be published through EBRAINS, but the original data itself will not be shared..">
-          <Checkbox style={{ padding: '20px' }}>
+          <Checkbox style={{ padding: '20px' }} onChange={(e) => setEmbargo(e.target.checked)}>
             Yes, embargo dataset
           </Checkbox>
         </AntForm.Item>
+        {embargo && (
+          <AntForm.Item
+              label="Intended release date"
+              name={['dataset1', 'embargoDate']}
+              rules={[{ required: embargo, message: 'Please select release date!' }]}
+              extra = "When do you plan on lifting the embargo? Please try to give your best estimation.">
+              <DatePicker style={{ width: '100%' }} />
+          </AntForm.Item>)}
         <AntForm.Item
           name={['dataset1', 'copyright']}
           label="Is this version of the dataset copyrighted?"
-          rules={[{ required: true, message: 'Please select at least one option!' }]}>
-          <Checkbox.Group options={optionsYesNo} style={{ padding: '20px' }}/>
+          rules={[{ required: true, message: 'Please select yes or no!' }]}>
+          <Radio.Group 
+            onChange={(e) => setCopyright(e.target.value)}>
+            {optionsYesNo.map(option => (
+              <Radio key={option.value} value={option.value}>
+                  {option.label}
+              </Radio>))}
+          </Radio.Group>
+          {/*<Checkbox.Group options={optionsYesNo} style={{ padding: '20px' }}/>*/}
         </AntForm.Item>
-        {/*<Space>
-        {formSchema.map(field => {
-                        if (field.type === 'dropdown') {
-                            const options = field.name
-                            return (
-                                <AntForm.Item
-                                    key={field.name}
-                                    label={field.label}
-                                    name={field.name}
-                                    rules={[{ required: true, message: `Please select a ${field.label.toLowerCase()}!` }]}>
-                                    <Select style={{ minWidth: 240 }}
-                                    showSearch 
-                                    filterOption={(input, option) => 
-                                        option.children.toLowerCase().includes(input.toLowerCase())}>
-                                        {options.map(option => (
-                                            <Option key={option.identifier} value={option.identifier}>
-                                                {option.fullName || ''}
-                                            </Option>))}
-                                    </Select>
-                                </AntForm.Item>)}})}
-                                        </Space>*/}
-
+        {copyright === "Yes" && (
+          <AntForm.Item
+              label="Please provide details:"
+              name={['dataset1', 'copyrightDetails']}
+              rules={[{ required: copyright === 'Yes', message: 'Please provide copyright details!' }]}>
+              <Input placeholder="Provide details about copyright..." />
+          </AntForm.Item>)}
+        <AntForm.Item
+          label={`License`}
+          name={['dataset1', 'license']}  
+          rules={[{ required: true, message: `Please select license!` }]}>
+          <Select
+            style={{ minWidth: 240 }}
+            showSearch
+            filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())}>
+            {license.map(option => (
+                <Option key={option.identifier} value={option.identifier}>
+                    {option.fullName}
+                </Option>
+            ))}
+          </Select>
+        </AntForm.Item>
 
       </AntForm>
     </ConfigProvider>

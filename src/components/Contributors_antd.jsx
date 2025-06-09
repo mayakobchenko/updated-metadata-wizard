@@ -30,24 +30,18 @@ export default function ContributorsAntd({ onChange, data }) {
     }, []);
 
     const handleAddField = () => {
-        setFormFields([...formFields, { id: Date.now(), newPerson: false }]); // Adds a new field with a unique ID
-    };
+        setFormFields([...formFields, { id: Date.now(), newPerson: false }])}
 
     const handleRemoveField = (id) => {
         const newFields = formFields.filter(field => field.id !== id);
-        setFormFields(newFields); // Remove the selected field
-    };
+        setFormFields(newFields)}
 
     const handleCheckboxChange = (id) => {
-        // Update the newPerson state for the corresponding field
         setFormFields(formFields.map(field => 
-            field.id === id ? { ...field, newPerson: !field.newPerson } : field
-        ));
-    };
+            field.id === id ? { ...field, newPerson: !field.newPerson } : field))}
 
     const handleValuesChange = (changedValues, allValues) => {
-        onChange(allValues);
-    };
+        onChange(allValues)}
 
     return (
         <div>

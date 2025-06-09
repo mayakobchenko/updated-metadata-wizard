@@ -25,7 +25,7 @@ const StepsWizard = () => {
     { id: 6, component: Subjects }]
 
   const handleInputChange = (data) => {
-    console.log('Updated Form Data:', data)
+    //console.log('Updated Form Data:', data)
     setFormData((prev) => ({ ...prev, ...data }))}
 
   const nextStep = () => {
@@ -46,8 +46,7 @@ const StepsWizard = () => {
     setCurrentStepIndex(nextWizardStep)}
 
     const downloadJson = () => {
-      // Assuming formData is defined and contains your data
-      const json = JSON.stringify(formData, null, 2); // Use JSON, not json
+      const json = JSON.stringify(formData, null, 2)
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -90,9 +89,14 @@ function Intro ({ onChange, data }) {
       <div>
           <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
           <p>Thank you for choosing EBRAINS to share your research data. 
-            While filling out this form, please remember to consider all data related 
-            to the dataset that you wish to publish on EBRAINS. Once you complete the form, 
-            metadata describing your dataset will be curated according to the openMINDS standard.</p>
+            In this form, you can describe key aspects of your dataset so that other researchers will be able to find,
+            reuse and cite your work. While filling out this form, please remember to consider all data related 
+            to the dataset that you wish to publish on EBRAINS. Some fields might be pre-filled from the curation request
+            submited ealier. Once you complete the form, metadata describing your dataset will be curated according to the   
+            <a href="https://openminds-documentation.readthedocs.io/en/latest/" target="_blank" rel="noopener noreferrer"
+            style={{ margin: '0 5px' }}>
+               openMINDS standard.
+            </a></p>
       <Introduction onChange={onChange} data={data}/>
       </div>
     )}

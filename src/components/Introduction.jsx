@@ -1,4 +1,4 @@
-import { Form as AntForm, Input, Checkbox } from 'antd'
+import { Form as AntForm, Input } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
@@ -11,7 +11,6 @@ export default function Introduction({ onChange, data }) {
   const userInfo = useAuthContext()
   const initialValues = {
     ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
-    nettskjemaId: data.nettskjemaId || userInfo?.nettskjemaId  || '',
     contactperson: {
       firstName: data.contactperson?.firstName || userInfo?.nettskjemaInfo?.contactFirstName || '',
       familyName: data.contactperson?.familyName || userInfo?.nettskjemaInfo?.contactSurname || '',
@@ -21,13 +20,15 @@ export default function Introduction({ onChange, data }) {
       familyName: data.custodian?.familyName || userInfo?.nettskjemaInfo?.custodianSurname || '',
       email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || '',
       orcid: data.custodian?.orcid || userInfo?.nettskjemaInfo?.custodianORCID || ''},
-    IntroConfirmed: data.IntroConfirmed || false} 
+    } 
+
   const handleValuesChange = (changedValues, allValues) => {
     //console.log('Changed Values:', changedValues)
     //console.log('All Values:', allValues)
-    if (changedValues.isConfirmed !== undefined) {
-      allValues.isConfirmed = changedValues.isConfirmed}
+    /*if (changedValues.isConfirmed !== undefined) {
+      allValues.isConfirmed = changedValues.isConfirmed}*/
    onChange(allValues)}
+
   const checkEmail = (rule, value, callback) => {
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     if (emailPattern.test(value)) {
@@ -36,9 +37,7 @@ export default function Introduction({ onChange, data }) {
 
   return (
     <ConfigProvider>
-      <div>
-        <p className="step-title">Contact person</p>
-      </div>
+      <div><p className="step-title">Contact person</p></div>
       <AntForm
         layout="vertical"
         initialValues={initialValues}
@@ -65,7 +64,7 @@ export default function Introduction({ onChange, data }) {
           label="Contact person's email"
           name={['contactperson', 'email']}
           rules={[
-            { required: true, message: 'Please enter your E-mail!' },
+            { required: true, message: 'Please enter contact persons E-mail!' },
             { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
@@ -87,7 +86,9 @@ export default function Introduction({ onChange, data }) {
         <AntForm.Item
           label="Data custodian's email"
           name={['custodian', 'email']} 
-          rules={[{ required: true, message: 'Please enter custodians email!' }]}>
+          rules={[
+            { required: true, message: 'Please enter data custodians E-mail!' },
+            { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
