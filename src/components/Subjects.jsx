@@ -1,6 +1,7 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
 import { Form, Input, Select, Checkbox, Space } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 import ConfigProvider from './ConfigProvider'
 
 export default function Subjects ({ onChange, data }) {
@@ -118,7 +119,6 @@ export default function Subjects ({ onChange, data }) {
                                 <input type={field.type} name={field.name} />
                             </div>)
                     })}
-                <button type="submit">Submit</button>
             </form>
         </div>
         </ConfigProvider>

@@ -39,7 +39,7 @@ nettskjema: async function nettskjema (nettskjemaId) {
 },
 
 login: async function login () {
-    //console.log('login redirecting to IAM service')
+    console.log('login redirecting to IAM service')
     const urlParams = new URLSearchParams(window.location.search)
     try {
         let url = 'api/auth/loginurl'  
@@ -125,6 +125,7 @@ getUserKG: async function getUserKG(token) {
         Object.keys(userMap).forEach(key => {
             userInfo[key] = data[userMap[key]];
         })
+        console.log('user info from KG endpoint:', userInfo)
         return userInfo;
     } 
     catch (error) {console.error('Error fetching user from backend:', error.message)}}

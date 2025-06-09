@@ -1,4 +1,4 @@
-import { React, useState } from 'react'
+import { useState } from 'react'
 import { useAuthContext } from './context/AuthProviderContext'
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
@@ -9,7 +9,6 @@ import Dataset1 from './Dataset1'
 import Dataset2 from './Dataset2'
 import Funding from './Funding'
 import Experiments from './Experiments'
-//import MountingFlag from './MountingFlag'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
 
@@ -78,7 +77,7 @@ const StepsWizard = () => {
         {currentStepIndex < steps.length - 1 && (
             <button onClick={nextStep} className="next-back-button">Next</button>)}
         {currentStepIndex === steps.length - 1 && (
-            <button onClick={downloadJson} className="save-button">Save</button>)}
+            <button onClick={downloadJson} className="next-back-button">Save</button>)}
       </div>
     </div>
   );
@@ -100,6 +99,3 @@ function Intro ({ onChange, data }) {
 return (<WelcomeAlert/>)}
 
 export default StepsWizard
-
-{/*<MountingFlag />*/}
-//https://react-hook-form.com/docs/useform/getvalues

@@ -27,14 +27,16 @@ async function getLoginUrl(req, res) {
   try {
     const clientId = process.env.WIZARD_OIDC_CLIENT_ID;
     //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL;
+    //window.location.href = `${OIDC}?response_type=code&login=true&client_id=${clientId}&redirect_uri=${MY_URL}`
     let redirectUrl = 'https://127.00.0.1:8080/';
     if (!redirectUrl || !clientId) {
       throw new Error('Missing required login parameters.');
     }
     if (req.query && Object.keys(req.query).length > 0) {
-      const searchParamString = new URLSearchParams(req.query).toString();
+      delete req.query.iss
+      const searchParamString = new URLSearchParams(req.query).toString()
       if (searchParamString) {
-        redirectUrl += '?' + searchParamString;
+        redirectUrl += '?' + searchParamString
       }
     }
     const params = new URLSearchParams({
@@ -73,7 +75,7 @@ async function getAuthRequestUrl(req, res) {
     res.status(200).send(AUTH_ENDPOINT + '?' + params.toString());
   } catch (error) {
     console.error('Error fetching IAM url from requesturl endpoint:', error.message);
-    res.status(500).send('My backend server error');
+    res.status(500).send('requesturl endpoint express server error');
   }
 }
 
@@ -91,6 +93,7 @@ async function getToken(req, res) {
         delete req.query.code;
         delete req.query.session_state;
         delete req.query.iss;
+        //delete req.query.TicketNumber;
         const searchParamString = new URLSearchParams(req.query).toString();
         if (searchParamString) {
           redirectUrl += '?' + searchParamString;

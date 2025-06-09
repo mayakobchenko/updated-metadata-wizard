@@ -1,5 +1,6 @@
 import { useAuth } from "./context/useAuth";
-import { useAuthContext } from './context/AuthProviderContext';
+import { useAuthContext, useAuthDispatch } from './context/AuthProviderContext'
+import authFunctions from "./context/authenticate"
 import { useState, useEffect } from 'react'
 import LoadingSpinner from './LoadingSpinner'
 import {Box, CircularProgress, Typography,
@@ -7,22 +8,27 @@ import {Box, CircularProgress, Typography,
   DialogTitle,
   DialogContent,
   DialogActions, Button} from "@mui/material"
-
+//modal from antd
 //const TOKEN_URL = import.meta.env.VITE_TOKEN_ENDPOINT
 const OIDC = import.meta.env.VITE_APP_OIDC
 const MY_URL = import.meta.env.VITE_APP_MY_URL
 const clientId = import.meta.env.VITE_WIZARD_OIDC_CLIENT_ID
 //const USER_INFO_URL = import.meta.env.VITE_APP_USER_INFO_URL
 
-const handleLogin = () => {
+/*const handleLogin = () => {
   window.location.href = `${OIDC}?response_type=code&login=true&client_id=${clientId}&redirect_uri=${MY_URL}`;
-};
+};*/
 
 export default function WelcomeText() {
   
   useAuth();
-  const userInfo = useAuthContext();
-  const [showDialog, setShowDialog] = useState(false);
+  const userInfo = useAuthContext()
+  const dispatch = useAuthDispatch()
+  const [showDialog, setShowDialog] = useState(false)
+
+  function handleLogin () {
+    dispatch({ type: 'LOGIN' })
+    authFunctions.login()}
 
 //Brief timeout for UX qol
   useEffect(() => {
@@ -61,7 +67,7 @@ export default function WelcomeText() {
         <DialogTitle>Welcome to Ebrains Metadata Wizard</DialogTitle>
         <DialogContent>
           <Typography>
-            Please login to access the Ebrains Wizard and services.
+            Please login with your Ebrains account.
           </Typography>
         </DialogContent>
         <DialogActions>

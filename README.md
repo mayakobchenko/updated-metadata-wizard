@@ -10,6 +10,10 @@ $ cd server
 $ npm run server
 ```
 
+Try with ticket number:
+
+https://127.0.0.1:8080/?TicketNumber=4825517
+
 API endpoints:
 
 ```

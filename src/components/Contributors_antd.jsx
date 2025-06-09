@@ -1,43 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Checkbox, Space, Button } from 'antd';
-import ConfigProvider from './ConfigProvider'
+import { Form, Input, Select, Checkbox, Space, Button, Row, Col } from 'antd';
+import ConfigProvider from './ConfigProvider';
 
-const { Option } = Select
+const { Option } = Select;
 
 export default function ContributorsAntd({ onChange, data }) {
-    const [contributors, setContributors] = useState([])
-    const [form] = Form.useForm()
-    const [formFields, setFormFields] = useState([{ id: Date.now(), newPerson: false }])
+    const [contributors, setContributors] = useState([]);
+    const [form] = Form.useForm();
+    const [formFields, setFormFields] = useState([{ id: Date.now(), newPerson: false }]); // State to manage dynamic fields
 
     useEffect(() => {
-        form.setFieldsValue(data)}, [data, form])
+        form.setFieldsValue(data);
+    }, [data, form]);
 
     useEffect(() => {
         const fetchContributors = async () => {
             try {
                 const response = await fetch('api/kginfo/contributorsfile');
                 if (!response.ok) {
-                    throw new Error(`Error fetching contributors: ${response.status}`)}
+                    throw new Error(`Error fetching contributors: ${response.status}`);
+                }
                 const data = await response.json();
                 setContributors(data.person);
             } catch (error) {
-                console.error('Error fetching contributors:', error)}}
-        fetchContributors()
-    }, [])
+                console.error('Error fetching contributors:', error);
+            }
+        };
+        fetchContributors();
+    }, []);
 
     const handleAddField = () => {
-        setFormFields([...formFields, { id: Date.now(), newPerson: false }])}
+        setFormFields([...formFields, { id: Date.now(), newPerson: false }]); // Adds a new field with a unique ID
+    };
 
     const handleRemoveField = (id) => {
         const newFields = formFields.filter(field => field.id !== id);
-        setFormFields(newFields)}
+        setFormFields(newFields); // Remove the selected field
+    };
 
     const handleCheckboxChange = (id) => {
+        // Update the newPerson state for the corresponding field
         setFormFields(formFields.map(field => 
-            field.id === id ? { ...field, newPerson: !field.newPerson } : field))}
+            field.id === id ? { ...field, newPerson: !field.newPerson } : field
+        ));
+    };
 
     const handleValuesChange = (changedValues, allValues) => {
-        onChange(allValues)}
+        onChange(allValues);
+    };
 
     return (
         <div>
@@ -47,14 +57,16 @@ export default function ContributorsAntd({ onChange, data }) {
                     form={form}
                     name="ContributorsForm"
                     onValuesChange={handleValuesChange}
-                    layout="vertical">
+                    layout="vertical"
+                >
                     <Space direction="vertical">
                         {formFields.map(({ id, newPerson }) => (
                             <div key={id}>
                                 <Form.Item>
                                     <Checkbox 
                                         checked={newPerson} 
-                                        onChange={() => handleCheckboxChange(id)}>
+                                        onChange={() => handleCheckboxChange(id)}
+                                    >
                                         This person is not on EBRAINS knowledge graph
                                     </Checkbox>
                                 </Form.Item>
@@ -77,34 +89,40 @@ export default function ContributorsAntd({ onChange, data }) {
                                         </Form.Item>
                                     </div>
                                 ) : (
-                                    <Form.Item
-                                        label={`Select a person from the EBRAINS Knowledge Graph`}
-                                        name={`Contributors_${id}`} // Unique name for each dropdown
-                                        rules={[{ required: true, message: `Please select a contributor!` }]}
-                                    >
-                                        <Select
-                                            style={{ minWidth: 240 }}
-                                            showSearch
-                                            filterOption={(input, option) =>
-                                                option.children.toLowerCase().includes(input.toLowerCase())
-                                            }
-                                        >
-                                            {contributors.map(option => (
-                                                <Option key={option.identifier} value={option.identifier}>
-                                                    {option.fullName || `${option.familyName} ${option.givenName}`}
-                                                </Option>
-                                            ))}
-                                        </Select>
-                                    </Form.Item>
+                                    <Row gutter={16} align="middle">
+                                        <Col flex="auto">
+                                            <Form.Item
+                                                label={`Select a person from the EBRAINS Knowledge Graph`}
+                                                name={`Contributors_${id}`} // Unique name for each dropdown
+                                                rules={[{ required: true, message: `Please select a contributor!` }]}
+                                            >
+                                                <Select
+                                                    style={{ minWidth: 240 }}
+                                                    showSearch
+                                                    filterOption={(input, option) =>
+                                                        option.children.toLowerCase().includes(input.toLowerCase())
+                                                    }
+                                                >
+                                                    {contributors.map(option => (
+                                                        <Option key={option.identifier} value={option.identifier}>
+                                                            {option.fullName || `${option.familyName} ${option.givenName}`}
+                                                        </Option>
+                                                    ))}
+                                                </Select>
+                                            </Form.Item>
+                                        </Col>
+                                        <Col>
+                                            <Button type="primary" size="small" onClick={() => handleRemoveField(id)}>
+                                                Remove
+                                            </Button>
+                                        </Col>
+                                    </Row>
                                 )}
-                                <Button type="link" onClick={() => handleRemoveField(id)}>
-                                    Remove Field
-                                </Button>
                             </div>
                         ))}
                         <Form.Item>
-                            <Button type="primary" onClick={handleAddField}>
-                                Add Field
+                            <Button type="primary" size="small" onClick={handleAddField}>
+                                Add
                             </Button>
                         </Form.Item>
                     </Space>

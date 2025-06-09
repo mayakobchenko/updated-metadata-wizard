@@ -210,6 +210,30 @@ color: var(-button-color-primary-active-hover);
   background-color: var(--button-color-primary-active-hover);
   border-color: var(--button-color-primary-active-hover);
 }
+.welcome-alert-login-button{
+  color: #ffffff;
+  min-width: 100px;
+  background-color: var(--button-color-primary);
+  border-color: var(--button-color-primary);
+  border-radius: 5px;
+}
+.welcome-alert-login-button:hover {
+  background-color: var(--button-color-primary-hover);
+  border-color: var(--button-color-primary-hover);
+  cursor: pointer;
+}
+.welcome-alert-login-button:active {
+  background-color: var(--button-color-primary-active);
+  border-color: var(--button-color-primary-active);
+}
+.welcome-alert-login-button:hover:active {
+  background-color: var(--button-color-primary-active-hover);
+  border-color: var(--button-color-primary-active-hover);
+}
+.welcome-alert-login-button:hover:disabled {
+  background-color: var(--button-color-primary-active-hover);
+  border-color: var(--button-color-primary-active-hover);
+}
 /*-----------------------------not edited yet by maya------------------------*/
 
 .notice {

@@ -21,6 +21,7 @@ export function useAuth () {
         dispatch({type: 'loginError'})
       }
     function handleTokenReceived(token) {
+      //console.log(token)
         dispatch({type: 'gotToken', text: token});
         setToken(token)
         const url = new URL(window.location.href);
@@ -35,6 +36,10 @@ export function useAuth () {
             try {
                 const ticketNumber = await authFunctions.getTicket()
                 dispatch({type: 'ticket', text: ticketNumber})
+                console.log('fetched ticket number from url:', ticketNumber)
+                //local storage ticket for redirect
+                //const ticketObject = { number: ticketNumber }
+                //if (ticketNumber) {localStorage.setItem('ticket', JSON.stringify(ticketObject))}
                 const nettskjemaId = await authFunctions.zammad(ticketNumber)
                 dispatch({type: 'nettskjemaId', text: nettskjemaId})
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
@@ -48,10 +53,6 @@ export function useAuth () {
                                     dataTitle: nettskjemaInfo.DataInfo[0],
                                     briefSummary: nettskjemaInfo.DataInfo[1]}
                 dispatch({type: 'nettskjemaInfo', text: skjemaInfo})
-              //local storage ticket for redirect
-                const ticketObject = { number: ticketNumber }
-                if (ticketNumber) {
-                    localStorage.setItem('ticket', JSON.stringify(ticketObject))}
             } catch (error) {
                 console.error('Error fetching ticket:', error)
             }}}
@@ -63,12 +64,13 @@ export function useAuth () {
         if (window.location.href.includes('error=')) {
           handleLoginError()
         } else if (window.location.href.includes('code=')) {
+          console.log('getToken auth function')
           dispatch({type: 'code'})
           authFunctions.getToken()
             .then( (token) => {
               handleTokenReceived(token);
-              const user_server = authFunctions.getUser(token)
-              console.log('got from backend:', user_server)
+              //const user_server = authFunctions.getUser(token)
+              //console.log('got from backend:', user_server)
               /*return authFunctions.getUser(token);*/
               return authFunctions.getUserKG(token)})
                 .then( (user) => {

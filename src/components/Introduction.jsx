@@ -1,12 +1,11 @@
-import React from 'react'
 import { Form as AntForm, Input, Checkbox } from 'antd'
 import ConfigProvider from './ConfigProvider'
 import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction({ onChange, data }) {
-  const ticketString = localStorage.getItem('ticket')
-  const ticketObject = JSON.parse(ticketString)
-  const ticketNumber = ticketObject.number
+  //const ticketString = localStorage.getItem('ticket')
+  //const ticketObject = JSON.parse(ticketString)
+  //const ticketNumber = ticketObject.number
   //userInfo?.user?.fullname
   //userInfo?.user?.email
   const userInfo = useAuthContext()
@@ -51,19 +50,19 @@ export default function Introduction({ onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="First name"
+          label="Contact person's first name"
           name={['contactperson', 'firstName']} 
           rules={[{ required: true, message: 'Please input your full name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Family name"
+          label="Contact person's family name"
           name={['contactperson', 'familyName']} 
           rules={[{ required: true, message: 'Please enter your family name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Email"
+          label="Contact person's email"
           name={['contactperson', 'email']}
           rules={[
             { required: true, message: 'Please enter your E-mail!' },
@@ -74,39 +73,28 @@ export default function Introduction({ onChange, data }) {
           <p className="step-title">Data custodian</p>
         </div>
         <AntForm.Item
-          label="Custodians first name"
+          label="Data custodian's first name"
           name={['custodian', 'firstName']} 
           rules={[{ required: true, message: 'Please enter custodians first name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Custodians family name"
+          label="Data custodian's family name"
           name={['custodian', 'familyName']} 
           rules={[{ required: true, message: 'Please enter custodians family name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Custodians email"
+          label="Data custodian's email"
           name={['custodian', 'email']} 
           rules={[{ required: true, message: 'Please enter custodians email!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Custodians ORCID"
+          label="Data custodian's ORCID"
           name={['custodian', 'orcid']} 
           rules={[{ required: false}]}>
           <Input />
-        </AntForm.Item>
-        <AntForm.Item
-          label="Nettskjema Id"
-          name="nettskjemaId"
-          rules={[{ required: false }]}>
-          <Input />
-        </AntForm.Item>
-        <AntForm.Item name="IntroConfirmed" valuePropName="checked" noStyle>
-          <Checkbox>
-              I confirm that the information entered is correct.
-          </Checkbox>
         </AntForm.Item>
       </AntForm>
     </ConfigProvider>
@@ -114,9 +102,16 @@ export default function Introduction({ onChange, data }) {
 }
 
 
-/*       <AntForm.Item
+/*       
+        <AntForm.Item name="IntroConfirmed" valuePropName="checked" noStyle>
+          <Checkbox>
+              I confirm that the information entered is correct.
+          </Checkbox>
+        </AntForm.Item>
+
+        <AntForm.Item
           label="Nettskjema Id"
           name="nettskjemaId"
-          rules={[{ required: true, message: 'Please input your nettskjema Id!' }]}>
+          rules={[{ required: false }]}>
           <Input />
         </AntForm.Item> */
