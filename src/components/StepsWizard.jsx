@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthContext } from './context/AuthProviderContext'
+import { useNettskjema } from "./context/useNettskjema"
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
@@ -13,8 +14,30 @@ import Experiments from './Experiments'
 //npm install file-saver
 
 const StepsWizard = () => {
+  useNettskjema()
+  const skjemaInfo = useAuthContext()
+  const initialValues = {
+    ticketNumber: skjemaInfo?.ticketNumber  || '',
+    contactperson: {
+      firstName: skjemaInfo?.nettskjemaInfo?.contactFirstName || '',
+      familyName: skjemaInfo?.nettskjemaInfo?.contactSurname || '',
+      email: skjemaInfo?.nettskjemaInfo?.contactEmail || ''},
+    custodian: {
+      firstName: skjemaInfo?.nettskjemaInfo?.custodionaFirstName || '',
+      familyName: skjemaInfo?.nettskjemaInfo?.custodianSurname || '',
+      email: skjemaInfo?.nettskjemaInfo?.custodianEmail || '',
+      orcid: skjemaInfo?.nettskjemaInfo?.custodianORCID || ''}}
+  
+  //console.log('initial form values:',initialValues)
+
   const [formData, setFormData] = useState({})
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  useEffect(() => {
+    setFormData(initialValues)
+  }, [skjemaInfo])
+
+  //console.log('formData:',formData)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const steps = [
     { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
@@ -31,6 +54,7 @@ const StepsWizard = () => {
   const nextStep = () => {
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex((prev) => prev + 1)}}
+
   const prevStep = () => {
     if (currentStepIndex > 0) {
       setCurrentStepIndex((prev) => prev - 1)}}
@@ -39,7 +63,9 @@ const StepsWizard = () => {
       
   const initializeValidSteps = () => {
     return Array(steps.length).fill(false)}
+
   const validSteps = initializeValidSteps()
+
   const goToWizardStep = (nextWizardStep) => {
     if (typeof nextWizardStep === "number") {
       nextWizardStep = steps[nextWizardStep].id}

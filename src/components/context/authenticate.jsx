@@ -13,7 +13,7 @@ getTicket: async function getTicket () {
 
 zammad: async function zammad (ticketNumber) {
     try {
-        const response = await fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`);
+        const response = await fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`)
         if (!response.ok) {
             throw new Error(`Failed to fetch zammad info from express server: ${response.status}`)
         }
@@ -39,23 +39,21 @@ nettskjema: async function nettskjema (nettskjemaId) {
 },
 
 login: async function login () {
-    console.log('login redirecting to IAM service')
+    //console.log('login redirecting to IAM service')
     const urlParams = new URLSearchParams(window.location.search)
     try {
         let url = 'api/auth/loginurl'  
         url += '?' + urlParams.toString()
         const urlResponse = await fetch(url)
         if (!urlResponse.ok) {
-            throw new Error(`Failed to fetch IAM link from backend: ${urlResponse.status}`)
-        }
-        window.location.href = await urlResponse.text();
+            throw new Error(`Failed to fetch IAM link from backend: ${urlResponse.status}`)}
+        window.location.href = await urlResponse.text()
     } catch (error) {
-        throw new Error ('Error occurred while logging in:', error.message)
-    }
+        throw new Error ('Error occurred while logging in:', error.message)}
 },
 
 authenticate: async function authenticate() {
-    console.log('authenticate redirecting to IAM service')
+    //console.log('authenticate redirecting to IAM service')
     const urlParams = new URLSearchParams(window.location.search);
     let url = 'api/auth/requesturl'
     url += '?' + urlParams.toString();   
@@ -92,16 +90,14 @@ getToken: async function getToken() {
     try {
       const tokenResponse = await fetch(url)
       if (!tokenResponse.ok) {
-        throw new Error(`Failed to fetch token from backend: ${tokenResponse.status}`);
-      }
+        throw new Error(`Failed to fetch token from backend: ${tokenResponse.status}`)}
       return tokenResponse.text()
     } catch (error) {
-      console.error('Error occurred while fetching token from backend:', error.message);
-    }
+      console.error('Error occurred while fetching token from backend:', error.message)}
 },
 
 getUser: async function getUser(token) {
-    const url = 'api/auth/user';  
+    const url = 'api/auth/user'
     try {
       const userResponse = await fetch(url, {headers: {authorization: token, 'Content-Type': 'application/json'}});
       if (!userResponse.ok) {

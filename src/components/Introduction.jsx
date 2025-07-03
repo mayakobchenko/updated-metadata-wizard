@@ -1,6 +1,6 @@
 import { Form as AntForm, Input } from 'antd'
 import ConfigProvider from './ConfigProvider'
-import {  useAuthContext } from './context/AuthProviderContext'
+//import {  useAuthContext } from './context/AuthProviderContext'
 
 export default function Introduction({ onChange, data }) {
   //const ticketString = localStorage.getItem('ticket')
@@ -8,7 +8,8 @@ export default function Introduction({ onChange, data }) {
   //const ticketNumber = ticketObject.number
   //userInfo?.user?.fullname
   //userInfo?.user?.email
-  const userInfo = useAuthContext()
+
+  /*const userInfo = useAuthContext()
   const initialValues = {
     ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
     contactperson: {
@@ -20,6 +21,19 @@ export default function Introduction({ onChange, data }) {
       familyName: data.custodian?.familyName || userInfo?.nettskjemaInfo?.custodianSurname || '',
       email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || '',
       orcid: data.custodian?.orcid || userInfo?.nettskjemaInfo?.custodianORCID || ''},
+    } */
+
+  const initialValues = {
+    ticketNumber: data.ticketNumber || '',
+    contactperson: {
+      firstName: data.contactperson?.firstName || '',
+      familyName: data.contactperson?.familyName || '',
+      email: data.contactperson?.email || ''},
+    custodian: {
+      firstName: data.custodian?.firstName || '',
+      familyName: data.custodian?.familyName || '',
+      email: data.custodian?.email || '',
+      orcid: data.custodian?.orcid || ''},
     } 
 
   const handleValuesChange = (changedValues, allValues) => {

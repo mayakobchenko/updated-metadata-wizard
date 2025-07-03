@@ -48,16 +48,6 @@ export function authReducer(state, action) {
             token: action.text,
             message: "Retrieving user info..."
         } ;
-    case 'loginError':
-        return {
-            ...state,
-            isAuthenticating: false
-        } ;
-    case 'redirect':
-    return {
-        ...state, 
-        message: "Redirecting to EBRAINS IAM..."
-    };
     case 'code':
         return {
             ...state, 
