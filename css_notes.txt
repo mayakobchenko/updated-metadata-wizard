@@ -36,3 +36,8 @@ google: MDN html element
 
 
 https://internetingishard.netlify.app/html-and-css/advanced-positioning/
+
+em: Relative to the font size of the element (or its parent).
+rem: Relative to the root element (<html>) font size. This is often preferred over em for better scalability.
+%: Often used for widths and heights, relative to the parent element.
+Viewport units (vw, vh): Represent a percentage of the viewport's width or height, respectively.

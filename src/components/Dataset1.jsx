@@ -10,6 +10,7 @@ export default function Dataset1({ onChange, data }) {
   const [license, setLicense] = useState([])
   const [embargo, setEmbargo] = useState(data.dataset1?.embargo || false)
   const [copyright, setCopyright] = useState(data.dataset1?.copyright || '')
+  const [copyrightHolder, setCopyrightHolder] = useState(data.dataset1?.copyrightHolder || 'Person')
   const userInfo = useAuthContext()
 
   const initialValues = {
@@ -19,9 +20,14 @@ export default function Dataset1({ onChange, data }) {
       shortTitle: data.dataset1?.shortTitle || '',
       optionsData: data.dataset1?.optionsData || '',
       embargo: data.dataset1?.embargo || false,
-      copyright: data.dataset1?.copyright || false,
-      license: data.dataset1?.license || '',
       embargoDate: data.dataset1?.embargoDate || null,
+      copyright: data.dataset1?.copyright || '',
+      copyrightHolder: data.dataset1?.copyrightHolder || 'Person',
+      copyrightFirstName: data.dataset1?.copyrightFirstName || '',
+      copyrightLastName: data.dataset1?.copyrightLastName || '',
+      copyrightOrganization: data.dataset1?.copyrightOrganization || '',
+      copyrightYear: data.dataset1?.copyrightYear || '',
+      license: data.dataset1?.license || '',
     }}
 
   const handleValuesChange = (changedValues, allValues) => {
@@ -29,6 +35,8 @@ export default function Dataset1({ onChange, data }) {
     setEmbargo(changedValues['dataset1'].embargo)}
     if (changedValues['dataset1']?.copyright) {
     setCopyright(changedValues['dataset1'].copyright)}
+    if (changedValues['dataset1']?.copyrightHolder) {
+    setCopyrightHolder(changedValues['dataset1'].copyrightHolder)}
     onChange(allValues)}
 
   const optionsData = [
@@ -45,10 +53,7 @@ export default function Dataset1({ onChange, data }) {
     { label: 'Person', value: 'Person' },
     { label: 'Organization', value: 'Organization' },
   ]
-  //const [form] = AntForm.useForm()
 
- /* useEffect(() => {
-    form.setFieldsValue(data)}, [data, form])*/
   useEffect(() => {
     const fetchLicenses = async () => {
     try {
@@ -81,9 +86,9 @@ export default function Dataset1({ onChange, data }) {
         <AntForm.Item
           label="Short title"
           name={['dataset1', 'shortTitle']} 
-          rules={[{ required: true, message: 'Please enter short title of your dataset' }]}
           extra="Enter a short name (alias) that could be used as a shortened title
-          for visualization in cases where there is limited space for display (max 30 characters).">
+          for visualization in cases where there is limited space for display (max 30 characters)."
+          rules={[{ required: true, message: 'Please enter short title of your dataset' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
@@ -136,15 +141,54 @@ export default function Dataset1({ onChange, data }) {
                   {option.label}
               </Radio>))}
           </Radio.Group>
-          {/*<Checkbox.Group options={optionsYesNo} style={{ padding: '20px' }}/>*/}
         </AntForm.Item>
-        {copyright === "Yes" && (
+        {copyright === "Yes" && (<>
           <AntForm.Item
-              label="Please provide details:"
-              name={['dataset1', 'copyrightDetails']}
-              rules={[{ required: copyright === 'Yes', message: 'Please provide copyright details!' }]}>
-              <Input placeholder="Provide details about copyright..." />
-          </AntForm.Item>)}
+            label={`Copyright Holder`}
+            name={['dataset1', 'copyrightHolder']}  
+            rules={[{ required: true, message: `Please select legal entity!` }]}
+            extra = 'Select the type of legal entity in possession of the copyright.'>
+            <Select
+              style={{ minWidth: 240 }}
+              onChange={(value) => setCopyrightHolder(value)}>
+              {optionsCopyright.map(option => (
+                  <Option key={option.value} value={option.value}>
+                      {option.label}
+                  </Option>
+              ))}
+            </Select>
+          </AntForm.Item>
+              {copyrightHolder === "Person" && (<>
+                <AntForm.Item
+                  label="First Name"
+                  name={['dataset1', 'copyrightFirstName']}  // Store first name
+                  rules={[{ required: true, message: 'Please enter the first name!' }]}>
+                  <Input placeholder="First Name..." />
+                </AntForm.Item>
+                <AntForm.Item
+                  label="Last Name"
+                  name={['dataset1', 'copyrightLastName']}  // Store last name
+                  rules={[{ required: true, message: 'Please enter the last name!' }]}>
+                  <Input placeholder="Last Name..." />
+                </AntForm.Item>
+              </>)}
+              {copyrightHolder === "Organization" && (
+              <AntForm.Item
+                label="Organization Name"
+                name={['dataset1', 'copyrightOrganization']}  // Store organization name
+                rules={[{ required: true, message: 'Please enter the organization name!' }]}>
+                <Input placeholder="Organization Name..." />
+              </AntForm.Item>)}
+              <AntForm.Item
+                label="Copyright Year"
+                name={['dataset1', 'copyrightYear']}
+                rules={[{ required: true, message: 'Please select a copyright date!' }]}>
+                <DatePicker           
+                  picker="year" 
+                  style={{ width: '10%' }} 
+                  placeholder="Select copyright year"  />
+              </AntForm.Item>
+          </>)}
         <AntForm.Item
           label={`License`}
           name={['dataset1', 'license']}  

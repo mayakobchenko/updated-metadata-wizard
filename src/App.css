@@ -32,7 +32,8 @@
   --input-focus-color: #686868;
   --title-underline: #e5e5e5;
   --input-tick-color: var(--button-color-primary);
-  --max-content-width: 980px;    
+  --max-content-width: 980px;  
+   /*--max-content-width: 70vw; */
   --main-font-size: 100%; /* 16px browser default, scalable */
 }
 body {
@@ -45,6 +46,7 @@ body {
   justify-content: flex-start;
   /*min-height: 100vh;*/ /* Full viewport height */
 }
+/*Header----------------------------------*/
 .container-logo {
   margin: 0 auto;
   padding: 0 60px;
@@ -53,32 +55,34 @@ body {
 .container-logo img {
   display: block; /* Remove bottom space */
   margin: 0; /* Explicitly remove default margin */
+  width: 100%;
+  height: auto;
+  max-width: 100%;
 }
 .gradient-line {
   width: 100vw; 
   height: 0.35rem; 
   background: linear-gradient(to left, var(--ebrains-color-light), var(--ebrains-color-medium), var(--ebrains-color-dark)); /* Your gradient */
 }
+/*Header----------------------------------*/
 .container-subheader {
   background-color: var(--form-background-color);
   margin-bottom: 1rem;
   position: -webkit-sticky; /* Safari */
   position: sticky;
   font-size: 0.9rem;
-  z-index: 9;
+  z-index: 10;
   top: 0;
-  width: 100vw;
+  width: 100%;
   display: flex;
   justify-content: space-between;
+  padding: 0.5rem 4rem 0.5rem 2rem;
   box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px, rgba(0, 0, 0, 0.05) 0px 1px 4px 0px, rgba(0, 0, 0, 0.05) 0px 2px 8px 0px;
 }
 .login-container {
-  /*margin: 0 2.5rem;*/
-  /*padding: 5px 60px 5px 60px;*/
-  padding: 0.5rem 4rem 0.5rem 2rem;
+   /*padding: 0.5rem 4rem 0.5rem 2rem;*/
   display: flex;
   justify-content: flex-end;
-  /*max-width: var(--max-content-width);*/
 }
 .login-button {
   margin-left: 1.3rem;
@@ -88,8 +92,10 @@ color: var(-button-color-primary-active-hover);
 }*/
 .greetings {
   display: flex;
+  flex:1;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   font-size: 1.1rem;
   padding: 0.5rem 2rem;
 }
@@ -98,6 +104,7 @@ color: var(-button-color-primary-active-hover);
   flex-direction: column;
   justify-content: center;
   align-items: flex-start; 
+  max-width: 520px;
   padding: 0.5rem 2rem 0.5rem 4rem;
   transition: max-height 0.3s ease;
 }

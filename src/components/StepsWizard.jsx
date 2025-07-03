@@ -92,7 +92,7 @@ function Intro ({ onChange, data }) {
             In this form, you can describe key aspects of your dataset so that other researchers will be able to find,
             reuse and cite your work. While filling out this form, please remember to consider all data related 
             to the dataset that you wish to publish on EBRAINS. Some fields might be pre-filled from the curation request
-            submited ealier. Once you complete the form, metadata describing your dataset will be curated according to the   
+            form that you had submited ealier. You can edit the fields or leave them unchanged and once you complete the form, metadata describing your dataset will be curated according to the   
             <a href="https://openminds-documentation.readthedocs.io/en/latest/" target="_blank" rel="noopener noreferrer"
             style={{ margin: '0 5px' }}>
                openMINDS standard.

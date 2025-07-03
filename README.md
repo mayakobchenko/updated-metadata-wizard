@@ -10,15 +10,30 @@ $ cd server
 $ npm run server
 ```
 
+view ports in use: netstat -ano
+
 Try with ticket number:
 
 https://127.0.0.1:8080/?TicketNumber=4825517
+
+https://127.0.0.1:8080/?TicketNumber=4824225
+
+https://support.humanbrainproject.eu/#ticket/zoom/24265
+
+collab link in the ticket:
+https://support.humanbrainproject.eu/#ticket/zoom/24398
 
 API endpoints:
 
 ```
 https://api.nettskjema.no/v3/swagger-ui/index.html
 https://core.kg.ebrains.eu/swagger-ui/index.html
+```
+
+Data proxy api:
+
+```
+https://data-proxy.ebrains.eu/api/docs
 ```
 
 Development notes:
@@ -318,3 +333,11 @@ data records in the data descriptor
 check with Eszter adn Eivind if there is already any script for automatic prefil
 
 prefill all we discussed with Maja to wizard and concentrate on subjects
+
+subjects https://rodentworkbench.apps.ebrains.eu/
+
+Notes:
+what to do? should I do anything about it?
+This ticket has authomatic fail delivery message and got duplicates:s
+https://127.0.0.1:8080/?TicketNumber=4824591
+ticket id: [ 26032, 24631 ]

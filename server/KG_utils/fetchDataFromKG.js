@@ -1,6 +1,6 @@
 import fetchControlledTerms from './fetchControlledTerms.js'
 import {fetchCoreSchemaInstances} from './fetchCoreSchemaInstances.js'
-import { fetchLicenses } from './fetchLicemses.js'
+import { fetchLicenses } from './fetchLicenses.js'
 
 const configObject = [
     {
