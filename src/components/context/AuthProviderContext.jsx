@@ -66,11 +66,6 @@ export function authReducer(state, action) {
           ...state, 
           ticketNumber: action.text
       }; 
-      case 'nettskjemaId':
-        return {
-            ...state, 
-            nettskjemaId: action.text
-        }; 
       case 'nettskjemaInfo':
         return {
             ...state, 

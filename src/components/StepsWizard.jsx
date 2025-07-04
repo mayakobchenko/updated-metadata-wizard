@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuthContext } from './context/AuthProviderContext'
 import { useNettskjema } from "./context/useNettskjema"
+import ConfigProvider from './ConfigProvider.jsx'
+import { Form as AntForm, Button, Modal, Steps } from 'antd'
 import ProgressBar from './ProgressBar'
 import ContributorsAntd from './Contributors_antd'
 import Subjects from './Subjects'
@@ -12,6 +14,8 @@ import Funding from './Funding'
 import Experiments from './Experiments'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
+
+const { Step } = Steps
 
 const StepsWizard = () => {
   useNettskjema()
@@ -26,18 +30,19 @@ const StepsWizard = () => {
       firstName: skjemaInfo?.nettskjemaInfo?.custodionaFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.custodianSurname || '',
       email: skjemaInfo?.nettskjemaInfo?.custodianEmail || '',
-      orcid: skjemaInfo?.nettskjemaInfo?.custodianORCID || ''}}
-  
-  //console.log('initial form values:',initialValues)
+      orcid: skjemaInfo?.nettskjemaInfo?.custodianORCID || ''},
+    dataset1: {
+      dataTitle: skjemaInfo?.nettskjemaInfo?.dataTitle || '',
+      briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || ''}
+    }
 
-  const [formData, setFormData] = useState({})
-
-  useEffect(() => {
-    setFormData(initialValues)
-  }, [skjemaInfo])
-
-  //console.log('formData:',formData)
+  const [formData, setFormData] = useState({}) 
+  const [form] = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [isModalVisible, setIsModalVisible] = useState(false)
+
+  useEffect(() => {setFormData(initialValues)}, [skjemaInfo])
+
   const steps = [
     { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
@@ -48,12 +53,18 @@ const StepsWizard = () => {
     { id: 6, component: Subjects }]
 
   const handleInputChange = (data) => {
-    //console.log('Updated Form Data:', data)
     setFormData((prev) => ({ ...prev, ...data }))}
 
   const nextStep = () => {
-    if (currentStepIndex < steps.length - 1) {
-      setCurrentStepIndex((prev) => prev + 1)}}
+    form.validateFields()
+        .then(() => {
+            completeCurrentStep()  
+            setCurrentStepIndex(prev => (prev + 1 < steps.length ? prev + 1 : prev))
+        }).catch(() => {setIsModalVisible(true)})}
+
+  const handleCancel = () => {setIsModalVisible(false)}
+
+  const handleOk = () => {setIsModalVisible(false)}      
 
   const prevStep = () => {
     if (currentStepIndex > 0) {
@@ -65,6 +76,14 @@ const StepsWizard = () => {
     return Array(steps.length).fill(false)}
 
   const validSteps = initializeValidSteps()
+  const [statuses, setStatuses] = useState(validSteps)
+
+  const completeCurrentStep = () => {
+    setStatuses(prev => {
+        const newStatuses = [...prev]
+        newStatuses[currentStepIndex] = true
+        return newStatuses
+    })}
 
   const goToWizardStep = (nextWizardStep) => {
     if (typeof nextWizardStep === "number") {
@@ -90,25 +109,31 @@ const StepsWizard = () => {
   }
 
   return (
-    <div>
-      <div>
-        <ProgressBar step={currentStepIndex} status={validSteps} onChanged={goToWizardStep} />
-      </div>
-        <CurrentStep onChange={handleInputChange}  data={formData}/>
+    <ConfigProvider>
+      <ProgressBar step={currentStepIndex} status={statuses} onChanged={goToWizardStep} />
+      <CurrentStep form={form} onChange={handleInputChange}  data={formData}/>
       <div className="buttons-save-next-back">
         {currentStepIndex > 0 && (
-            <button onClick={prevStep} className="next-back-button">Back</button>)}
+            <Button onClick={prevStep} className="next-back-button">Back</Button>)}
         <div className="spacer"></div> {/* Spacer for alignment */}
         {currentStepIndex < steps.length - 1 && (
-            <button onClick={nextStep} className="next-back-button">Next</button>)}
+            <Button onClick={nextStep} className="next-back-button">Next</Button>)}
         {currentStepIndex === steps.length - 1 && (
-            <button onClick={downloadJson} className="next-back-button">Save</button>)}
+            <Button onClick={downloadJson} className="next-back-button">Save</Button>)}
       </div>
-    </div>
-  );
-};
+      <Modal
+          title="Warning"
+          open={isModalVisible}
+          onOk={handleOk}
+          onCancel={handleCancel}
+          okText="OK"
+          cancelText="Cancel">
+          <p>Please fill in the required fields before proceeding.</p>
+      </Modal>
+    </ConfigProvider>
+  )}
 
-function Intro ({ onChange, data }) {
+function Intro ({ form, onChange, data }) {
   const userInfo = useAuthContext()
   if (userInfo?.user) {
     return (
@@ -123,7 +148,7 @@ function Intro ({ onChange, data }) {
             style={{ margin: '0 5px' }}>
                openMINDS standard.
             </a></p>
-      <Introduction onChange={onChange} data={data}/>
+      <Introduction form={form} onChange={onChange} data={data}/>
       </div>
     )}
 return (<WelcomeAlert/>)}

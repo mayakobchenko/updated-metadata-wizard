@@ -1,28 +1,6 @@
 import { Form as AntForm, Input } from 'antd'
-import ConfigProvider from './ConfigProvider'
-//import {  useAuthContext } from './context/AuthProviderContext'
 
-export default function Introduction({ onChange, data }) {
-  //const ticketString = localStorage.getItem('ticket')
-  //const ticketObject = JSON.parse(ticketString)
-  //const ticketNumber = ticketObject.number
-  //userInfo?.user?.fullname
-  //userInfo?.user?.email
-
-  /*const userInfo = useAuthContext()
-  const initialValues = {
-    ticketNumber: data.ticketNumber || userInfo?.ticketNumber  || '',
-    contactperson: {
-      firstName: data.contactperson?.firstName || userInfo?.nettskjemaInfo?.contactFirstName || '',
-      familyName: data.contactperson?.familyName || userInfo?.nettskjemaInfo?.contactSurname || '',
-      email: data.contactperson?.email || userInfo?.nettskjemaInfo?.contactEmail || ''},
-    custodian: {
-      firstName: data.custodian?.firstName || userInfo?.nettskjemaInfo?.custodionaFirstName || '',
-      familyName: data.custodian?.familyName || userInfo?.nettskjemaInfo?.custodianSurname || '',
-      email: data.custodian?.email || userInfo?.nettskjemaInfo?.custodianEmail || '',
-      orcid: data.custodian?.orcid || userInfo?.nettskjemaInfo?.custodianORCID || ''},
-    } */
-
+export default function Introduction({ form, onChange, data }) {
   const initialValues = {
     ticketNumber: data.ticketNumber || '',
     contactperson: {
@@ -33,8 +11,7 @@ export default function Introduction({ onChange, data }) {
       firstName: data.custodian?.firstName || '',
       familyName: data.custodian?.familyName || '',
       email: data.custodian?.email || '',
-      orcid: data.custodian?.orcid || ''},
-    } 
+      orcid: data.custodian?.orcid || ''},} 
 
   const handleValuesChange = (changedValues, allValues) => {
     //console.log('Changed Values:', changedValues)
@@ -50,9 +27,10 @@ export default function Introduction({ onChange, data }) {
     callback('Price enter a valid email address')}
 
   return (
-    <ConfigProvider>
+    <div>
       <div><p className="step-title">Contact person</p></div>
-      <AntForm
+      <AntForm 
+        form={form}
         layout="vertical"
         initialValues={initialValues}
         onValuesChange={handleValuesChange}>
@@ -112,21 +90,6 @@ export default function Introduction({ onChange, data }) {
           <Input />
         </AntForm.Item>
       </AntForm>
-    </ConfigProvider>
+    </div>
   );
 }
-
-
-/*       
-        <AntForm.Item name="IntroConfirmed" valuePropName="checked" noStyle>
-          <Checkbox>
-              I confirm that the information entered is correct.
-          </Checkbox>
-        </AntForm.Item>
-
-        <AntForm.Item
-          label="Nettskjema Id"
-          name="nettskjemaId"
-          rules={[{ required: false }]}>
-          <Input />
-        </AntForm.Item> */

@@ -1,22 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio  } from 'antd'
-import ConfigProvider from './ConfigProvider'
-import {  useAuthContext } from './context/AuthProviderContext'
 
 const { TextArea } = Input
 const { Option } = Select
 
-export default function Dataset1({ onChange, data }) {
+export default function Dataset1({ form, onChange, data }) {
   const [license, setLicense] = useState([])
   const [embargo, setEmbargo] = useState(data.dataset1?.embargo || false)
   const [copyright, setCopyright] = useState(data.dataset1?.copyright || '')
   const [copyrightHolder, setCopyrightHolder] = useState(data.dataset1?.copyrightHolder || 'Person')
-  const userInfo = useAuthContext()
 
   const initialValues = {
     dataset1: {
-      dataTitle: data.dataset1?.dataTitle || userInfo?.nettskjemaInfo?.dataTitle || '',
-      briefSummary: data.dataset1?.briefSummary || userInfo?.nettskjemaInfo?.briefSummary || '',
+      dataTitle: data.dataset1?.dataTitle || '',
+      briefSummary: data.dataset1?.briefSummary || '',
       shortTitle: data.dataset1?.shortTitle || '',
       optionsData: data.dataset1?.optionsData || '',
       embargo: data.dataset1?.embargo || false,
@@ -67,11 +64,10 @@ export default function Dataset1({ onChange, data }) {
         fetchLicenses()
     }, [])
   return (
-    <ConfigProvider>
-      <div>
-        <p className="step-title">Dataset part 1</p>
-      </div>
+    <div>
+      <div><p className="step-title">Dataset part 1</p></div>
       <AntForm
+        form={form}
         layout="vertical"
         initialValues={initialValues}
         onValuesChange={handleValuesChange}>
@@ -207,7 +203,7 @@ export default function Dataset1({ onChange, data }) {
         </AntForm.Item>
 
       </AntForm>
-    </ConfigProvider>
+    </div>
   );
 }
 

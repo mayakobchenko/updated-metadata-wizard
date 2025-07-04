@@ -1,8 +1,8 @@
-import '@ant-design/v5-patch-for-react-19';
-import { Button } from "antd";
-import { LoginOutlined, LogoutOutlined, LoadingOutlined } from '@ant-design/icons';
-import ConfigProvider from './ConfigProvider.jsx';
-import { useAuthDispatch, useAuthContext } from './context/AuthProviderContext.jsx';
+import '@ant-design/v5-patch-for-react-19'
+import { Button } from "antd"
+import { LoginOutlined, LogoutOutlined, LoadingOutlined } from '@ant-design/icons'
+import ConfigProvider from './ConfigProvider.jsx'
+import { useAuthDispatch, useAuthContext } from './context/AuthProviderContext.jsx'
 import authFunctions from "./context/authenticate.jsx"
 
 export default function LoginButton () {

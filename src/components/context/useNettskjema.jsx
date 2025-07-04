@@ -8,7 +8,6 @@ export function useNettskjema () {
     const dispatch = useAuthDispatch()
 
     if (urlContainsTicket()) {
-      //console.log('useNettskjema found ticket info in url') 
       hasTicketRef.current = true} 
 
     useEffect(() => {
@@ -16,15 +15,9 @@ export function useNettskjema () {
         if (hasTicketRef.current) {
             try {
                 const ticketNumber = await authFunctions.getTicket()
-                //console.log('fetched ticket number from url:', ticketNumber)
                 await dispatch({type: 'ticket', text: ticketNumber})
-                //console.log('dispatch ticket number')
-
                 const nettskjemaId = await authFunctions.zammad(ticketNumber)
-                //console.log('nettskjema id:', nettskjemaId)
-                //await dispatch({type: 'nettskjemaId', text: nettskjemaId})
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-                //console.log('fetched nettskjema info:', nettskjemaInfo)
                 const skjemaInfo = {contactFirstName: nettskjemaInfo.ContactInfo[0], 
                                      contactSurname: nettskjemaInfo.ContactInfo[1], 
                                      contactEmail: nettskjemaInfo.ContactInfo[2],

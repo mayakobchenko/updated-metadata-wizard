@@ -28,4 +28,4 @@ const PrivacyBanner = () => (
 </div>
 );
   
-export default PrivacyBanner;
+export default PrivacyBanner

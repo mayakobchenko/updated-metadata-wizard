@@ -1,9 +1,9 @@
-import React, {useState} from 'react';
-import { Popover, Steps } from 'antd';
-import ConfigProvider from './ConfigProvider';
+import {useState} from 'react'
+import { Popover, Steps } from 'antd'
 
-const STEPS_NAMES = [ "Introduction", "Dataset part 1", "Dataset part 2", "Funding", "Contributors", "Experiments", "Subjects" ];
-const NUM_STEPS = STEPS_NAMES.length;
+const STEPS_NAMES = [ "Introduction", "Dataset part 1", "Dataset part 2", "Funding", 
+  "Contributors", "Experiments", "Subjects" ]
+const NUM_STEPS = STEPS_NAMES.length
 
 const customDot = (dot, { status, index }) => {
   switch (status) {
@@ -31,12 +31,10 @@ const customDot = (dot, { status, index }) => {
 };
 
 const ProgressBar = ({step, status, onChanged}) => {
-  const [, setCurrent] = useState(0);  
+  const [, setCurrent] = useState(0)
   const onChange = (value) => {
-    setCurrent(value);
-    onChanged(value);
-    //console.log('onChange:', value);
-  };
+    setCurrent(value)
+    onChanged(value)}
   let items = [];
   for (let i = 0; i < NUM_STEPS; i++) {     
       let thisDescription = 'Incomplete';
@@ -62,7 +60,6 @@ const ProgressBar = ({step, status, onChanged}) => {
   }
 
   return (
-  <ConfigProvider>
      <div style={{"marginBottom":"30px"}}>
       <Steps
           current={step}
@@ -71,7 +68,6 @@ const ProgressBar = ({step, status, onChanged}) => {
           items={items}
       />
     </div>
-  </ConfigProvider>
-  );
-};
-export default ProgressBar;
+  )
+}
+export default ProgressBar
