@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Input, Select, Checkbox, Space, Button, Row, Col } from 'antd';
-import ConfigProvider from './ConfigProvider';
+import { useState, useEffect } from 'react'
+import { Form, Input, Select, Checkbox, Space, Button, Row, Col } from 'antd'
 
 const { Option } = Select;
 
@@ -46,21 +45,18 @@ export default function ContributorsAntd({ onChange, data }) {
     return (
         <div>
             <p className="step-title">Contributors</p>
-            <ConfigProvider>
                 <Form
                     form={form}
                     name="ContributorsForm"
                     onValuesChange={handleValuesChange}
-                    layout="vertical"
-                >
+                    layout="vertical">
                     <Space direction="vertical">
                         {formFields.map(({ id, newPerson }) => (
                             <div key={id}>
                                 <Form.Item>
                                     <Checkbox 
                                         checked={newPerson} 
-                                        onChange={() => handleCheckboxChange(id)}
-                                    >
+                                        onChange={() => handleCheckboxChange(id)}>
                                         This person is not on EBRAINS knowledge graph
                                     </Checkbox>
                                 </Form.Item>
@@ -70,15 +66,13 @@ export default function ContributorsAntd({ onChange, data }) {
                                         <Form.Item
                                             label="First Name"
                                             name={`firstName_${id}`} // Unique name for each field
-                                            rules={[{ required: true, message: 'Please enter first name!' }]}
-                                        >
+                                            rules={[{ required: true, message: 'Please enter first name!' }]}>
                                             <Input />
                                         </Form.Item>
                                         <Form.Item
                                             label="Last Name"
                                             name={`lastName_${id}`} // Unique name for each field
-                                            rules={[{ required: true, message: 'Please enter last name!' }]}
-                                        >
+                                            rules={[{ required: true, message: 'Please enter last name!' }]}>
                                             <Input />
                                         </Form.Item>
                                     </div>
@@ -88,15 +82,12 @@ export default function ContributorsAntd({ onChange, data }) {
                                             <Form.Item
                                                 label={`Select a person from the EBRAINS Knowledge Graph`}
                                                 name={`Contributors_${id}`} // Unique name for each dropdown
-                                                rules={[{ required: true, message: `Please select a contributor!` }]}
-                                            >
+                                                rules={[{ required: true, message: `Please select a contributor!` }]}>
                                                 <Select
                                                     style={{ minWidth: 240 }}
                                                     showSearch
                                                     filterOption={(input, option) =>
-                                                        option.children.toLowerCase().includes(input.toLowerCase())
-                                                    }
-                                                >
+                                                        option.children.toLowerCase().includes(input.toLowerCase())}>
                                                     {contributors.map(option => (
                                                         <Option key={option.identifier} value={option.identifier}>
                                                             {option.fullName || `${option.familyName} ${option.givenName}`}
@@ -121,7 +112,6 @@ export default function ContributorsAntd({ onChange, data }) {
                         </Form.Item>
                     </Space>
                 </Form>
-            </ConfigProvider>
         </div>
     );
 }

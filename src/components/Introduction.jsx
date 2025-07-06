@@ -11,7 +11,11 @@ export default function Introduction({ form, onChange, data }) {
       firstName: data.custodian?.firstName || '',
       familyName: data.custodian?.familyName || '',
       email: data.custodian?.email || '',
-      orcid: data.custodian?.orcid || ''},} 
+      orcid: data.custodian?.orcid || '',
+      institution: data.custodian?.institution || ''},
+    groupLeader: {
+      name: data.groupLeader?.name || '',
+      orcid: data.groupLeader?.orcid || ''}} 
 
   const handleValuesChange = (changedValues, allValues) => {
     //console.log('Changed Values:', changedValues)
@@ -84,8 +88,26 @@ export default function Introduction({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
+          label="Institution Name"
+          name={['custodian', 'institution']} 
+          rules={[{ required: false}]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
           label="Data custodian's ORCID"
           name={['custodian', 'orcid']} 
+          rules={[{ required: false}]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
+          label="Group Leader / Principal Investigator"
+          name={['groupLeader', 'name']} 
+          rules={[{ required: true}]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
+          label="Group Leader's ORCID"
+          name={['groupLeader', 'orcid']} 
           rules={[{ required: false}]}>
           <Input />
         </AntForm.Item>

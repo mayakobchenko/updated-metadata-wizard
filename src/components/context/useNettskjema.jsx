@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+//fetching submission nettskjema data from backend
+import { useEffect, useRef } from 'react'
 import authFunctions from "./authenticate"
 import { useAuthDispatch } from "./AuthProviderContext.jsx"
 
@@ -19,14 +20,19 @@ export function useNettskjema () {
                 const nettskjemaId = await authFunctions.zammad(ticketNumber)
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
                 const skjemaInfo = {contactFirstName: nettskjemaInfo.ContactInfo[0], 
-                                     contactSurname: nettskjemaInfo.ContactInfo[1], 
-                                     contactEmail: nettskjemaInfo.ContactInfo[2],
+                                    contactSurname: nettskjemaInfo.ContactInfo[1], 
+                                    contactEmail: nettskjemaInfo.ContactInfo[2],
                                     custodionaFirstName: nettskjemaInfo.CustodianInfo[0],
                                     custodianSurname: nettskjemaInfo.CustodianInfo[1],
                                     custodianEmail: nettskjemaInfo.CustodianInfo[2],
                                     custodianORCID: nettskjemaInfo.CustodianInfo[3],
+                                    custodianInstitution: nettskjemaInfo.CustodianInfo[4],
+                                    GroupLeaderName: nettskjemaInfo.GroupLeader[0],
+                                    GroupLeaderOrcid: nettskjemaInfo.GroupLeader[1],
                                     dataTitle: nettskjemaInfo.DataInfo[0],
-                                    briefSummary: nettskjemaInfo.DataInfo[1]}
+                                    briefSummary: nettskjemaInfo.DataInfo[1],
+                                    Data2UrlDoiRepo: nettskjemaInfo.Data2Info[0],
+                                    Data2DoiJournal: nettskjemaInfo.Data2Info[1]}
                 await dispatch({type: 'nettskjemaInfo', text: skjemaInfo})
             } catch (error) {console.error('Error fetching ticket:', error)}}}
       

@@ -30,10 +30,17 @@ const StepsWizard = () => {
       firstName: skjemaInfo?.nettskjemaInfo?.custodionaFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.custodianSurname || '',
       email: skjemaInfo?.nettskjemaInfo?.custodianEmail || '',
-      orcid: skjemaInfo?.nettskjemaInfo?.custodianORCID || ''},
+      orcid: skjemaInfo?.nettskjemaInfo?.custodianORCID || '',
+      institution: skjemaInfo?.nettskjemaInfo?.custodianInstitution || ''},
+    groupLeader: {
+      name: skjemaInfo?.nettskjemaInfo?.GroupLeaderName || '',
+      orcid: skjemaInfo?.nettskjemaInfo?.GroupLeaderOrcid || ''},
     dataset1: {
       dataTitle: skjemaInfo?.nettskjemaInfo?.dataTitle || '',
-      briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || ''}
+      briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || ''},
+    dataset2: {
+      Data2UrlDoiRepo: skjemaInfo?.nettskjemaInfo?.Data2UrlDoiRepo || '',
+      Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 
     }
 
   const [formData, setFormData] = useState({}) 

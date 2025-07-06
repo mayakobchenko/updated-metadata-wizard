@@ -20,10 +20,14 @@ router.get('/zammadinfo', getZammadInfo)
 router.get('/nettskjema', getNettskjemaInfo)
 
 //https://api.nettskjema.no/v3/swagger-ui/index.html
+//curation request nettskjema id=386195
+//https://api.nettskjema.no/v3/form/386195/definition    -> elements  -> elementId
+//https://api.nettskjema.no/v3/form/386195/elements
 //https://support.humanbrainproject.eu/#ticket/zoom/{ticket_id} 
 const searchTitle = 'EBRAINS Curation Request Accepted'
 //skjema id = 386195
 //https://127.0.0.1:8080/?TicketNumber=4825517
+//submission-ID:37004993
 
 const NETTSKJEMA_ELEMENTS_ID = {
     "ContactSurname": 5990407,
@@ -34,11 +38,17 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "SurnameCustodian": 5990415,
     "EmailCustodian": 5990416,
     "ORCIDcustodian": 5990417,
+    "InstitutionCustodian":5990418,
+    "CountryInstitution": 5990419,  //dropdown, answerOptionId, text: in https://api.nettskjema.no/v3/form/386195/elements
+    "GroupLeader": 5990420,
     "ORCIDgroupLeader": 5990421,
-    "BriefSummary": 6159880,   //options
-    "Title":  6159879 
-
+    "BriefSummary": 6159880,   
+    "SummaryNoveltiesNewVersion": 5990399,  //if new version of data
+    "Title":  6159879,
+    "UrlDoiRepo": 5990441,  //data published repo
+    "DoiJournal": 5990439,   //article describing data
 }
+
 //answer option id
 const ANSWERS_ID = {
     "YesContactcustodian": 14472467,
@@ -101,31 +111,45 @@ async function getNettskjemaInfo (req, res) {
             throw new Error(`wrong submission id: ${submissionData.message}`)}    
         if (!submissionData || !Array.isArray(submissionData['answers'])) {
             throw new Error("Invalid submission data or missing answers field") }
+
         const answers = submissionData['answers']
 
         const contactFirstName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactFirstName)?.textAnswer ?? null
         const contactSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactSurname)?.textAnswer ?? null
         const contactEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ContactEmail)?.textAnswer ?? null
         const ContactInfo = [contactFirstName, contactSurname, contactEmail]
+
         const custodianORCID = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDcustodian)?.textAnswer ?? null
+        const custodianInstitution = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.InstitutionCustodian)?.textAnswer ?? null
+        
         //check if contact person is the data custodian
         let CustodianInfo 
         const ifcustodian = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.IfContactCustodian)?.answerOptionIds ?? null
         if (ifcustodian[0]===ANSWERS_ID.YesContactcustodian) { 
-            CustodianInfo = ContactInfo
-            CustodianInfo = [...CustodianInfo, custodianORCID]} 
+            CustodianInfo = ContactInfo   //if contact is custodian
+            CustodianInfo = [...CustodianInfo, custodianORCID, custodianInstitution]
+            //CustodianInfo = [ContactInfo, custodianORCID, custodianInstitution]
+            } 
         else if (ifcustodian[0]===ANSWERS_ID.NoContactCustodian) {
             const custodianName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.NameCustodian)?.textAnswer ?? null
             const custodianSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.SurnameCustodian)?.textAnswer ?? null
             const custodianEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.EmailCustodian)?.textAnswer ?? null
-            CustodianInfo = [custodianName, custodianSurname, custodianEmail, custodianORCID]}
+            CustodianInfo = [custodianName, custodianSurname, custodianEmail, custodianORCID, custodianInstitution]}
         
         const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null    
         const briefSummary = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.BriefSummary)?.textAnswer ?? null
         const DataInfo = [dataTitle, briefSummary]
-        //console.log(CustodianInfo)
+        
+        const GroupLeaderName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.GroupLeader)?.textAnswer ?? null    
+        const GroupLeaderOrcid = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDgroupLeader)?.textAnswer ?? null
+        const GroupLeader = [GroupLeaderName, GroupLeaderOrcid]
 
-        res.status(200).json({ ContactInfo: ContactInfo,  CustodianInfo: CustodianInfo, DataInfo: DataInfo})
+        const Data2UrlDoiRepo = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.UrlDoiRepo)?.textAnswer ?? null    
+        const Data2DoiJournal = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.DoiJournal)?.textAnswer ?? null
+        const Data2Info = [Data2UrlDoiRepo, Data2DoiJournal]
+        //console.log('data2Info', Data2Info)
+
+        res.status(200).json({ ContactInfo: ContactInfo,  CustodianInfo: CustodianInfo, GroupLeader: GroupLeader, DataInfo: DataInfo, Data2Info: Data2Info})
     } catch (error) {
         console.error('Error fetching info from zammad', error.message)
         res.status(500).send('Internal server error')}
