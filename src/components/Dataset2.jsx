@@ -7,39 +7,51 @@ export default function Dataset2({ form, onChange, data }) {
     dataset2: {
       Data2UrlDoiRepo: data.dataset2?.Data2UrlDoiRepo || '',
       Data2DoiJournal: data.dataset2?.Data2DoiJournal || '',
-    }}  //fetched from nettskjema answers are not shown if empty
+      homePage: data.dataset2?.homePage || '',
+      supportChannels: data.dataset2?.supportChannels || [],
+    }}  
 
-  //const handleValuesChange = (changedValues, allValues) => {onChange(allValues)}
-
-  const [acticleFields, setArticleFields] = useState([{ idArticle: Date.now() }])
-  //const [channelFields, setChannelFields] = useState([{ idChannel: Date.now() }])
   const [channelFields, setChannelFields] = useState([{ idChannel: Date.now(), value: '' }])
 
   useEffect(() => {
-    if (data.supportChannels) {
-      setChannelFields(data.supportChannels.map((channel, index) => ({
-        idChannel: channel.idChannel || Date.now() + index,
+    if (data.dataset2.supportChannels) {
+      setChannelFields(data.dataset2.supportChannels.map((channel) => ({
+        idChannel: channel.idChannel,
         value: channel.value || '',
       })))}
-  }, [data.supportChannels])
+  }, [data.dataset2.supportChannels])
 
   /*const handleAddChannel = () => {
-    setChannelFields([...channelFields, { idChannel: Date.now() }])}
-  const handleRemoveChannel = ({idChannel}) => {
-    const newFields = channelFields.filter(field => field.idChannel !== idChannel)
-    setChannelFields(newFields)} */
+    setChannelFields([...channelFields, { idChannel: Date.now(), value: '' }])}*/
 
-  const handleAddChannel = () => {
-    setChannelFields([...channelFields, { idChannel: Date.now(), value: '' }])}
+const handleAddChannel = () => {
+    const newChannel = { idChannel: Date.now(), value: '' }; // Create the new channel object
+    const updatedChannels = [...channelFields, newChannel]; // Create the updated array with the new channel
+    setChannelFields(updatedChannels); // Update the local state
+    onChange({ dataset2: { ...data.dataset2, supportChannels: updatedChannels } }); // Update the parent with the new channels
+}
 
-  const handleRemoveChannel = ({idChannel}) => {
-    setChannelFields(channelFields.filter(field => field.idChannel !== idChannel))}
+  /*const handleRemoveChannel = ({idChannel}) => {
+    setChannelFields(channelFields.filter(field => field.idChannel !== idChannel))}*/
+
+  const handleRemoveChannel = (idChannel) => {
+    const newChannels = channelFields.filter(field => field.idChannel !== idChannel); // Create a new channel array excluding the removed channel
+    setChannelFields(newChannels); // Update the local state
+    onChange({ dataset2: { ...data.dataset2, supportChannels: newChannels } }); // Ensure parent state reflects the removal
+};
+ 
 
   const handleChannelChange = (index, value) => {
-    const newChannels = [...channelFields]
-    newChannels[index].value = value
-    setChannelFields(newChannels)
-    onChange({ supportChannels: newChannels })}
+    const newChannels = [...channelFields];
+    newChannels[index].value = value;
+    setChannelFields(newChannels);
+    onChange({ dataset2: { ...data.dataset2, supportChannels: newChannels } })
+  }
+
+  const handleValuesChange = (changedValues, allValues) => {
+    if (changedValues['dataset2']?.supportChannels) {
+    setCopyrightHolder(changedValues['dataset2'].supportChannels)}
+    onChange(allValues)}
 
   return (
     <div>
@@ -48,7 +60,8 @@ export default function Dataset2({ form, onChange, data }) {
         form={form}
         layout="vertical"
         initialValues={initialValues}
-        onValuesChange={(changedValues) => onChange(changedValues)}>
+        onValuesChange={handleValuesChange}>
+
         { data.dataset2?.Data2UrlDoiRepo ?
           (<AntForm.Item
             label="Has your data already been published elsewhere else?"
@@ -56,6 +69,7 @@ export default function Dataset2({ form, onChange, data }) {
             extra="Please state the DOI(s) or URL(s) to the data repository">
             <Input />
            </AntForm.Item> ) : null}  
+
         <AntForm.Item
           label="Home Page"
           name={['dataset2', 'homePage']} 
@@ -63,23 +77,23 @@ export default function Dataset2({ form, onChange, data }) {
           extra="Add the URL to the homepage describing this dataset (if applicable)">
           <Input />
         </AntForm.Item>
+
         <Space direction="vertical" style={{ width: '100%' }} >
           {channelFields.map(({ idChannel, value }, index) => (
             <div key={idChannel}>{<Row gutter={16} align="middle" style={{ width: '100%' }}>
               <Col flex="1 1 0">
                   <AntForm.Item
                       label="Support channel"
-                      name={`['dataset2', 'supportChannel_${idChannel}']`}
+                      name={['dataset2', `supportChannel_${idChannel}`]}
                       extra="Enter all channels through which a user can receive support for handling
                       this research product (if applicable). This could for example be a link to a website
-                      or a contact email address."
-                      >
+                      or a contact email address.">
                       <Input value={value}
                         onChange={(e) => handleChannelChange(index, e.target.value)}/>
                   </AntForm.Item>
               </Col>
               <Col>
-                  <Button type="primary" 
+                  <Button type="primary" //danger
                           size="small" 
                           onClick={() => handleRemoveChannel({idChannel})}>
                   Remove Channel</Button>
@@ -89,6 +103,7 @@ export default function Dataset2({ form, onChange, data }) {
                 <Button type="primary" size="small" onClick={handleAddChannel}>Add Channel</Button>
             </AntForm.Item>
         </Space>
+
         <AntForm.Item
           label="Input data"
           name={['dataset2', 'inputdata']} 
@@ -97,6 +112,7 @@ export default function Dataset2({ form, onChange, data }) {
           a DOI or reference to the original dataset from which the current dataset is derived (if applicable).">
           <Input />
         </AntForm.Item>
+
         { data.dataset2?.Data2DoiJournal ? (
           <AntForm.Item
             label="Has your data already been described in a journal article?"
@@ -106,6 +122,7 @@ export default function Dataset2({ form, onChange, data }) {
             <Input />
           </AntForm.Item>
         ) : null}
+
         <AntForm.Item
           label="Related Publications"
           name={['dataset2', 'publications']} 

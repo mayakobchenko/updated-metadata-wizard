@@ -15,8 +15,6 @@ import Experiments from './Experiments'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
 
-const { Step } = Steps
-
 const StepsWizard = () => {
   useNettskjema()
   const skjemaInfo = useAuthContext()
