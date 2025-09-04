@@ -66,7 +66,7 @@ export default function Subjects ({ onChange, data }) {
     return (
         <ConfigProvider>
         <div>
-            <h3>Step 7: Subjects</h3>
+            <p className="step-title">Subjects</p>
             <form onSubmit={handleSubmit}>
                 <div>
                     <label>

@@ -335,6 +335,11 @@ check with Eszter adn Eivind if there is already any script for automatic prefil
 prefill all we discussed with Maja to wizard and concentrate on subjects
 
 subjects https://rodentworkbench.apps.ebrains.eu/
+Harry's code:
+https://github.com/Neural-Systems-at-UIO/RB-workbench
+
+https://rodentworkbench.apps.ebrains.eu/
+https://github.com/Neural-Systems-at-UIO/RB-workbench/tree/main
 
 Notes:
 what to do? should I do anything about it?
@@ -343,3 +348,40 @@ https://127.0.0.1:8080/?TicketNumber=4824591
 ticket id: [ 26032, 24631 ]
 
 npm install uuid
+
+
+talk to Arda:
+dump the send_jsonto_openminds.py in the same dir and copy alongside in the dockerfile
+have Python available for executing scripts via exec() or spawn()
+a docker file eample is in INCF folder 
+and a server.js example is also there
+use python endpoint
+
+Ebrains UI components:
+https://design-dev.ebrains.eu/ui-components/
+https://handbook.ebrains.eu/docs/about-handbook/markdown-guide/
+
+usefull notes websites for developers from Sharon:
+https://docs.google.com/document/d/1EWAW2a4momcXVuZbDl7bXcSemYV4IAWtqZvFMvCMFGg/edit?tab=t.0
+
+Ingvild's ticket for info:
+ https://support.humanbrainproject.eu/#ticket/zoom/26128
+
+https://127.0.0.1:8080/?TicketNumber=4826087
+
+
+my test nettskjema: 37885045
+
+my test ticket 4824171
+https://127.0.0.1:8080/?TicketNumber=4824171
+
+EBRAINS Curation Request Accepted (Ref. 34057576)
+Data Sharing Collab: https://wiki.ebrains.eu/bin/view/Collabs/d-724d4af0-fe28-4032-8837-120b0d64a81c/
+Dataset Working Title: Maya's test collab 
+ticket 4826029
+https://127.0.0.1:8080/?TicketNumber=4826029
+
+zammad search api: /api/v1/tickets/search?query={search word}
+"article_ids":[116694]
+https://docs.zammad.org/en/latest/api/ticket/articles.html
+/api/v1/ticket_articles/{article id}

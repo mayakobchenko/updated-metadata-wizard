@@ -58,19 +58,32 @@ async function getZammadInfo (req, res) {
     try {
         let ticket
         if (req.query){ ticket = req.query }
-        const articleUrl = `${zammadBaseUrl}api/v1/tickets/search?query=${ticket.TicketNumber}`
-        const response = await fetch(articleUrl, zammadHeaders)
-        if (!response.ok) {throw new Error('Error searching for the ticket: ' + response.status);} 
+        const ticketUrl = `${zammadBaseUrl}api/v1/tickets/search?query=${ticket.TicketNumber}`
+        const response = await fetch(ticketUrl, zammadHeaders)
+        if (!response.ok) {throw new Error('Error searching for the ticket: ' + response.status)} 
         const data = await response.json()
         console.log('ticket id:', data.tickets)
-        const ticketInfo = data.assets.Ticket[data.tickets];
-        //console.log(`fetched ticket id: ${ticketInfo}`)
-        //console.log(`fetched ticket number from zammad: ${ticketInfo.title}`)
-        const dataTitle = ticketInfo.title;
-        const isTicket = dataTitle.includes(searchTitle);
-        let refNumber = null;
-        let submissionId = 0;
-        const regex = /(?<=Ref\.?\s?)\d+/
+        
+        let ticket_id
+        if (data.tickets.length > 1) {
+            ticket_id = data.tickets[0]
+        } else {ticket_id = data.tickets}
+        const ticketInfo = data.assets.Ticket[ticket_id]
+        const articleIds = ticketInfo["article_ids"]
+        console.log('article ids:', articleIds)
+
+        const articleUrl = `${zammadBaseUrl}api/v1/ticket_articles/${articleIds}` //&expand=true
+        const resp_artcile = await fetch(articleUrl, zammadHeaders)
+        if (!resp_artcile.ok) {throw new Error('Error searching for the collab info in zammad ticket: ' + resp_artcile.status)} 
+        const collabInfo = await resp_artcile.json()
+        console.log('collab info:', collabInfo["body"])
+
+        const dataTitle = ticketInfo.title
+        const isTicket = dataTitle.includes(searchTitle)
+        let refNumber = null
+        let submissionId = 0
+        const regex = /(?<=Ref\.?\s+)\d+/
+        //const regex = /(?<=Ref\.?\s?)\d+/
         if (isTicket) {
             const match = dataTitle.match(regex)
             refNumber = match[0]

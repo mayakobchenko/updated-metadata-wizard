@@ -1,4 +1,5 @@
 import { Form as AntForm, Input, Space, Row, Col, Button } from 'antd'
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons' //CloseOutlined
 import { useState, useEffect } from 'react'
 import { v4 as uuid } from 'uuid'
 
@@ -9,6 +10,7 @@ export default function Dataset2({ form, onChange, data }) {
       Data2UrlDoiRepo: data.dataset2?.Data2UrlDoiRepo || '',
       Data2DoiJournal: data.dataset2?.Data2DoiJournal || '',
       homePage: data.dataset2?.homePage || '',
+      inputdata: data.dataset2.inputdata || '',
       supportChannels: data.dataset2?.supportChannels || [],
     }}  
 
@@ -19,53 +21,13 @@ export default function Dataset2({ form, onChange, data }) {
   })) || []
   ])
 
- /* useEffect(() => {
-    if (data.dataset2.supportChannels) {
-      setChannelFields(data.dataset2.supportChannels.map((channel) => ({
-        idChannel: channel.idChannel,
-        value: channel.value || '',
-      })))}
-  }, [data.dataset2.supportChannels])*/
-
-  /*const handleAddChannel = () => {
-    setChannelFields([...channelFields, { idChannel: Date.now(), value: '' }])}*/
-
-/*const handleAddChannel = () => {
-    const newChannel = { idChannel: Date.now(), value: '' }
-    const updatedChannels = [...channelFields, newChannel]
-    setChannelFields(updatedChannels)
-    onChange({ dataset2: { ...data.dataset2, supportChannels: updatedChannels } })
-}*/
-
-  const handleAddChannel = () => {
-    const newChannel = { idChannel: uuid(), value: '' };  // Generate unique id using UUID
-    const updatedChannels = [...channelFields, newChannel];
-    setChannelFields(updatedChannels);
-    onChange({ dataset2: { ...data.dataset2, supportChannels: updatedChannels } });
-  }
-  /*const handleRemoveChannel = ({idChannel}) => {
-    setChannelFields(channelFields.filter(field => field.idChannel !== idChannel))}*/
-
-  const handleRemoveChannel = ({idChannel}) => {
-    const newChannels = channelFields.filter(field => field.idChannel !== idChannel)
-    setChannelFields(newChannels)
-    onChange({ dataset2: { ...data.dataset2, supportChannels: newChannels } });
-};
- 
-
-  const handleChannelChange = (index, value) => {
-    const newChannels = [...channelFields];
-    newChannels[index].value = value;
-    setChannelFields(newChannels);
-    onChange({ dataset2: { ...data.dataset2, supportChannels: newChannels } })
-  }
-
   const handleValuesChange = (changedValues, allValues) => {
-    if (changedValues['dataset2']?.supportChannels) {
-    setChannelFields(changedValues['dataset2'].supportChannels)}
-    onChange(allValues)
-  }
-//onChange({ dataset2: { ...data.dataset2, ...changedValues.dataset2 } }
+    console.log('Changed Values:', changedValues)
+    console.log('All Values:', allValues)
+    /*if (changedValues.isConfirmed !== undefined) {
+      allValues.isConfirmed = changedValues.isConfirmed}*/
+   onChange(allValues)}
+
   return (
     <div>
       <div><p className="step-title">Dataset part 2</p></div>
@@ -74,7 +36,6 @@ export default function Dataset2({ form, onChange, data }) {
         layout="vertical"
         initialValues={initialValues}
         onValuesChange={handleValuesChange}>
-
         { data.dataset2?.Data2UrlDoiRepo ?
           (<AntForm.Item
             label="Has your data already been published elsewhere else?"
@@ -82,40 +43,12 @@ export default function Dataset2({ form, onChange, data }) {
             extra="Please state the DOI(s) or URL(s) to the data repository">
             <Input />
            </AntForm.Item> ) : null}  
-
         <AntForm.Item
           label="Home Page"
           name={['dataset2', 'homePage']} 
           extra="Add the URL to the homepage describing this dataset (if applicable)">
           <Input />
         </AntForm.Item>
-
-        <Space direction="vertical" style={{ width: '100%' }} >
-          {channelFields.map(({ idChannel, value }, index) => (
-            <div key={idChannel}>{<Row gutter={16} align="middle" style={{ width: '100%' }}>
-              <Col flex="1 1 0">
-                  <AntForm.Item
-                      label="Support channel"
-                      name={['dataset2', `supportChannel_${idChannel}`]}
-                      extra="Enter all channels through which a user can receive support for handling
-                      this research product (if applicable). This could for example be a link to a website
-                      or a contact email address.">
-                      <Input value={value}
-                        onChange={(e) => handleChannelChange(index, e.target.value)}/>
-                  </AntForm.Item>
-              </Col>
-              <Col>
-                  <Button type="primary" //danger
-                          size="small" 
-                          onClick={() => handleRemoveChannel({idChannel})}>
-                  Remove Channel</Button>
-              </Col></Row>}
-            </div>))}
-            <AntForm.Item>
-                <Button type="primary" size="small" onClick={handleAddChannel}>Add Channel</Button>
-            </AntForm.Item>
-        </Space>
-
         <AntForm.Item
           label="Input data"
           name={['dataset2', 'inputdata']} 
@@ -123,6 +56,72 @@ export default function Dataset2({ form, onChange, data }) {
           a DOI or reference to the original dataset from which the current dataset is derived (if applicable).">
           <Input />
         </AntForm.Item>
+      </AntForm>
+
+      <br />
+ {/*https://ant.design/components/form  style={{ width: '60%' }}*/}
+
+      <AntForm 
+        form={form}
+        initialValues={initialValues}
+        onValuesChange={handleValuesChange}
+        layout="horizontal">
+
+        <AntForm.List name="supportChannels">
+                  {(fields, { add, remove }, { errors }) => (
+                    <>{fields.map((field, index) => (
+                        <AntForm.Item
+                          label={index === 0 ? 'Support Channels' : ''}
+                          required={false}
+                          key={field.key}>
+                          <AntForm.Item
+                            {...field}
+                            validateTrigger={['onChange', 'onBlur']}
+                            rules={[
+                              {required: true,
+                                whitespace: true,
+                                message: "Please input support channel or delete this field."}]}
+                            noStyle>
+                            <Input placeholder="link to support channel" style={{ width: '80%' }} />
+                          </AntForm.Item>
+                          {fields.length > 1 ? (
+                            <MinusCircleOutlined
+                              className="dynamic-delete-button"
+                              onClick={() => remove(field.name)}/>
+                          ) : null}
+                        </AntForm.Item>
+                      ))}
+                      <AntForm.Item>
+                        <Button
+                          type="dashed"
+                          onClick={() => add()}
+                          style={{ width: '20%' }}
+                          icon={<PlusOutlined />}>
+                          Add channel
+                        </Button>
+                        <Button
+                          type="dashed"
+                          onClick={() => {
+                            add('The head item', 0);
+                          }}
+                          style={{ width: '60%', marginTop: '20px' }}
+                          icon={<PlusOutlined />}
+                        >
+                          Add field at head
+                        </Button>
+                        <AntForm.ErrorList errors={errors} />
+                      </AntForm.Item>
+                    </>
+                  )}
+        </AntForm.List>
+      </AntForm>
+
+      <br />
+
+      <AntForm
+      form={form}
+      initialValues={initialValues}
+      onValuesChange={handleValuesChange}>
 
         { data.dataset2?.Data2DoiJournal ? (
           <AntForm.Item
@@ -132,7 +131,6 @@ export default function Dataset2({ form, onChange, data }) {
             <Input />
           </AntForm.Item>
         ) : null}
-
         <AntForm.Item
           label="Related Publications"
           name={['dataset2', 'publications']} 
