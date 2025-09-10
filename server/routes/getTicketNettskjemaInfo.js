@@ -63,7 +63,7 @@ async function getZammadInfo (req, res) {
         if (!response.ok) {throw new Error('Error searching for the ticket: ' + response.status)} 
         const data = await response.json()
         console.log('ticket id:', data.tickets)
-        
+
         let ticket_id
         if (data.tickets.length > 1) {
             ticket_id = data.tickets[0]
@@ -72,11 +72,22 @@ async function getZammadInfo (req, res) {
         const articleIds = ticketInfo["article_ids"]
         console.log('article ids:', articleIds)
 
-        const articleUrl = `${zammadBaseUrl}api/v1/ticket_articles/${articleIds}` //&expand=true
-        const resp_artcile = await fetch(articleUrl, zammadHeaders)
-        if (!resp_artcile.ok) {throw new Error('Error searching for the collab info in zammad ticket: ' + resp_artcile.status)} 
-        const collabInfo = await resp_artcile.json()
-        console.log('collab info:', collabInfo["body"])
+        let collabId
+        if (articleIds) {
+            const articleUrl = `${zammadBaseUrl}api/v1/ticket_articles/${articleIds[0]}`
+            const resp_article = await fetch(articleUrl, zammadHeaders)
+            if (!resp_article.ok) { throw new Error('Error searching for the collab info in zammad ticket: ' + resp_artcile.status) }
+            const collabInfo = await resp_article.json()
+            collabId = collabInfo["body"]
+            console.log('collab info:', collabId)
+        }
+        const regex_collab = /d-([0-9a-fA-F-]{36})/
+        const match_collab = collabId.match(regex_collab)
+        let datasetVersionId
+        if (match_collab) {
+            datasetVersionId = match_collab[1]
+            console.log('info about collab:', match_collab[1])
+        }
 
         const dataTitle = ticketInfo.title
         const isTicket = dataTitle.includes(searchTitle)
@@ -90,7 +101,12 @@ async function getZammadInfo (req, res) {
             submissionId = parseInt(refNumber, 10)
             console.log(`Submitted nettskjema id: ${refNumber}`)
         } else {console.log('No nettskjema id in the ticket')}  
-        res.status(200).json({ message: `Nettskjema id: ${submissionId}`, submissionId: submissionId })
+        res.status(200).json({
+            message: `Nettskjema id: ${submissionId}; 
+            Dataset Version id: ${datasetVersionId}`,
+            submissionId: submissionId,
+            datasetVersionId: datasetVersionId
+        })
     } catch (error) {
         console.error('Error fetching info from zammad', error.message)
         res.status(500).send('Internal server error')}

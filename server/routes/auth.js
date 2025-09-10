@@ -1,26 +1,26 @@
-import express from 'express';
-import dotenv from 'dotenv';
-dotenv.config();
+import express from 'express'
+import dotenv from 'dotenv'
+dotenv.config()
 
-const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp";
-const TOKEN_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/token";
-const AUTH_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/auth";
-const LOGOUT_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/logout";
-const USERINFO_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/userinfo";
+const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
+const TOKEN_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/token"
+const AUTH_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/auth"
+const LOGOUT_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/logout"
+const USERINFO_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/userinfo"
 
-const router = express.Router();
+const router = express.Router()
 
 router.get('/loginurl', getLoginUrl)
 router.get('/logouturl', getLogOutUrl)
-router.get('/requesturl', getAuthRequestUrl);
+router.get('/requesturl', getAuthRequestUrl)
 router.get('/user', getUser)
-router.get('/token', getToken);
+router.get('/token', getToken)
 
 //to test the auth route: 
-router.get('/hello', helloAuth);
+router.get('/hello', helloAuth)
 async function helloAuth (req, res) {
-  res.json({ message: 'Hello from auth route' });
-  console.log(`${req.method} ${req.url}`);
+  res.json({ message: 'Hello from auth route' })
+  console.log(`${req.method} ${req.url}`)
 }
 
 async function getLoginUrl(req, res) {

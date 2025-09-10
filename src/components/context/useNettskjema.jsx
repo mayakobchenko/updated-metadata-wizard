@@ -17,7 +17,9 @@ export function useNettskjema () {
             try {
                 const ticketNumber = await authFunctions.getTicket()
                 await dispatch({type: 'ticket', text: ticketNumber})
-                const nettskjemaId = await authFunctions.zammad(ticketNumber)
+                const [ nettskjemaId, datasetVersionId ] = await authFunctions.zammad(ticketNumber)
+                console.log('dataset version id:', datasetVersionId)
+                await dispatch({type: 'datasetVersionId', text: datasetVersionId})
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
                 const skjemaInfo = {contactFirstName: nettskjemaInfo.ContactInfo[0], 
                                     contactSurname: nettskjemaInfo.ContactInfo[1], 

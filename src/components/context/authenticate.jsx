@@ -19,7 +19,8 @@ zammad: async function zammad (ticketNumber) {
         }
         const data = await response.json()
         const nettskjemaId = data.submissionId
-        return nettskjemaId
+        const datasetVersionId = data.datasetVersionId
+        return [ nettskjemaId, datasetVersionId ]
     } catch (error) {
         throw new Error ('Error occurred while fetching zammad ticket info:', error.message)
     }
@@ -104,8 +105,8 @@ getUser: async function getUser(token) {
         throw new Error(`Failed to get user, status: ${userResponse.status}`);
       }
       const data = await userResponse.json();  
-      console.log(data);
-      return data;
+      console.log(data)
+      return data
     } catch (error) {console.error('Error fetching user from backend:', error.message);
   }
 },
@@ -122,7 +123,7 @@ getUserKG: async function getUserKG(token) {
             userInfo[key] = data[userMap[key]];
         })
         console.log('user info from KG endpoint:', userInfo)
-        return userInfo;
+        return userInfo
     } 
     catch (error) {console.error('Error fetching user from backend:', error.message)}}
 }

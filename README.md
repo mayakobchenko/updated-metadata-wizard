@@ -355,7 +355,7 @@ dump the send_jsonto_openminds.py in the same dir and copy alongside in the dock
 have Python available for executing scripts via exec() or spawn()
 a docker file eample is in INCF folder 
 and a server.js example is also there
-use python endpoint
+use python endpoint for my node server
 
 Ebrains UI components:
 https://design-dev.ebrains.eu/ui-components/
@@ -385,3 +385,28 @@ zammad search api: /api/v1/tickets/search?query={search word}
 "article_ids":[116694]
 https://docs.zammad.org/en/latest/api/ticket/articles.html
 /api/v1/ticket_articles/{article id}
+
+fork to nesys
+service metafile (ask andrew)
+read me -> rules
+
+matomo, add code to github repo -> from Arda
+
+what is hash code? 
+
+discussion with curators:
+
+json version keep in the drive
+
+data descriptor questions :
+https://gitlab.ebrains.eu/kanban/curators/ebrains-curation-team/-/issues/144
+
+uplading only the last version of the json to KG. Using user's credentials!
+
+
+about harry's workbench:
+https://docker-registry.ebrains.eu/harbor/projects/99/repositories/workbench
+https://github.com/Neural-Systems-at-UIO/RB-workbench/tree/main/src%2Fmetadata
+Hi Maya, the previous metadata tab in the workbench is not compatible with knowledge graph
+
+download image and try to run in docker desktop

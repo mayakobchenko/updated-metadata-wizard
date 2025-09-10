@@ -9,7 +9,8 @@ const initialState = {
     nettskjemaId: null,
     message: "Loading...",
     isAuthenticating: true, 
-    nettskjemaInfo: null
+    nettskjemaInfo: null,
+    datasetVersionId: null
 }
 export const AuthContext = createContext(initialState);
 export const AuthDispatch = createContext(null);
@@ -70,7 +71,12 @@ export function authReducer(state, action) {
         return {
             ...state, 
             nettskjemaInfo: action.text
-        };     
+      };  
+      case 'datasetVersionId':
+        return {
+            ...state, 
+            datasetVersionId: action.text
+        }; 
     default:
       return state;
   }

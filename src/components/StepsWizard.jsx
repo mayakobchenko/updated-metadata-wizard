@@ -19,7 +19,8 @@ const StepsWizard = () => {
   useNettskjema()
   const skjemaInfo = useAuthContext()
   const initialValues = {
-    ticketNumber: skjemaInfo?.ticketNumber  || '',
+    ticketNumber: skjemaInfo?.ticketNumber || '',
+    datasetVersionId: skjemaInfo?.datasetVersionId || '',
     contactperson: {
       firstName: skjemaInfo?.nettskjemaInfo?.contactFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.contactSurname || '',
@@ -95,18 +96,32 @@ const StepsWizard = () => {
       nextWizardStep = steps[nextWizardStep].id}
     setCurrentStepIndex(nextWizardStep)}
 
-    const downloadJson = () => {
-      const json = JSON.stringify(formData, null, 2)
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'metadata_wizard.json';
-      document.body.appendChild(a); // Append to body to work in Firefox
-      a.click();
-      document.body.removeChild(a); // Clean up
-      URL.revokeObjectURL(url);
+  const savePythonKG = async () => {
+    try {
+      const pythonurl = 'api/python/runpython'
+      //const hello_url = 'api/python/hello'
+      const response = await fetch(pythonurl)
+      if (!response.ok) {
+        throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
+      const data = await response.json()
+      console.log(data)
+    } catch (error) { console.error('Error calling python endpoint:', error) }
   }
+  
+  const downloadJson = () => {
+    savePythonKG()
+    const json = JSON.stringify(formData, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'metadata_wizard.json'
+    document.body.appendChild(a) // Append to body to work in Firefox
+    a.click()
+    document.body.removeChild(a)  // Clean up
+    URL.revokeObjectURL(url)
+  }
+
   const saveToJson = () => {
     const json = JSON.stringify(formData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });

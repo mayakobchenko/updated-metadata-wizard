@@ -3,6 +3,7 @@ import { Form as AntForm, Input } from 'antd'
 export default function Introduction({ form, onChange, data }) {
   const initialValues = {
     ticketNumber: data.ticketNumber || '',
+    datasetVersionId: data.datasetVersionId || '',
     contactperson: {
       firstName: data.contactperson?.firstName || '',
       familyName: data.contactperson?.familyName || '',
@@ -39,9 +40,15 @@ export default function Introduction({ form, onChange, data }) {
         initialValues={initialValues}
         onValuesChange={handleValuesChange}>
         <AntForm.Item
-          label="Ticket Number"
+          label="Zammad ticket Number"
           name="ticketNumber"
           rules={[{ required: true, message: 'Please input your ticket number!' }]}>
+          <Input />
+        </AntForm.Item>
+        <AntForm.Item
+          label="Dataset version uuid"
+          name="datasetVersionId"
+          rules={[{ required: false }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
