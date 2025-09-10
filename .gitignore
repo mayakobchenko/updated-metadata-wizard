@@ -1,5 +1,6 @@
 #openminds schemas
 server/data/
+server/routes/data.json
 
 # Logs
 logs

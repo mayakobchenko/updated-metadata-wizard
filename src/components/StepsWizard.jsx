@@ -99,17 +99,23 @@ const StepsWizard = () => {
   const savePythonKG = async () => {
     try {
       const pythonurl = 'api/python/runpython'
-      //const hello_url = 'api/python/hello'
-      const response = await fetch(pythonurl)
+      //const hello_url = 'api/python/hello'  //test endpoint
+      //const response = await fetch(pythonurl)  //get request
+      const response = await fetch(pythonurl, {
+        method: 'POST',  
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(formData, null, 2)})
+      
       if (!response.ok) {
         throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
       const data = await response.json()
       console.log(data)
+
+      downloadJson()
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }
   
   const downloadJson = () => {
-    savePythonKG()
     const json = JSON.stringify(formData, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -139,7 +145,7 @@ const StepsWizard = () => {
         {currentStepIndex < steps.length - 1 && (
             <Button onClick={nextStep} className="next-back-button">Next</Button>)}
         {currentStepIndex === steps.length - 1 && (
-            <Button onClick={downloadJson} className="next-back-button">Save</Button>)}
+            <Button onClick={savePythonKG} className="next-back-button">Save</Button>)}
       </div>
       <Modal
           title="Warning"
