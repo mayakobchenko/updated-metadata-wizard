@@ -372,7 +372,10 @@ https://127.0.0.1:8080/?TicketNumber=4826087
 
 my test nettskjema: 37885045
 
-my test ticket 4824171
+my test ticket for testing email sender: 4824171
+https://support.humanbrainproject.eu/#ticket/zoom/24211
+
+use this one:
 https://127.0.0.1:8080/?TicketNumber=4824171
 
 EBRAINS Curation Request Accepted (Ref. 34057576)
@@ -380,6 +383,8 @@ Data Sharing Collab: https://wiki.ebrains.eu/bin/view/Collabs/d-724d4af0-fe28-40
 Dataset Working Title: Maya's test collab 
 ticket 4826029
 https://127.0.0.1:8080/?TicketNumber=4826029
+https://support.humanbrainproject.eu/#ticket/zoom/26070
+
 
 zammad search api: /api/v1/tickets/search?query={search word}
 "article_ids":[116694]
@@ -410,3 +415,61 @@ https://github.com/Neural-Systems-at-UIO/RB-workbench/tree/main/src%2Fmetadata
 Hi Maya, the previous metadata tab in the workbench is not compatible with knowledge graph
 
 download image and try to run in docker desktop
+
+to implement:
+additional json file with suggestions of new persons , strains etc 
+
+subjects: default value based on the previous entry
+
+how to get personal token for ebrains account:
+https://wiki.ebrains.eu/bin/view/Collabs/the-collaboratory/Documentation%20IAM/FAQ/OIDC%20Clients%20explained/How%20Bearer%20Access%20Token%20works/
+
+refocus: to deploy before 13 of october
+discuss with eivind about matlab package, notebook from him and content types 
+
+Eszter:
+For working with the drive, you can either use this package: https://github.com/HumanBrainProject/ebrains-storage or the SeaFile API directly via https://drive.ebrains.eu/api2/{endpoint} e.g. https://drive.ebrains.eu/api2/account/info/ (ref here: https://seafile-api.readme.io/reference/introduction). I don't think there is a swagger. There is also a client at https://www.seafile.com/en/download/ (haven't tried this).
+You can also carry out file operations directly from a Jupyter cell using shell commands, e.g. %ls my_folder, depending on what you are trying to do. (What are you working on?)
+
+Eszter, could you send me this gitlab link to discriptor questions? and the subject code?
+https://gitlab.ebrains.eu/kanban/curators/ebrains-curation-team/-/issues/144
+Regarding subjects, here is one of my scripts that maybe has code you would find useful:
+find it in extra_info folder/subjects_Eszter.py
+What I did here is to create a mini template for subjects and subject states based on example instances in the KG, and then filled it out based on files from the data provider, and uploaded it.
+
+Hi Maya, I have checked the Nettskjema issue that we got a support ticket about (base URL change, we looked at the ticket yesterday during the curation meeting, if you remember). It seems that the base URL was already up to date in my scripts (https://wiki.ebrains.eu/bin/view/Collabs/curation-workflow/Drive#Nettskjema). I have found the old base URL in Eivind's client and updated that (https://wiki.ebrains.eu/bin/view/Collabs/curation-workflow/Drive#Data-Sharing-Collab-Scripts/src/dsc/web_service/nettskjema). I wonder if you may have any code running that still uses the old URL? Could you please check?
+
+For context, here is the related GitLab issue: https://gitlab.ebrains.eu/kanban/curators/ebrains-curation-team/-/issues/190
+https://www.uio.no/tjenester/it/adm-app/nettskjema/hjelp/api-clients-v3.md
+https://nettskjema.no/api/v3/swagger-ui/index.html
+api.nettskjema.no/v3/  ->  nettskjema.no/api/v3/
+
+new availabale endpoitn for nettskjema: 
+/form/{formId}/answers
+/form/{formId}/submission-metadata
+/form/{formId}/submission-metadata-postponed
+
+how to fetch user token:
+https://wiki.ebrains.eu/bin/view/Collabs/the-collaboratory/Documentation%20IAM/FAQ/OIDC%20Clients%20explained/How%20Bearer%20Access%20Token%20works/
+
+Note: users have to grant authorizations 
+https://wiki.ebrains.eu/bin/view/Collabs/the-collaboratory/Documentation%20IAM/FAQ/OIDC%20Clients%20explained/Authenticating%20with%20your%20OIDC%20client%20and%20fetching%20collab%20user%20info/
+
+Andrew:
+Hi Maya. You can access the Drive API endpoints with the standard Javascript Fetch API. The base URL for the EBRAINS Drive API is https://drive.ebrains.eu/api/v2.1/. Note that you will probably run into CORS problems if your app runs in a web browser. We currently work round this by using a proxy (i.e., we preprend the URLs with “https://corsproxy.apps.tc.humanbrainproject.eu/”, so the effective endpoint URL becomes “https://corsproxy.apps.tc.humanbrainproject.eu/https://drive.ebrains.eu/api/v2.1/”.
+https://seafile-api.readme.io/reference/introduction
+https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+
+VM at uio
+https://view.uio.no/portal/webclient/#/launchitems
+
+questions:
+1. scopes need granted permission from user. how to test? 
+
+
+managing oidc clients:
+https://wiki.ebrains.eu/bin/view/Collabs/collaboratory-community-apps/workshop/Community%20App%20Demo
+
+
+iam end points:
+https://iam.ebrains.eu/auth/realms/hbp/.well-known/openid-configuration

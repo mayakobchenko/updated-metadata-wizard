@@ -70,18 +70,15 @@ authenticate: async function authenticate() {
 },
 
 logout: async function logout() {
-    const urlParams = new URLSearchParams(window.location.search);
+    //const urlParams = new URLSearchParams(window.location.search)
     try {
         let url = 'api/auth/logouturl'
-        url += '?' + urlParams.toString();      
+        //url += '?' + urlParams.toString()    
         const logoutResponse = await fetch(url)
         if (!logoutResponse.ok) {
-            throw new Error(`Failed to logout. Status: ${logoutResponse.status}`);
-        }
-        window.location.href = await logoutResponse.text();
-    } catch (error) {
-        console.error('Error occurred while logging out:', error.message);
-    }
+            throw new Error(`Failed to logout. Status: ${logoutResponse.status}`)}
+        window.location.href = await logoutResponse.text()
+    } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
 
 getToken: async function getToken() {

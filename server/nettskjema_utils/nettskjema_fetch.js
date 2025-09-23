@@ -4,7 +4,7 @@ import {fetchSubmission, fetchAnswers} from './fetchNettskjemaData.js';
 const tokenNettskjema = await fetchTokenNettskjema()
 //console.log(tokenNettskjema)
 const submissionId = 33464654
-//https://api.nettskjema.no/v3/form/submission/33464654
+//https://nettskjema.no/api/v3/form/submission/33464654
 
 const submissionData = await fetchSubmission(submissionId, tokenNettskjema);
 //console.log(submissionData)

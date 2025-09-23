@@ -1,7 +1,7 @@
-import { useAuthContext } from './context/AuthProviderContext';
+import { useAuthContext } from './context/AuthProviderContext'
 
 export default function Greetings() {
-    const userInfo = useAuthContext();  
+    const userInfo = useAuthContext()
     return (
     <div>
         <p>{userInfo.user ? `Hello, ${userInfo.user.fullname}!` : 'Hello!'}</p>

@@ -39,7 +39,7 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "EmailCustodian": 5990416,
     "ORCIDcustodian": 5990417,
     "InstitutionCustodian":5990418,
-    "CountryInstitution": 5990419,  //dropdown, answerOptionId, text: in https://api.nettskjema.no/v3/form/386195/elements
+    "CountryInstitution": 5990419,  //dropdown, answerOptionId, text: in https://nettskjema.no/api/v3/form/386195/elements
     "GroupLeader": 5990420,
     "ORCIDgroupLeader": 5990421,
     "BriefSummary": 6159880,   
@@ -62,7 +62,7 @@ async function getZammadInfo (req, res) {
         const response = await fetch(ticketUrl, zammadHeaders)
         if (!response.ok) {throw new Error('Error searching for the ticket: ' + response.status)} 
         const data = await response.json()
-        console.log('ticket id:', data.tickets)
+        //console.log('ticket id:', data.tickets)
 
         let ticket_id
         if (data.tickets.length > 1) {
@@ -70,7 +70,7 @@ async function getZammadInfo (req, res) {
         } else {ticket_id = data.tickets}
         const ticketInfo = data.assets.Ticket[ticket_id]
         const articleIds = ticketInfo["article_ids"]
-        console.log('article ids:', articleIds)
+        //console.log('article ids:', articleIds)
 
         let collabId
         if (articleIds) {
@@ -79,14 +79,14 @@ async function getZammadInfo (req, res) {
             if (!resp_article.ok) { throw new Error('Error searching for the collab info in zammad ticket: ' + resp_artcile.status) }
             const collabInfo = await resp_article.json()
             collabId = collabInfo["body"]
-            console.log('collab info:', collabId)
+            //console.log('collab info:', collabId)
         }
         const regex_collab = /d-([0-9a-fA-F-]{36})/
         const match_collab = collabId.match(regex_collab)
         let datasetVersionId
         if (match_collab) {
             datasetVersionId = match_collab[1]
-            console.log('info about collab:', match_collab[1])
+            console.log('collab id:', match_collab[1])
         }
 
         const dataTitle = ticketInfo.title
@@ -129,7 +129,7 @@ async function getNettskjemaInfo (req, res) {
         //to use swagger:
         //console.log(nettskjemaToken)
         if (!nettskjemaToken) {throw new Error('Nettskjema token not received.')}
-        const submissionResponse = await fetch(`https://api.nettskjema.no/v3/form/submission/${submissionId}`, {
+        const submissionResponse = await fetch(`https://nettskjema.no/api/v3/form/submission/${submissionId}`, {
             method: 'GET',
             headers: {'Authorization': `Bearer ${nettskjemaToken}`,
                       'Accept': 'application/json' }})

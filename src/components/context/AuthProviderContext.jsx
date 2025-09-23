@@ -39,9 +39,9 @@ export function authReducer(state, action) {
         isLoggingButton: false, 
         user: null,
         token: null,
-        message: "Loading...",
+        message: "Loging out...",
         loginAlert: true,
-        isAuthenticating: true
+        isAuthenticating: false
       };
     case 'gotToken':
         return {

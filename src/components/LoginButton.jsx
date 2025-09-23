@@ -9,28 +9,25 @@ export default function LoginButton () {
 
   const state = useAuthContext()
   const dispatch = useAuthDispatch()
-  const user = state?.user;
-  const isAuthenticating = state?.isAuthenticating;
+  const user = state?.user
+  const isAuthenticating = state?.isAuthenticating
 
   function handleLoginButton () {
     dispatch({ type: 'LOGIN' })
-    authFunctions.login()
-  };
+    authFunctions.login()}
 
   const handleLogoutButton = () => {
     dispatch({ type: 'LOGOUT' })
-    authFunctions.logout()
-  };
+    authFunctions.logout()}
 
-  if (isAuthenticating) {
+if (isAuthenticating) {
     return (
         <ConfigProvider>
             <Button
                 icon={<LoadingOutlined />}>
                 Log-in
             </Button>
-        </ConfigProvider>
-    );
+        </ConfigProvider>)
 } else {
     return (
         <ConfigProvider>
@@ -39,8 +36,6 @@ export default function LoginButton () {
                 onClick={user ? handleLogoutButton : handleLoginButton}>
                 {user ? 'Log-out' : 'Log-in'}
             </Button>
-        </ConfigProvider>
-    );
-}
-};
+        </ConfigProvider>)
+}}
 

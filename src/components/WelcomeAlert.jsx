@@ -64,7 +64,7 @@ export default function WelcomeText() {
       <Dialog
         open={true}
       >
-        <DialogTitle>Welcome to Ebrains Metadata Wizard</DialogTitle>
+        <DialogTitle>Welcome to the Ebrains Metadata Wizard</DialogTitle>
         <DialogContent>
           <Typography>
             Please login with your Ebrains account.

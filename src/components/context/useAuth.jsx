@@ -13,9 +13,12 @@ export function useAuth () {
       hasAuthenticatedRef.current = true}
 
     function handleLoginError() {
-        const url = new URL(window.location.href)
-        url.searchParams.delete('error')
-        window.history.replaceState({}, document.title, url.toString())}
+      const url = new URL(window.location.href)
+      //console.log('error in url', url)
+      url.searchParams.delete('error')
+      //console.log('url without error', url)
+      window.history.replaceState({}, document.title, url.toString())
+    }
 
     function handleTokenReceived(token) {
         dispatch({type: 'gotToken', text: token})
@@ -28,7 +31,7 @@ export function useAuth () {
 
     useEffect(() => {
       if (!hasAuthenticatedRef.current) {
-        console.log('running authenticate function')
+        console.log('running authFunctions.authenticate()')
         authFunctions.authenticate()
       } else {
         if (window.location.href.includes('error=')) {

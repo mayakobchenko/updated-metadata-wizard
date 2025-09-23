@@ -2,7 +2,7 @@ import {QUESTIONS_ID} from './nettskjemaElements.js'
 
 export async function fetchSubmission(submissionId, tokenNettskjema) {
     try {
-        const response = await fetch(`https://api.nettskjema.no/v3/form/submission/${submissionId}`, {
+        const response = await fetch(`https://nettskjema.no/api/v3/form/submission/${submissionId}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${tokenNettskjema}`,
@@ -39,7 +39,7 @@ export async function fetchAnswers(submissionData, skjemaField) {
 export async function fetchPosition(extractedSubmissionId, tokenNettskjema, positionAnswerCode) {
     const positionElementId = 1716162;
     try {
-        const response = await fetch(`https://api.nettskjema.no/v3/form/${DRF_ID}/definition`, {
+        const response = await fetch(`https://nettskjema.no/api/v3/form/${DRF_ID}/definition`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${tokenNettskjema}`,
