@@ -1,3 +1,4 @@
+//a workaround to use fairgraph package for KG uploading
 import express from 'express'
 import dotenv from 'dotenv'
 import { exec } from 'child_process'
@@ -11,15 +12,17 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const router = express.Router()
-router.get('/hello', sayHello)
+
+router.get('/hello', sayHello)  //test endpoint
 router.post('/runpython', runPythonScript)
 
+//test endpoint
 async function sayHello(req, res) {
   res.json({ message: 'Hello from python uploading route' })
   console.log(`${req.method} ${req.url}`)
 } 
 
-// Endpoint to save JSON and run Python script
+// Endpoint to save metadata JSON locally and run Python script for KG upload
 async function runPythonScript(req, res) {
     const jsonData = req.body
     const jsonFilePath = path.join(__dirname, 'data.json')
@@ -40,16 +43,34 @@ async function runPythonScript(req, res) {
         exec(`python "${scriptPath}" "${kg_token}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`)
-                return res.status(500).json({ error: error.message || 'Execution error.' })}
-            if (stderr) {
-                console.error(`stderr: ${stderr}`)
-                return res.status(500).json({ error: stderr })}
-            try {
-                const jsonResponse = JSON.parse(stdout)
-                res.json(jsonResponse)
+                return res.status(500).json({ error: error.message || 'Python code execution error.' })
+            }
+
+            const errorToIgnoreMessages = [
+                "Property 'digital_identifier' is required but was not provided.",
+                "Property 'ethics_assessment' is required but was not provided.",
+                "Property 'full_documentation' is required but was not provided.",
+                "Property 'license' is required but was not provided.",
+                "Property 'release_date' is required but was not provided.",
+                "Property 'techniques' is required but was not provided.",
+                "Property 'version_identifier' is required but was not provided.",
+                "Property 'version_innovation' is required but was not provided."
+            ]
+            const shouldIgnoreError = errorToIgnoreMessages.some(msg => stderr.includes(msg))
+            
+            if (stderr && !shouldIgnoreError) {
+                console.error(`stderr: ${stderr}`);
+                return res.status(500).json({ error: stderr })
+            }
+            
+            try {const jsonResponse = JSON.parse(stdout)
+                 res.json(jsonResponse)
             } catch (parseError) {
                 console.error(`Parse error: ${parseError}`)
-                res.status(500).json({ error: 'Failed to parse Python script output' })}})
+                res.status(500).json({ error: 'Failed to parse Python script output' })
+            }
+        })
+        
     } catch (writeError) {
         console.error(`JSON file write error: ${writeError}`)
         return res.status(500).json({ error: 'Failed to write JSON file' })}}

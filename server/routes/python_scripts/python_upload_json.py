@@ -21,14 +21,17 @@ def fetch_data_info(dt_id, token):
     try:
         client = KGClient(token, host="core.kg.ebrains.eu")
         with warnings.catch_warnings(record=False):
-            DSV = DatasetVersion.from_id(dt_id, client, scope="in progress")
-            access = DSV.accessibility.resolve(client)
-            accessebility = access.name
+            DSV = DatasetVersion.from_id(
+                dt_id, client, scope="in progress")
+            DSV.short_name = "my new short title"
+            DSV.save(client)
+            # access = DSV.accessibility.resolve(client)
+            # accessebility = access.name
 
-        return ({"access": accessebility})
+        return ({"metadata saved": "success"})
 
     except Exception as e:
-        return ({"access": accessebility})
+        return ({"error": e})
 
 
 data_info = fetch_data_info(dataset_id, personal_token)
