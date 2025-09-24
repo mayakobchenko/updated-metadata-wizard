@@ -32,7 +32,6 @@ async function runPythonScript(req, res) {
         //const scriptPath = path.join(__dirname, './python_scripts/python_try_collab.py')
         //const scriptPath = path.join(__dirname, './python_scripts/load_metadata.py')
 
-        //get a renewed token here
         //get the dataset verison id/collab id for space
         
         const kg_token = await tokenFunctions.getWorkingToken()
@@ -40,7 +39,7 @@ async function runPythonScript(req, res) {
 
         //`python "${scriptPath}" "${jsonFilePath}" "${kg_token}"`
 
-        exec(`python "${scriptPath}" "${kg_token}"`, (error, stdout, stderr) => {
+        exec(`python "${scriptPath}" "${kg_token}" "${jsonFilePath}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`)
                 return res.status(500).json({ error: error.message || 'Python code execution error.' })

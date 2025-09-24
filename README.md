@@ -369,14 +369,16 @@ Ingvild's ticket for info:
 
 https://127.0.0.1:8080/?TicketNumber=4826087
 
-
+-----------------------------------------------------------------------------------------
 my test nettskjema: 37885045
+use this ticket for this test nettskjema:
+https://127.0.0.1:8080/?TicketNumber=4826029
+https://support.humanbrainproject.eu/#ticket/zoom/26070
+
+------------------------------------------------------------------
 
 my test ticket for testing email sender: 4824171
 https://support.humanbrainproject.eu/#ticket/zoom/24211
-
-use this one:
-https://127.0.0.1:8080/?TicketNumber=4824171
 
 EBRAINS Curation Request Accepted (Ref. 34057576)
 Data Sharing Collab: https://wiki.ebrains.eu/bin/view/Collabs/d-724d4af0-fe28-4032-8837-120b0d64a81c/
