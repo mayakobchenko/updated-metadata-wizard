@@ -25,18 +25,19 @@ async function runPythonScript(req, res) {
     const jsonFilePath = path.join(__dirname, 'data.json')
     try {
         await writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2))
+        const scriptPath = path.join(__dirname, './python_scripts/python_upload_json.py')
         //const scriptPath = path.join(__dirname, './python_scripts/python_try_collab.py')
-        const scriptPath = path.join(__dirname, './python_scripts/load_metadata.py')
+        //const scriptPath = path.join(__dirname, './python_scripts/load_metadata.py')
 
         //get a renewed token here
         //get the dataset verison id/collab id for space
         
         const kg_token = await tokenFunctions.getWorkingToken()
-        console.log(`python "${scriptPath}" "${jsonFilePath}" "${kg_token}"`)
+        //console.log(`python "${scriptPath}" "${jsonFilePath}" "${kg_token}"`)
 
         //`python "${scriptPath}" "${jsonFilePath}" "${kg_token}"`
 
-        exec(`python "${scriptPath}" "${jsonFilePath}"`, (error, stdout, stderr) => {
+        exec(`python "${scriptPath}" "${kg_token}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`)
                 return res.status(500).json({ error: error.message || 'Execution error.' })}

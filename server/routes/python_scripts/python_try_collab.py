@@ -18,7 +18,7 @@ try:
     with open(json_file_path, 'r') as json_file:
         data = json.load(json_file)
         dataset1 = data['dataset1']
-        dataset1_short_title = dataset1['shortTitle']
+        dataset1_title = dataset1['dataTitle']
         # print(json.dumps({"message": "Successfully read JSON", "data title": dataset1_title}))
 except Exception as e:
     print(json.dumps({"error": str(e)}))
