@@ -4,6 +4,7 @@ import warnings
 import fairgraph
 from fairgraph import KGClient
 from fairgraph.openminds.core import DatasetVersion
+from fairgraph.openminds.controlledterms import SemanticDataType
 
 if len(sys.argv) > 1:
     personal_token = sys.argv[1]
@@ -20,8 +21,11 @@ else:
 try:
     with open(json_file_path, 'r') as json_file:
         data = json.load(json_file)
-        # dataset1 = data['dataset1']
-        dataset_id = data['datasetVersionId']
+        dsv_id = data['datasetVersionId']
+        dsv_short_title = data['dataset1']['shortTitle']
+        dsv_title = data['dataset1']['dataTitle']
+        dsv_brief_summary = data['dataset1']['briefSummary']
+        data_type_list = data['dataset1']['optionsData']
         # print(json.dumps({"message": "Successfully read JSON", "data title": dataset1_title}))
 
 except Exception as e:
@@ -37,18 +41,33 @@ def fetch_data_info(dt_id, token):
     try:
         client = KGClient(token, host="core.kg.ebrains.eu")
         with warnings.catch_warnings(record=False):
-            DSV = DatasetVersion.from_id(
+            dsv_instance = DatasetVersion.from_id(
                 dt_id, client, scope="in progress")
-            DSV.short_name = "my new short title"
-            DSV.save(client)
-            # access = DSV.accessibility.resolve(client)
-            # accessebility = access.name
+            # ds_instance = fairgraph.openminds.core.Dataset.from_id(dt_id, client, scope="in progress")
 
+        dsv_instance.short_name = dsv_short_title
+        # dsv_instance.alias = dsv_short_title
+        dsv_instance.full_name = dsv_title
+        dsv_instance.data_types = []
+
+        for data_type in data_type_list:
+            data_type_name = data_type.lower()
+            cti_data_type = fairgraph.openminds.controlledterms.SemanticDataType.by_name(
+                data_type_name, client)
+            dsv_instance.data_types += [cti_data_type]
+
+        # dsv_instance.data_types = SemanticDataType(name='raw data')
+
+        dsv_instance.save(client)
+
+        # access = DSV.accessibility.resolve(client)
+        # accessebility = access.name
         return ({"metadata saved": "success"})
 
     except Exception as e:
         return ({"error": e})
 
 
-data_info = fetch_data_info(dataset_id, personal_token)
+data_info = fetch_data_info(dsv_id, personal_token)
 print(json.dumps(data_info))
+# print(data_info)
