@@ -19,7 +19,8 @@ const router = express.Router()
 router.get('/zammadinfo', getZammadInfo)
 router.get('/nettskjema', getNettskjemaInfo)
 
-//https://api.nettskjema.no/v3/swagger-ui/index.html
+//updated url: https://nettskjema.no/api/v3/swagger-ui/index.html
+
 //curation request nettskjema id=386195
 //https://api.nettskjema.no/v3/form/386195/definition    -> elements  -> elementId
 //https://api.nettskjema.no/v3/form/386195/elements
@@ -47,12 +48,15 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "Title":  6159879,
     "UrlDoiRepo": 5990441,  //data published repo
     "DoiJournal": 5990439,   //article describing data
+    "Embargo": 5990445,
 }
 
 //answer option id
 const ANSWERS_ID = {
     "YesContactcustodian": 14472467,
-    "NoContactCustodian": 14472468
+    "NoContactCustodian": 14472468,
+    "YesEmbargo": 14472756,
+    "NoEmbargo": 14472757
 }
 async function getZammadInfo (req, res) {
     try {

@@ -1,6 +1,7 @@
 import sys
 import json
 import warnings
+from datetime import datetime
 import fairgraph
 from fairgraph import KGClient
 from fairgraph.openminds.core import DatasetVersion
@@ -24,6 +25,11 @@ try:
         dsv_id = data['datasetVersionId']
         dsv_short_title = data['dataset1']['shortTitle']
         dsv_title = data['dataset1']['dataTitle']
+        embargo = data['dataset1']['embargo']
+        if embargo:
+            embargo_release_date = data['dataset1']['embargoDate']
+        else:
+            embargo_release_date = None
         dsv_brief_summary = data['dataset1']['briefSummary']
         data_type_list = data['dataset1']['optionsData']
         # print(json.dumps({"message": "Successfully read JSON", "data title": dataset1_title}))
@@ -56,7 +62,13 @@ def fetch_data_info(dt_id, token):
                 data_type_name, client)
             dsv_instance.data_types += [cti_data_type]
 
-        # dsv_instance.data_types = SemanticDataType(name='raw data')
+        if embargo:
+            cti_accessibility = fairgraph.openminds.controlledterms.ProductAccessibility.by_name(
+                'under embargo', client)
+            dsv_instance.accessibility = cti_accessibility
+            date_obj = datetime.fromisoformat(embargo_release_date[:-1])
+            formatted_date = date_obj.strftime('%m/%d/%Y')
+            dsv_instance.release_date = formatted_date
 
         dsv_instance.save(client)
 

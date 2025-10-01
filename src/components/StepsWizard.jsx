@@ -36,7 +36,8 @@ const StepsWizard = () => {
       orcid: skjemaInfo?.nettskjemaInfo?.GroupLeaderOrcid || ''},
     dataset1: {
       dataTitle: skjemaInfo?.nettskjemaInfo?.dataTitle || '',
-      briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || ''},
+      briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || '',
+      embargo: skjemaInfo?.nettskjemaInfo?.embargo || false,},
     dataset2: {
       Data2UrlDoiRepo: skjemaInfo?.nettskjemaInfo?.Data2UrlDoiRepo || '',
       Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 

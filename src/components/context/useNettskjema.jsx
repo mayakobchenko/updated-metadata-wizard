@@ -21,6 +21,7 @@ export function useNettskjema () {
                 console.log('dataset version id:', datasetVersionId)
                 await dispatch({type: 'datasetVersionId', text: datasetVersionId})
                 const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
+                console.log(nettskjemaInfo)
                 const skjemaInfo = {contactFirstName: nettskjemaInfo.ContactInfo[0], 
                                     contactSurname: nettskjemaInfo.ContactInfo[1], 
                                     contactEmail: nettskjemaInfo.ContactInfo[2],

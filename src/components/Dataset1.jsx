@@ -113,10 +113,16 @@ export default function Dataset1({ form, onChange, data }) {
           the associated data through EBRAINS, you have the possibility to embargo
           your data for a certain period of time. Under the embargo period,
           only some of the metadata (e.g. information about subjects, aims etc.)
-          will be published through EBRAINS, but the original data itself will not be shared..">
-          <Checkbox style={{ padding: '20px' }} onChange={(e) => setEmbargo(e.target.checked)}>
-            Yes, embargo dataset
-          </Checkbox>
+          will be published through EBRAINS, but the original data itself will not be shared.
+          Note that you can request the embargo period for maximum 6 month.">
+          <div>
+            <Checkbox style={{ padding: '20px' }} checked={embargo} onChange={(e) => setEmbargo(e.target.checked)}>
+              Yes, embargo dataset
+            </Checkbox>
+            <Checkbox style={{ padding: '20px' }} checked={!embargo} onChange={(e) => setEmbargo(!e.target.checked)}>
+              No, data can be freely available
+            </Checkbox>
+          </div>  
         </AntForm.Item>
         {embargo && (
           <AntForm.Item
