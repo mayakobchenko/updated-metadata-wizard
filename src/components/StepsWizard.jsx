@@ -37,7 +37,8 @@ const StepsWizard = () => {
     dataset1: {
       dataTitle: skjemaInfo?.nettskjemaInfo?.dataTitle || '',
       briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || '',
-      embargo: skjemaInfo?.nettskjemaInfo?.embargo || false,},
+      embargo: skjemaInfo?.nettskjemaInfo?.embargo || false,
+      optionsData: skjemaInfo?.nettskjemaInfo?.optionsData || '',},
     dataset2: {
       Data2UrlDoiRepo: skjemaInfo?.nettskjemaInfo?.Data2UrlDoiRepo || '',
       Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 

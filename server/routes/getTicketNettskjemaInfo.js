@@ -32,7 +32,12 @@ const searchTitle = 'EBRAINS Curation Request Accepted'
 
 const NETTSKJEMA_ELEMENTS_ID = {
     "EmailPersonNettskjema": 5990394,    //What is your e-mail address?
-    "RequestType": 5990395,        //Please select your request type
+    "RequestType": 5990395,        //Please select your request type, answer options
+    "AlreadyContactCuration": 5990396,     //Have you already been in contact with the Curation team? yes,no
+    "DatasetUpdate": 5990398,    //Please enter the EBRAINS dataset URL/DOI that you are requesting to update
+    "Novelties": 5990399,          //Please provide a brief summary of the novelties of the new version
+    "Spicies": 6409074,     //What species did you study
+    "DataTypes": 5990401,//What type of data do you wish to share
     "ContactSurname": 5990407,
     "ContactFirstName" : 5990406,
     "ContactEmail": 5990408, 
@@ -48,9 +53,11 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "BriefSummary": 6159880,   
     "SummaryNoveltiesNewVersion": 5990399,  //if new version of data
     "Title":  6159879,
-    "UrlDoiRepo": 5990441,  //data published repo
-    "DoiJournal": 5990439,   //article describing data
-    "Embargo": 5990445,
+    "Embargo": 5990445,   //yes, no options
+    "DescribedArticle": 5990438, //Has your data already been described in a journal article?  yes,no
+    "DoiJournal": 5990439,   //article describing data //Please state the DOI(s) of the journal article(s)
+    "DataRepo": 5990440, //Has your data already been published elsewhere?
+    "UrlDoiRepo": 5990441,  //data published repo  //Please state the DOI(s) or URL(s) to the repository.
 }
 
 //answer option id
@@ -58,7 +65,29 @@ const ANSWERS_ID = {
     "YesContactcustodian": 14472467,
     "NoContactCustodian": 14472468,
     "YesEmbargo": 14472756,
-    "NoEmbargo": 14472757
+    "NoEmbargo": 14472757,
+    "NewDataset": 14472450,   //I am requesting the curation of a new dataset, model or software
+    "NewVersionOfExisting": 14472451,  //I am requesting the curation of a new version of an existing dataset, model or software
+    "InContactCuration": 14472452,   //yes in contact with curators
+    "FirstTime": 14472453,    //no, first time
+    "HomoSapiens": 15328168,   //Homo sapiens
+    "Macaca": 15328169,    //Macaca mulatta
+    "Mus": 15328170,          //Mus musculus
+    "Ratus": 15328171,     //Rattus norvegicus
+    "OtherSpicies": 15328172,   //Other(s)
+    "YesArticle": 14472746,   //Has your data already been described in a journal article?
+    "NoArticle": 14472747,
+    "DataPublishedYes": 14472748, //Yes, it is stored in a repository
+    "PartofDataPublished": 14472749, //Yes, parts are stored in a repository
+    "DataNotPublished": 14472750,    //No
+    //options: What type of data do you wish to share
+    "ExperimentalData": 14472456, //experimental data (raw/derived)
+    "SimulationData": 14472457,   //simulation data
+    "ComputationalModel": 14472458,  //a computational model
+    "Software": 14472459, //software
+    "BrainAtlas": 14472460, //brain atlas
+    "OtherData": 14472461, //other(s)
+
 }
 async function getZammadInfo (req, res) {
     try {
@@ -160,10 +189,11 @@ async function getNettskjemaInfo (req, res) {
         const custodianORCID = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDcustodian)?.textAnswer ?? null
         const custodianInstitution = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.InstitutionCustodian)?.textAnswer ?? null
         
-        //check if contact person is the data custodian
+        //check if contact person is the data custodian, this is mandatory questions
         let CustodianInfo 
         const ifcustodian = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.IfContactCustodian)?.answerOptionIds ?? null
-        if (ifcustodian[0]===ANSWERS_ID.YesContactcustodian) { 
+        //this works because it is a requested field in the nettskjema 
+        if (ifcustodian[0] === ANSWERS_ID.YesContactcustodian) { 
             CustodianInfo = ContactInfo   //if contact is custodian
             CustodianInfo = [...CustodianInfo, custodianORCID, custodianInstitution]
             //CustodianInfo = [ContactInfo, custodianORCID, custodianInstitution]
@@ -174,12 +204,18 @@ async function getNettskjemaInfo (req, res) {
             const custodianEmail = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.EmailCustodian)?.textAnswer ?? null
             CustodianInfo = [custodianName, custodianSurname, custodianEmail, custodianORCID, custodianInstitution]}
         
-        const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null    
+        const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null 
+        let optionsData 
+        const selectedDataTypes = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.DataTypes)?.answerOptionIds ?? null
+        if (selectedDataTypes[0] === ANSWERS_ID.ExperimentalData) { 
+            optionsData = 'Experimental data'}
+        if (selectedDataTypes[0] === ANSWERS_ID.SimulationData) {
+            optionsData = [...optionsData, 'Simulated data']}
         const briefSummary = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.BriefSummary)?.textAnswer ?? null
         let embargo 
         const isembargo = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Embargo)?.answerOptionIds ?? null
-        if (isembargo[0]===ANSWERS_ID.YesEmbargo) {embargo = True} else embargo = False
-        const DataInfo = [dataTitle, briefSummary, embargo]
+        isembargo? embargo = true : embargo = false  //answer present in nettskjema only if yes
+        const DataInfo = [dataTitle, briefSummary, embargo, optionsData]
         
         const GroupLeaderName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.GroupLeader)?.textAnswer ?? null    
         const GroupLeaderOrcid = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDgroupLeader)?.textAnswer ?? null
@@ -192,7 +228,7 @@ async function getNettskjemaInfo (req, res) {
 
         res.status(200).json({ ContactInfo: ContactInfo,  CustodianInfo: CustodianInfo, GroupLeader: GroupLeader, DataInfo: DataInfo, Data2Info: Data2Info})
     } catch (error) {
-        console.error('Error fetching info from zammad', error.message)
+        console.error('Error fetching info from nettskjema, getTicketNettskjemaInfo.js ', error.message)
         res.status(500).send('Internal server error')}
 }
 

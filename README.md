@@ -14,7 +14,7 @@ view ports in use: netstat -ano
 
 Try with ticket number:
 
-https://127.0.0.1:8080/?TicketNumber=4825517
+https://127.0.0.1:8080/?TicketNumber=4825517      (test embargo  4826087)
 
 https://127.0.0.1:8080/?TicketNumber=4824225
 

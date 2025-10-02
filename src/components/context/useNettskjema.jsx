@@ -35,6 +35,7 @@ export function useNettskjema () {
                                     dataTitle: nettskjemaInfo.DataInfo[0],
                                     briefSummary: nettskjemaInfo.DataInfo[1],
                                     embargo: nettskjemaInfo.DataInfo[2],
+                                    optionsData: nettskjemaInfo.DataInfo[3],
                                     Data2UrlDoiRepo: nettskjemaInfo.Data2Info[0],
                                     Data2DoiJournal: nettskjemaInfo.Data2Info[1]}
                 await dispatch({type: 'nettskjemaInfo', text: skjemaInfo})
