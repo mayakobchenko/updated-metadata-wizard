@@ -31,6 +31,8 @@ const searchTitle = 'EBRAINS Curation Request Accepted'
 //submission-ID:37004993
 
 const NETTSKJEMA_ELEMENTS_ID = {
+    "EmailPersonNettskjema": 5990394,    //What is your e-mail address?
+    "RequestType": 5990395,        //Please select your request type
     "ContactSurname": 5990407,
     "ContactFirstName" : 5990406,
     "ContactEmail": 5990408, 
@@ -174,7 +176,10 @@ async function getNettskjemaInfo (req, res) {
         
         const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null    
         const briefSummary = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.BriefSummary)?.textAnswer ?? null
-        const DataInfo = [dataTitle, briefSummary]
+        let embargo 
+        const isembargo = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Embargo)?.answerOptionIds ?? null
+        if (isembargo[0]===ANSWERS_ID.YesEmbargo) {embargo = True} else embargo = False
+        const DataInfo = [dataTitle, briefSummary, embargo]
         
         const GroupLeaderName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.GroupLeader)?.textAnswer ?? null    
         const GroupLeaderOrcid = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDgroupLeader)?.textAnswer ?? null
