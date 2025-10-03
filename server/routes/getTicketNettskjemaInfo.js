@@ -58,6 +58,9 @@ const NETTSKJEMA_ELEMENTS_ID = {
     "DoiJournal": 5990439,   //article describing data //Please state the DOI(s) of the journal article(s)
     "DataRepo": 5990440, //Has your data already been published elsewhere?
     "UrlDoiRepo": 5990441,  //data published repo  //Please state the DOI(s) or URL(s) to the repository.
+    "WillPiblish": 5990442, //Are you planning to submit a manuscript to a peer-reviewed journal that requires that your data are deposited in an appropriate repository, such as EBRAINS?
+    "WillSubmitJournal": 5990443, //Please state the name of the journal
+    "ChoseEmbargo": 5990444, //Please choose one of the options from below
 }
 
 //answer option id
@@ -87,7 +90,12 @@ const ANSWERS_ID = {
     "Software": 14472459, //software
     "BrainAtlas": 14472460, //brain atlas
     "OtherData": 14472461, //other(s)
-
+    "WillSumbit": 14472751,   //yes to WillPiblish
+    "WillNot": 14472752, //no to WillPiblish
+    //options for ChoseEmbargo
+    "FreeAccess": 15156763, //I want to allow public visibility and access to my dataset as soon as curation is complete
+    "RequestEmbargo": 15156764, //I want to request an embargo period for my data for maximum 6 month. Only the metadata should be available to the public. (A DOI will be assigned to the dataset.)
+    "KeepPrivate": 15156765, //I want to keep my dataset and the related metadata private until the journal review of the associated paper is finished. (A temporary and private URL for reviewers can be provided.)
 }
 async function getZammadInfo (req, res) {
     try {
@@ -195,9 +203,7 @@ async function getNettskjemaInfo (req, res) {
         //this works because it is a requested field in the nettskjema 
         if (ifcustodian[0] === ANSWERS_ID.YesContactcustodian) { 
             CustodianInfo = ContactInfo   //if contact is custodian
-            CustodianInfo = [...CustodianInfo, custodianORCID, custodianInstitution]
-            //CustodianInfo = [ContactInfo, custodianORCID, custodianInstitution]
-            } 
+            CustodianInfo = [...CustodianInfo, custodianORCID, custodianInstitution]} 
         else if (ifcustodian[0]===ANSWERS_ID.NoContactCustodian) {
             const custodianName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.NameCustodian)?.textAnswer ?? null
             const custodianSurname = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.SurnameCustodian)?.textAnswer ?? null
@@ -207,6 +213,7 @@ async function getNettskjemaInfo (req, res) {
         const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null 
         let optionsData 
         const selectedDataTypes = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.DataTypes)?.answerOptionIds ?? null
+        //this if statement will work only if this question is manadatory in the nettskjema
         if (selectedDataTypes[0] === ANSWERS_ID.ExperimentalData) { 
             optionsData = 'Experimental data'}
         if (selectedDataTypes[0] === ANSWERS_ID.SimulationData) {
@@ -214,8 +221,25 @@ async function getNettskjemaInfo (req, res) {
         const briefSummary = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.BriefSummary)?.textAnswer ?? null
         let embargo 
         const isembargo = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Embargo)?.answerOptionIds ?? null
-        isembargo? embargo = true : embargo = false  //answer present in nettskjema only if yes
-        const DataInfo = [dataTitle, briefSummary, embargo, optionsData]
+        //isembargo ? embargo = true : embargo = false  //answer present in nettskjema only if yes
+        if (isembargo!== null) {if (isembargo[0]=== ANSWERS_ID.YesEmbargo) {embargo = true}}
+
+        let willPublish 
+        const isWillPublish = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.WillPiblish)?.answerOptionIds ?? null
+        if (isWillPublish!== null) {if (isWillPublish[0]=== ANSWERS_ID.WillSumbit) {willPublish = true} else {willPublish = false}}
+        let submitJournalName
+        if (willPublish) { submitJournalName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.WillSubmitJournal)?.textAnswer ?? null }
+        
+        let embargoReview 
+        const issubmission = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ChoseEmbargo)?.answerOptionIds ?? null
+        if (issubmission !== null) {
+            if (issubmission[0] === ANSWERS_ID.RequestEmbargo) { embargo = true }
+            if (issubmission[0] === ANSWERS_ID.KeepPrivate) {
+                embargoReview = true
+                embargo = true
+            }}     
+
+        const DataInfo = [dataTitle, briefSummary, embargo, optionsData, embargoReview, submitJournalName]
         
         const GroupLeaderName = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.GroupLeader)?.textAnswer ?? null    
         const GroupLeaderOrcid = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.ORCIDgroupLeader)?.textAnswer ?? null

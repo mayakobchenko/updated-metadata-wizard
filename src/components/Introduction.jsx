@@ -29,7 +29,17 @@ export default function Introduction({ form, onChange, data }) {
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     if (emailPattern.test(value)) {
       return callback()}
-    callback('Price enter a valid email address')}
+    callback('Price enter a valid email address')
+  }
+  
+  const checkOrcid = (rule, value, callback) => {
+    const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{4}$/
+    const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-\d{4}$/
+    if (orcidRegex.test(value) || orcidUrlRegex.test(value)) { return callback() }
+    callback('Please verify the orchid number')
+  }
+  //orcidUrl = `https://orcid.org/${orcidId}`
+  //const orcidUrl = formatedOrcid(initialValues.custodian.orcid)
 
   return (
     <div>
@@ -103,8 +113,10 @@ export default function Introduction({ form, onChange, data }) {
         <AntForm.Item
           label="Data custodian's ORCID"
           name={['custodian', 'orcid']} 
-          rules={[{ required: false}]}>
-          <Input />
+          rules={[
+            { required: false},
+            { validator: checkOrcid }]}>
+          <Input/>
         </AntForm.Item>
         <AntForm.Item
           label="Group Leader / Principal Investigator"

@@ -18,6 +18,8 @@ export default function Dataset1({ form, onChange, data }) {
       optionsData: data.dataset1?.optionsData || '',
       embargo: data.dataset1?.embargo || false,
       embargoDate: data.dataset1?.embargoDate || null,
+      embargoReview: data.dataset1?.embargoReview || false,
+      submitJournalName: data.dataset1?.submitJournalName || '',
       copyright: data.dataset1?.copyright || '',
       copyrightHolder: data.dataset1?.copyrightHolder || 'Person',
       copyrightFirstName: data.dataset1?.copyrightFirstName || '',
@@ -35,7 +37,7 @@ export default function Dataset1({ form, onChange, data }) {
     if (changedValues['dataset1']?.copyrightHolder) {
     setCopyrightHolder(changedValues['dataset1'].copyrightHolder)}
     onChange(allValues)}
-
+//data types:
   const optionsData = [
     { label: 'Experimental data', value: 'Experimental data' },
     { label: 'Simulated data', value: 'Simulated data' },
@@ -126,11 +128,18 @@ export default function Dataset1({ form, onChange, data }) {
         </AntForm.Item>
         {embargo && (
           <AntForm.Item
-              label="Intended release date"
-              name={['dataset1', 'embargoDate']}
-              rules={[{ required: embargo, message: 'Please select release date!' }]}
-              extra = "When do you plan on lifting the embargo? Please try to give your best estimation.">
-              <DatePicker style={{ width: '100%' }} />
+            label="Intended release date"
+            name={['dataset1', 'embargoDate']}
+            rules={[{ required: embargo, message: 'Please select release date!' }]}
+            extra = "When do you plan on lifting the embargo? Please try to give your best estimation.">
+            <DatePicker style={{ width: '100%' }} />     
+          </AntForm.Item>)}
+        {initialValues.dataset1.embargoReview && (
+          <AntForm.Item
+            label="You are planning to submit your manuscript to this peer-reviewed journal:"
+            name={['dataset1', 'submitJournalName']}
+            rules={[{ required: initialValues.dataset1.embargoReview, message: 'Please confirm the journal name!' }]}>
+            <Input />
           </AntForm.Item>)}
         <AntForm.Item
           name={['dataset1', 'copyright']}
