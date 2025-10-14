@@ -34,6 +34,9 @@ try:
         data_type_list = data['dataset1']['optionsData']
         # print(json.dumps({"message": "Successfully read JSON", "data title": dataset1_title}))
 
+        # orcidUrl = `https://orcid.org/${orcidId}`
+  # const orcidUrl = formatedOrcid(initialValues.custodian.orcid)
+
 except Exception as e:
     print(json.dumps({"error": str(e)}))
     sys.exit(1)
@@ -52,7 +55,7 @@ def fetch_data_info(dt_id, token):
             # ds_instance = fairgraph.openminds.core.Dataset.from_id(dt_id, client, scope="in progress")
 
         dsv_instance.short_name = dsv_short_title
-        # dsv_instance.alias = dsv_short_title
+        # dsv_instance.alias = dsv_short_title   #aparently depricates
         dsv_instance.full_name = dsv_title
         dsv_instance.data_types = []
 

@@ -15,24 +15,24 @@ export default function ContributorsAntd({ onChange, data }) {
     useEffect(() => {
         const fetchContributors = async () => {
             try {
-                const response = await fetch('api/kginfo/contributorsfile');
+                const response = await fetch('api/kginfo/contributorsfile')
                 if (!response.ok) {
-                    throw new Error(`Error fetching contributors: ${response.status}`);
+                    throw new Error(`Error fetching contributors: ${response.status}`)
                 }
-                const data = await response.json();
-                setContributors(data.person);
+                const data = await response.json()
+                setContributors(data.person)
             } catch (error) {
-                console.error('Error fetching contributors:', error);
+                console.error('Error fetching contributors:', error)
             }
         };
-        fetchContributors();
-    }, []);
+        fetchContributors()
+    }, [])
 
     const handleAddField = () => {
         setFormFields([...formFields, { id: Date.now(), newPerson: false }])}
 
     const handleRemoveField = (id) => {
-        const newFields = formFields.filter(field => field.id !== id);
+        const newFields = formFields.filter(field => field.id !== id)
         setFormFields(newFields)}
 
     const handleCheckboxChange = (id) => {

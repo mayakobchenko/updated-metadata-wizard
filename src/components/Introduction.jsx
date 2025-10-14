@@ -38,8 +38,6 @@ export default function Introduction({ form, onChange, data }) {
     if (orcidRegex.test(value) || orcidUrlRegex.test(value)) { return callback() }
     callback('Please verify the orchid number')
   }
-  //orcidUrl = `https://orcid.org/${orcidId}`
-  //const orcidUrl = formatedOrcid(initialValues.custodian.orcid)
 
   return (
     <div>
