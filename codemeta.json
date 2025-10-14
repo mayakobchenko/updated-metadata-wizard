@@ -1,0 +1,27 @@
+{
+  "@context": "https://w3id.org/codemeta/3.0",
+  "@type": "SoftwareSourceCode",
+      "author": [
+        {
+            "id": "https://orcid.org/0000-0001-8359-3486",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "NeSys, University of Oslo"
+            },
+            "familyName": "Kobchenko",
+            "givenName": "Maya"
+        }
+    ],
+  "name": "The EBRAINS Metadata Wizard",
+  "description": "The EBRAINS Metadata Wizard features a user-friendly interface that enables users to edit metadata in accordance with the OPENMINDS schema directly from their web browser. An online form simplifies the process, allowing users to effortlessly create, modify, and upload metadata to the EBRAINS Knowledge Graph.",
+  "license": [
+    "https://spdx.org/licenses/MIT"
+  ],
+  "version": "3.0.0",
+  "programmingLanguage": "JavaScript",
+  "runtimePlatform": "Web",
+  "developmentStatus": "active",
+  "funding": "H2020-EU FPA 650003 (HBP FPA) and HORIZON-INFRA (EBRAINS 2.0) 101147319",
+  "codeRepository": "https://github.com/Neural-Systems-at-UIO/ebrains-2025_metadata-wizard"
+}

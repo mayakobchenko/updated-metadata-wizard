@@ -1,6 +1,6 @@
 # Ebrains Metadata Wizard
 
-The EBRAINS Metadata Wizard features a user-friendly interface that enables users to edit metadata in accordance with the OPENMINDS schema directly from their web browser. An online form simplifies the process, allowing users to effortlessly create, modify, and upload metadata to the EBRAINS Knowledge Graph.
+The EBRAINS Metadata Wizard is a freely accessible web-based service designed to assist researchers in generating structured, FAIR-compliant metadata for neuroscience research products (datasets) intended for registration in the EBRAINS Knowledge Graph. It offers an intuitive interface that allows users to edit metadata according to the openMINDS standard directly from their web browser. Built on a form-driven frontend, it features interactive validation, helpful tooltips, and structured guidance to ensure that users can easily create and modify metadata. The Metadata Wizard's backend server dynamically generates JSON-LD compliant with the openMINDS framework and uploads metadata to the EBRAINS Knowledge Graph.
 
 # Acknowledgements
 
