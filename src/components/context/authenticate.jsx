@@ -113,11 +113,11 @@ getUserKG: async function getUserKG(token) {
         if (!userResponse.ok) {
           throw new Error(`Failed to get user, status: ${userResponse.status}`);
         }
-        const responseData = await userResponse.json(); 
-        const data = responseData.data;
-        let userInfo = {};
+        const responseData = await userResponse.json()
+        const data = responseData.data
+        let userInfo = {}
         Object.keys(userMap).forEach(key => {
-            userInfo[key] = data[userMap[key]];
+            userInfo[key] = data[userMap[key]]
         })
         console.log('user info from KG endpoint:', userInfo)
         return userInfo

@@ -153,22 +153,23 @@ export default function Dataset1({ form, onChange, data }) {
               </Radio>))}
           </Radio.Group>
         </AntForm.Item>
-        {copyright === "Yes" && (<>
-          <AntForm.Item
-            label={`Copyright Holder`}
-            name={['dataset1', 'copyrightHolder']}  
-            rules={[{ required: true, message: `Please select legal entity!` }]}
-            extra = 'Select the type of legal entity in possession of the copyright.'>
-            <Select
-              style={{ minWidth: 240 }}
-              onChange={(value) => setCopyrightHolder(value)}>
-              {optionsCopyright.map(option => (
-                  <Option key={option.value} value={option.value}>
-                      {option.label}
-                  </Option>
-              ))}
-            </Select>
-          </AntForm.Item>
+        {copyright === "Yes" && (
+          <>
+              <AntForm.Item
+                label={`Copyright Holder`}
+                name={['dataset1', 'copyrightHolder']}  
+                rules={[{ required: true, message: `Please select legal entity!` }]}
+                extra = 'Select the type of legal entity in possession of the copyright.'>
+                <Select
+                  style={{ minWidth: 240 }}
+                  onChange={(value) => setCopyrightHolder(value)}>
+                  {optionsCopyright.map(option => (
+                      <Option key={option.value} value={option.value}>
+                          {option.label}
+                      </Option>
+                  ))}
+                </Select>
+              </AntForm.Item>
               {copyrightHolder === "Person" && (<>
                 <AntForm.Item
                   label="First Name"
@@ -181,8 +182,7 @@ export default function Dataset1({ form, onChange, data }) {
                   name={['dataset1', 'copyrightLastName']}  // Store last name
                   rules={[{ required: true, message: 'Please enter the last name!' }]}>
                   <Input placeholder="Last Name..." />
-                </AntForm.Item>
-              </>)}
+                </AntForm.Item></>)}
               {copyrightHolder === "Organization" && (
               <AntForm.Item
                 label="Organization Name"

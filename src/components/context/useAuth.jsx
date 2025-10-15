@@ -40,7 +40,7 @@ export function useAuth () {
           console.log('getToken auth function')
           authFunctions.getToken()
             .then( (token) => {
-              handleTokenReceived(token);
+              handleTokenReceived(token)
               //const user_server = authFunctions.getUser(token)
               //console.log('got from backend:', user_server)
               /*return authFunctions.getUser(token);*/

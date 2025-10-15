@@ -128,7 +128,7 @@ async function getToken(req, res) {
       //res.status(500).send('Backend server error', error.message)
     }
   }
-
+//this route is not used, because of CORS policies
 async function getUser(req, res) {
     try {
       const token = req.headers.authorization
@@ -184,4 +184,4 @@ async function getLogOutUrl(req, res) {
     }
   }
 
-export default router;  
+export default router

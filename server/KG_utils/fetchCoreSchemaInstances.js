@@ -21,33 +21,33 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     } else {console.log("New directory successfully created.")}})
 
 export const fetchCoreSchemaInstances = async (typeSpecifications) => {
-    const requestOptions = await getRequestOptions();
-    const API_BASE_URL = "https://core.kg.ebrains.eu/";
-    const API_ENDPOINT = "v3/instances";
+    const requestOptions = await getRequestOptions()
+    const API_BASE_URL = "https://core.kg.ebrains.eu/"
+    const API_ENDPOINT = "v3/instances"
 
     const fetchPromises = typeSpecifications.map(async (typeSpecification) => {
-        const spaceName = typeSpecification.space !== undefined ? typeSpecification.space : "common";
-        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.ebrains.eu/core/"];
-        const TYPE_NAME = typeSpecification.openMindsType;
-        const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`;
+        const spaceName = typeSpecification.space !== undefined ? typeSpecification.space : "common"
+        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.ebrains.eu/core/"]
+        const TYPE_NAME = typeSpecification.openMindsType
+        const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
         try {
-            await fetchInstances(queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties);
+            await fetchInstances(queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties)
         } catch (error) {
-            console.error(`Error fetching instances for ${TYPE_NAME}:`, error);
+            console.error(`Error fetching instances for ${TYPE_NAME}:`, error)
         }
     });
-    await Promise.all(fetchPromises);
+    await Promise.all(fetchPromises)
 };
 
 async function fetchInstances(apiQueryUrl, requestOptions, typeName, propertyNames) {
     try {
-        const response = await fetch(apiQueryUrl, requestOptions);
+        const response = await fetch(apiQueryUrl, requestOptions)
         if (response.status === 200) {
             const data = await response.json();
-            await parseAndSaveData(data, typeName, propertyNames);
+            await parseAndSaveData(data, typeName, propertyNames)
         } else { throw new Error('Error fetching instances for ' + typeName + '. Status code: ' + response.status);}
     } catch (error) {
-        console.log(`Error fetching instances for ${typeName}:`, error);
+        console.log(`Error fetching instances for ${typeName}:`, error)
     }
 }
 
@@ -58,7 +58,7 @@ async function parseAndSaveData(data, typeName, propertyNameList) {
             let newInstance = { "identifier": thisInstance["@id"] };
             let isEmpty = true;
             for (let propertyName of propertyNameList) {
-                const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`;
+                const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
                 if (thisInstance[vocabName] !== undefined) {
                     isEmpty = false
                     newInstance[propertyName] = thisInstance[vocabName]}}

@@ -20,6 +20,7 @@ router.get('/zammadinfo', getZammadInfo)
 router.get('/nettskjema', getNettskjemaInfo)
 
 //updated url: https://nettskjema.no/api/v3/swagger-ui/index.html
+//to use swagger uncomment console.log(token) below 
 
 //curation request nettskjema id=386195
 //https://api.nettskjema.no/v3/form/386195/definition    -> elements  -> elementId
@@ -172,8 +173,10 @@ async function getNettskjemaInfo (req, res) {
         if (!response.ok) {throw new Error('Error fetching nettskjema token: ' + response.status)}  
         const data = await response.json()
         const nettskjemaToken = data.access_token 
+
         //to use swagger:
-        //console.log(nettskjemaToken)
+        console.log(nettskjemaToken)
+
         if (!nettskjemaToken) {throw new Error('Nettskjema token not received.')}
         const submissionResponse = await fetch(`https://nettskjema.no/api/v3/form/submission/${submissionId}`, {
             method: 'GET',
@@ -211,6 +214,16 @@ async function getNettskjemaInfo (req, res) {
             CustodianInfo = [custodianName, custodianSurname, custodianEmail, custodianORCID, custodianInstitution]}
         
         const dataTitle = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.Title)?.textAnswer ?? null 
+        
+        //if the dataset is new or a new version of existing one
+        let isRequestingNew
+        const ifNewDataset = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.RequestType)?.answerOptionIds ?? null
+        if (ifNewDataset[0] === ANSWERS_ID.NewDataset) { 
+            isRequestingNew = true}
+        if (ifNewDataset[0] === ANSWERS_ID.NewVersionOfExisting) {
+            isRequestingNew = false
+        }
+        
         let optionsData 
         const selectedDataTypes = answers.find(item => item.elementId === NETTSKJEMA_ELEMENTS_ID.DataTypes)?.answerOptionIds ?? null
         //this if statement will work only if this question is manadatory in the nettskjema

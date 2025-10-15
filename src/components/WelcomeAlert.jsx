@@ -33,12 +33,17 @@ export default function WelcomeText() {
 //Brief timeout for UX qol
   useEffect(() => {
       if (!userInfo.token) {
-      const timer = setTimeout(() => setShowDialog(true), 5000);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => setShowDialog(true), 5000)
+      return () => clearTimeout(timer)
       } else {
-        setShowDialog(false);
+        setShowDialog(false)
+        if (userInfo.user) {
+          console.log('useEffect in wecome alert is running to get user')
+          authFunctions.getUserKG(userInfo.token)
+          dispatch({type: 'user', text: user})
+        }
       }
-  }, [userInfo.token]);
+  }, [userInfo.token, userInfo.user])
 
   if (!userInfo.token) {
     if (!showDialog) {
@@ -58,7 +63,7 @@ export default function WelcomeText() {
           </Typography>
           <CircularProgress size={25} />
         </Box>*/
-      );
+      )
     }
     return (
       <Dialog
@@ -76,7 +81,7 @@ export default function WelcomeText() {
           </Button>
         </DialogActions>
       </Dialog>
-    );
+    )
   }
   
 }
