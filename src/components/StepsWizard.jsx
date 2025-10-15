@@ -5,6 +5,7 @@ import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal, Steps } from 'antd'
 import ProgressBar from './ProgressBar'
 import Contributors from './Contributors.jsx'
+import Contributors_remove from './Contributors_remove.jsx'
 import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
@@ -59,7 +60,7 @@ const StepsWizard = () => {
     { id: 1, component: Dataset1 },
     { id: 2, component: Dataset2 },
     { id: 3, component: Funding },
-    { id: 4, component: Contributors },
+    { id: 4, component: Contributors_remove },
     { id: 5, component: Experiments },
     { id: 6, component: Subjects }]
 

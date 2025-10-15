@@ -271,6 +271,13 @@ color: var(-button-color-primary-active-hover);
   display: flex;
   width: 100%;
 }
+.add-contributor-button {
+  color: var(--button-color-primary);
+  min-width: 100px;
+  background-color: var(--form-background-color);
+  border-color: var(--button-color-primary);
+  border-radius: 5px;
+}
 /*-----------------------------not edited yet by maya------------------------*/
 
 .notice {

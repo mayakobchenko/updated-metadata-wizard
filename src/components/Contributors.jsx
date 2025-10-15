@@ -1,62 +1,50 @@
-import { useState, useEffect } from 'react';
-import { Form, Input, Select, Checkbox, Button, Divider } from 'antd';
+import { useState, useEffect } from 'react'
+import { Form, Input, Select, Checkbox, Button, Divider } from 'antd'
 
-const { Option } = Select;
+const { Option } = Select
 
 export default function Contributors({ form, onChange, data }) {
-    const [contributors, setContributors] = useState([]);
-    const [dynamicFields, setDynamicFields] = useState(data.contributing?.dynamicFields || []);
+    const [contributors, setContributors] = useState([])
+    const [dynamicFields, setDynamicFields] = useState(data.contributing?.dynamicFields || [])
 
     const initialValues = {
         contributing: {
-            isNewPerson: data.contributing?.isNewPerson || false,
-            contributorsKG: data.contributing?.contributorsKG || '',
-            contributorsNewKG: {
-                firstNameNewKG: data.contributing?.contributorsNewKG?.firstNameNewKG || '',
-                lastNameNewKG: data.contributing?.contributorsNewKG?.lastNameNewKG || '',
-            },
             dynamicFields: dynamicFields, 
-        },
-    };
+        },}
 
     useEffect(() => {
-        setDynamicFields(data.contributing?.dynamicFields || []);
-    }, [data]);
+        setDynamicFields(data.contributing?.dynamicFields || [])
+    }, [data])
 
     const fetchContributors = async () => {
         try {
-            const response = await fetch('api/kginfo/contributorsfile');
+            const response = await fetch('api/kginfo/contributorsfile')
             if (!response.ok) {
-                throw new Error(`Error fetching contributors: ${response.status}`);
-            }
-            const fetchedData = await response.json();
-            setContributors(fetchedData.person);
+                throw new Error(`Error fetching contributors: ${response.status}`)}
+            const fetchedData = await response.json()
+            setContributors(fetchedData.person)
         } catch (error) {
-            console.error('Error fetching contributors:', error);
-        }
-    };
+            console.error('Error fetching contributors:', error)}}
 
-    useEffect(() => {
-        fetchContributors();
-    }, []);
+    useEffect(() => {fetchContributors()}, [])
 
     const addDynamicField = () => {
-        const newField = { id: Date.now(), isCustom: false, firstName: '', lastName: '', selectedContributor: '' };
-        const updatedFields = [...dynamicFields, newField];
-        setDynamicFields(updatedFields);
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } });
-    };
+        const newField = { id: Date.now(), isCustom: false, firstName: '', lastName: '', selectedContributor: '' }
+        const updatedFields = [...dynamicFields, newField]
+        setDynamicFields(updatedFields)
+        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
+    }
 
     const handleFieldChange = (index, field, value) => {
-        const updatedFields = [...dynamicFields];
-        updatedFields[index][field] = value;
-        setDynamicFields(updatedFields);
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } });
-    };
+        const updatedFields = [...dynamicFields]
+        updatedFields[index][field] = value
+        setDynamicFields(updatedFields)
+        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
+    }
 
     const handleValuesChange = (changedValues) => {
-        onChange({ contributing: { ...data.contributing, ...changedValues.contributing } });
-    };
+        onChange({ contributing: { ...data.contributing, ...changedValues.contributing } })
+    }
 
     return (
         <div>
@@ -115,9 +103,11 @@ export default function Contributors({ form, onChange, data }) {
                         )}
                     </div>
                 ))}
-                <Button type="dashed" onClick={addDynamicField} style={{ width: '100%' }}>
-                    Add Contributor
-                </Button>
+                <div style={{ textAlign: 'center', margin: '20px 0' }}>
+                    <Button type="dashed" onClick={addDynamicField} style={{ width: '20%' }}>
+                        Add Contributor
+                    </Button>
+                </div>
             </Form>
         </div>
     );
