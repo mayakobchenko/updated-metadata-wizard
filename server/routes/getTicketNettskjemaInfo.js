@@ -175,7 +175,7 @@ async function getNettskjemaInfo (req, res) {
         const nettskjemaToken = data.access_token 
 
         //to use swagger:
-        console.log(nettskjemaToken)
+        //console.log(nettskjemaToken)
 
         if (!nettskjemaToken) {throw new Error('Nettskjema token not received.')}
         const submissionResponse = await fetch(`https://nettskjema.no/api/v3/form/submission/${submissionId}`, {

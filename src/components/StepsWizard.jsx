@@ -4,7 +4,7 @@ import { useNettskjema } from "./context/useNettskjema"
 import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal, Steps } from 'antd'
 import ProgressBar from './ProgressBar'
-import ContributorsAntd from './Contributors_antd'
+import Contributors from './Contributors.jsx'
 import Subjects from './Subjects'
 import Introduction from './Introduction'
 import WelcomeAlert from './WelcomeAlert'
@@ -59,7 +59,7 @@ const StepsWizard = () => {
     { id: 1, component: Dataset1 },
     { id: 2, component: Dataset2 },
     { id: 3, component: Funding },
-    { id: 4, component: ContributorsAntd },
+    { id: 4, component: Contributors },
     { id: 5, component: Experiments },
     { id: 6, component: Subjects }]
 
@@ -103,6 +103,7 @@ const StepsWizard = () => {
 
   const savePythonKG = async () => {
     try {
+      downloadJson()
       const pythonurl = 'api/python/runpython'
       //const hello_url = 'api/python/hello'  //test endpoint
       //const response = await fetch(pythonurl)  //get request
@@ -116,7 +117,6 @@ const StepsWizard = () => {
       const data = await response.json()
       console.log(data)
 
-      downloadJson()
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }
   
@@ -127,7 +127,7 @@ const StepsWizard = () => {
     const a = document.createElement('a')
     a.href = url
     a.download = 'metadata_wizard.json'
-    document.body.appendChild(a) // Append to body to work in Firefox
+    document.body.appendChild(a) // to work in Firefox
     a.click()
     document.body.removeChild(a)  // Clean up
     URL.revokeObjectURL(url)
@@ -150,7 +150,8 @@ const StepsWizard = () => {
         {currentStepIndex < steps.length - 1 && (
             <Button onClick={nextStep} className="next-back-button">Next</Button>)}
         {currentStepIndex === steps.length - 1 && (
-            <Button onClick={savePythonKG} className="next-back-button">Save</Button>)}
+          //change here the onClick function to uploadpythonKG
+            <Button onClick={downloadJson} className="next-back-button">Save</Button>)}
       </div>
       <Modal
           title="Warning"
