@@ -13,6 +13,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'kg-instances')
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
+const API_BASE_URL = "https://core.kg.ebrains.eu/"
+const API_ENDPOINT = "v3/instances"
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err) {
@@ -22,8 +24,6 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
 
 export const fetchCoreSchemaInstances = async (typeSpecifications) => {
     const requestOptions = await getRequestOptions()
-    const API_BASE_URL = "https://core.kg.ebrains.eu/"
-    const API_ENDPOINT = "v3/instances"
 
     const fetchPromises = typeSpecifications.map(async (typeSpecification) => {
         const spaceName = typeSpecification.space !== undefined ? typeSpecification.space : "common"
@@ -37,13 +37,13 @@ export const fetchCoreSchemaInstances = async (typeSpecifications) => {
         }
     });
     await Promise.all(fetchPromises)
-};
+}
 
 async function fetchInstances(apiQueryUrl, requestOptions, typeName, propertyNames) {
     try {
         const response = await fetch(apiQueryUrl, requestOptions)
         if (response.status === 200) {
-            const data = await response.json();
+            const data = await response.json()
             await parseAndSaveData(data, typeName, propertyNames)
         } else { throw new Error('Error fetching instances for ' + typeName + '. Status code: ' + response.status);}
     } catch (error) {
@@ -52,24 +52,83 @@ async function fetchInstances(apiQueryUrl, requestOptions, typeName, propertyNam
 }
 
 async function parseAndSaveData(data, typeName, propertyNameList) {
-    let typeInstanceList = [];
+    let typeInstanceList = []
     try {
+        let orcidData
+        if (typeName == "Person") {
+           orcidData = await loadJsonFile(path.join(OUTPUT_DIR, `ORCID.json`))
+        }
         for (let thisInstance of data.data) {
-            let newInstance = { "identifier": thisInstance["@id"] };
-            let isEmpty = true;
+            let newInstance = { "uuid": thisInstance["@id"] }
+            let isEmpty = true
             for (let propertyName of propertyNameList) {
                 const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
                 if (thisInstance[vocabName] !== undefined) {
                     isEmpty = false
-                    newInstance[propertyName] = thisInstance[vocabName]}}
+                    if (typeName == "Person" && propertyName == "digitalIdentifier") {
+                        const findOrcid = orcidData.find(entry => entry.uuid === thisInstance[`${OPENMINDS_VOCAB}/digitalIdentifier`]["@id"])
+                        if (findOrcid !== undefined) {newInstance["orcid"] = findOrcid["identifier"]}
+                      } else {newInstance[propertyName] = thisInstance[vocabName]} 
+                    //newInstance[propertyName] = thisInstance[vocabName]
+                }
+            }
             if (!isEmpty) {
                 typeInstanceList.push(newInstance)}
         }
         const jsonStr = JSON.stringify(typeInstanceList, null, 2);
-        const filename = `${typeName}.json`;
+        const filename = `${typeName}.json`
         const filePath = path.join(OUTPUT_DIR, filename)
-        await fs.promises.writeFile(filePath, jsonStr);
-        console.log('File with instances for ' + typeName + ' written successfully');
+        await fs.promises.writeFile(filePath, jsonStr)
+        console.log('File with instances for ' + typeName + ' written successfully')
     } catch (error) {
         console.error(`Error while parsing and saving data for ${typeName}:`, error)}
 }
+
+async function loadJsonFile(filePath) {
+    try {
+        const data = await fs.promises.readFile(filePath, 'utf8')
+        const jsonData = JSON.parse(data)
+        return jsonData
+    } catch (err) {
+        console.error('Error reading the file:', err)
+        throw err
+    }
+}
+
+/*
+async function getORCID() {
+    const TYPE_NAME = "ORCID"
+    const QUERY_PARAMS = ["stage=RELEASED", "space=common", "type=https://openminds.ebrains.eu/core/"]
+    const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
+    const properties = ["identifier"]
+    try {
+        let orcidKG =[]
+        const requestOptions = await getRequestOptions()
+        const response = await fetch(queryUrl, requestOptions)
+        if (response.status === 200) {
+            const data = await response.json()
+            let typeInstanceList = []
+            for (let thisInstance of data.data) {
+                let newInstance = { "uuid": thisInstance["@id"] }
+                let isEmpty = true
+                for (let propertyName of properties) {
+                    const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
+                    if (thisInstance[vocabName] !== undefined) {
+                      isEmpty = false
+                      if (propertyName == "digitalIdentifier") {
+                        newInstance["orcid_uuid"] = thisInstance[vocabName]["@id"]
+                      } else {newInstance[propertyName] = thisInstance[vocabName]}              
+                    }
+                }
+                if (!isEmpty) {
+                    typeInstanceList.push(newInstance)
+                }
+            }
+            orcidKG.push(typeInstanceList)
+        } else { throw new Error('Error fetching instances for contributors. Status code: ' + response.status)}
+      //console.log(orcidKG)
+    } catch (error) {
+      console.error('Error:', error.message)
+    }
+  }
+  */

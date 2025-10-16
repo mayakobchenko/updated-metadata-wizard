@@ -25,7 +25,7 @@ const QUERY_PARAMS = ["stage=RELEASED", "space=common", "type=https://openminds.
 async function getContributors(req, res) {
     const TYPE_NAME = "Person"
     const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
-    const properties = ["familyName", "givenName"]
+    const properties = ["familyName", "givenName", "digitalIdentifier"]
     console.log('get contributors function is running')
     try {
         let personKG =[]
@@ -36,19 +36,21 @@ async function getContributors(req, res) {
         if (response.status === 200) {
             const data = await response.json()
             //console.log(response)
-            let typeInstanceList = [];
+            let typeInstanceList = []
             for (let thisInstance of data.data) {
-                let newInstance = { "identifier": thisInstance["@id"] };
-                let isEmpty = true;
+                let newInstance = { "identifier": thisInstance["@id"] }
+                let isEmpty = true
                 for (let propertyName of properties) {
-                    const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`;
+                    const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
                     if (thisInstance[vocabName] !== undefined) {
-                        isEmpty = false;
-                        newInstance[propertyName] = thisInstance[vocabName];
+                      isEmpty = false
+                      if (propertyName == "digitalIdentifier") {
+                        newInstance["orcid_uuid"] = thisInstance[vocabName]["@id"]
+                      } else {newInstance[propertyName] = thisInstance[vocabName]}              
                     }
                 }
                 if (!isEmpty) {
-                    typeInstanceList.push(newInstance);
+                    typeInstanceList.push(newInstance)
                 }
             }
             //const jsonStr = JSON.stringify(typeInstanceList, null, 2)
@@ -57,8 +59,8 @@ async function getContributors(req, res) {
       console.log(personKG)
       res.json({personKG})
     } catch (error) {
-      console.error('Error fetching contributors from KG', error.message);
-      res.status(500).send('Internal server error');
+      console.error('Error fetching contributors from KG', error.message)
+      res.status(500).send('Internal server error')
     }
   }
 

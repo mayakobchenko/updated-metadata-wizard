@@ -4,8 +4,12 @@ import { fetchLicenses } from './fetchLicenses.js'
 
 const configObject = [
     {
+        openMindsType: "ORCID",
+        typeProperties: ["identifier"]
+    },
+    {
         openMindsType: "Person",
-        typeProperties: ["familyName", "givenName"]
+        typeProperties: ["familyName", "givenName", "digitalIdentifier"]
     },
     {
         openMindsType: "Organization",
