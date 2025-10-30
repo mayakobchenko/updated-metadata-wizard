@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Form, Input, Select, Checkbox, Button, Divider } from 'antd';
+import { useState, useEffect } from 'react'
+import { Form, Input, Select, Checkbox, Button } from 'antd'
 
 const { Option } = Select
 
@@ -14,12 +14,12 @@ export default function Contributors({ form, onChange, data }) {
     };
 
     useEffect(() => {
-        setDynamicFields(data.contributing?.dynamicFields || []);
+        setDynamicFields(data.contributing?.dynamicFields || [])
     }, [data])
 
     const fetchContributors = async () => {
         try {
-            const response = await fetch('api/kginfo/contributorsfile');
+            const response = await fetch('api/kginfo/contributorsfile')
             if (!response) {
                 throw new Error(`Error fetching contributors: ${response.status}`)
             }
@@ -35,28 +35,34 @@ export default function Contributors({ form, onChange, data }) {
     }, [])
 
     const addDynamicField = () => {
-        const newField = { id: Date.now(), isCustom: false, firstName: '', lastName: '', selectedContributor: '' };
-        const updatedFields = [...dynamicFields, newField];
-        setDynamicFields(updatedFields);
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } });
+        const newField = { id: Date.now(), isCustom: false, firstName: '', lastName: '', selectedContributor: '' }
+        const updatedFields = [...dynamicFields, newField]
+        setDynamicFields(updatedFields)
+        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
     };
 
     const removeDynamicField = (index) => {
-        const updatedFields = dynamicFields.filter((_, i) => i !== index);
-        setDynamicFields(updatedFields);
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } });
-    };
+        const updatedFields = dynamicFields.filter((_, i) => i !== index)
+        setDynamicFields(updatedFields)
+        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
+    }
 
     const handleFieldChange = (index, field, value) => {
-        const updatedFields = [...dynamicFields];
-        updatedFields[index][field] = value;
-        setDynamicFields(updatedFields);
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } });
+        const updatedFields = [...dynamicFields]
+        updatedFields[index][field] = value
+        setDynamicFields(updatedFields)
+        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
     };
 
     const handleValuesChange = (changedValues) => {
-        onChange({ contributing: { ...data.contributing, ...changedValues.contributing } });
-    };
+        onChange({ contributing: { ...data.contributing, ...changedValues.contributing } })
+    }
+
+    const checkOrcid = (rule, value, callback) => {
+        const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-\d{4}$/
+        if (orcidUrlRegex.test(value)) { return callback() }
+        callback('Please provide the orchid number in this format: https://orcid.org/xxxx-xxxx-xxxx-xxxx')
+    }
 
     return (
         <div>
@@ -64,7 +70,7 @@ export default function Contributors({ form, onChange, data }) {
             <Form
                 form={form}
                 layout="vertical"
-                initialValues={initialValues} // Use the initialValues
+                initialValues={initialValues} 
                 onValuesChange={handleValuesChange}
             >
                 {dynamicFields.map((field, index) => (
@@ -93,7 +99,7 @@ export default function Contributors({ form, onChange, data }) {
                                     }}>
                                     {contributors.map((option) => (
                                         <Option key={option.uuid} value={option.uuid}>
-                                            {option.fullName || `${option.familyName} ${option.givenName} `}
+                                            {option.fullName || `${option.familyName} ${option.givenName} ${option.orcid ? `(orcid: ${option.orcid})` : ''}`}
                                         </Option>
                                     ))}
                                 </Select>
@@ -114,11 +120,11 @@ export default function Contributors({ form, onChange, data }) {
                                         placeholder="Enter last name"
                                     />
                                     </Form.Item>
-                                <Form.Item label={`ORCID`} required style={{ flex: 1 }}>
+                                <Form.Item label={`ORCID`} style={{ flex: 1 }}>
                                     <Input
-                                        value={field.lastName}
+                                        value={field.orcid}
                                         onChange={(e) => handleFieldChange(index, 'orcid', e.target.value)}
-                                        placeholder="Enter ORCID"
+                                        placeholder="https://orcid.org/xxxx-xxxx-xxxx-xxxx"
                                     />
                                 </Form.Item>
                             </>

@@ -33,10 +33,10 @@ export default function Introduction({ form, onChange, data }) {
   }
   
   const checkOrcid = (rule, value, callback) => {
-    const orcidRegex = /^\d{4}-\d{4}-\d{4}-\d{4}$/
+    const orcidRegex = /^\d{4}-\d{4}-\d{4}-[\dX]$/  
     const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-\d{4}$/
     if (orcidRegex.test(value) || orcidUrlRegex.test(value)) { return callback() }
-    callback('Please verify the orchid number')
+    callback('Please provide the orchid number in this format: https://orcid.org/xxxx-xxxx-xxxx-xxxx')
   }
 
   return (
@@ -62,7 +62,7 @@ export default function Introduction({ form, onChange, data }) {
         <AntForm.Item
           label="Contact person's first name"
           name={['contactperson', 'firstName']} 
-          rules={[{ required: true, message: 'Please input your full name!' }]}>
+          rules={[{ required: true, message: 'Please input your first name!' }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
@@ -75,7 +75,7 @@ export default function Introduction({ form, onChange, data }) {
           label="Contact person's email"
           name={['contactperson', 'email']}
           rules={[
-            { required: true, message: 'Please enter contact persons E-mail!' },
+            { required: true, message: "Please enter contact person's E-mail!" },
             { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
@@ -85,20 +85,20 @@ export default function Introduction({ form, onChange, data }) {
         <AntForm.Item
           label="Data custodian's first name"
           name={['custodian', 'firstName']} 
-          rules={[{ required: true, message: 'Please enter custodians first name!' }]}>
+          rules={[{ required: true, message: "Please enter custodian's first name!" }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
           label="Data custodian's family name"
           name={['custodian', 'familyName']} 
-          rules={[{ required: true, message: 'Please enter custodians family name!' }]}>
+          rules={[{ required: true, message: "Please enter custodian's family name!" }]}>
           <Input />
         </AntForm.Item>
         <AntForm.Item
           label="Data custodian's email"
           name={['custodian', 'email']} 
           rules={[
-            { required: true, message: 'Please enter data custodians E-mail!' },
+            { required: true, message: "Please enter data custodian's E-mail!" },
             { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
@@ -111,8 +111,8 @@ export default function Introduction({ form, onChange, data }) {
         <AntForm.Item
           label="Data custodian's ORCID"
           name={['custodian', 'orcid']} 
+          placeholder="https://orcid.org/xxxx-xxxx-xxxx-xxxx"
           rules={[
-            { required: false},
             { validator: checkOrcid }]}>
           <Input/>
         </AntForm.Item>
