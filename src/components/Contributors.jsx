@@ -11,7 +11,7 @@ export default function Contributors({ form, onChange, data }) {
         contributing: {
             dynamicFields: dynamicFields, 
         },
-    };
+    }
 
     useEffect(() => {
         setDynamicFields(data.contributing?.dynamicFields || [])
@@ -28,7 +28,7 @@ export default function Contributors({ form, onChange, data }) {
         } catch (error) {
             console.error('Error fetching contributors:', error)
         }
-    };
+    }
 
     useEffect(() => {
         fetchContributors()
@@ -39,7 +39,7 @@ export default function Contributors({ form, onChange, data }) {
         const updatedFields = [...dynamicFields, newField]
         setDynamicFields(updatedFields)
         onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
-    };
+    }
 
     const removeDynamicField = (index) => {
         const updatedFields = dynamicFields.filter((_, i) => i !== index)
@@ -52,12 +52,12 @@ export default function Contributors({ form, onChange, data }) {
         updatedFields[index][field] = value
         setDynamicFields(updatedFields)
         onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
-    };
+    }
 
     const handleValuesChange = (changedValues) => {
         onChange({ contributing: { ...data.contributing, ...changedValues.contributing } })
     }
-
+//not used here because ORCID is not mandatory, implement check in the final upload 
     const checkOrcid = (rule, value, callback) => {
         const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-\d{4}$/
         if (orcidUrlRegex.test(value)) { return callback() }

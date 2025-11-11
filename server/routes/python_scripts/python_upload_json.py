@@ -61,8 +61,7 @@ def fetch_data_info(dt_id, token):
 
         for data_type in data_type_list:
             data_type_name = data_type.lower()
-            cti_data_type = fairgraph.openminds.controlledterms.SemanticDataType.by_name(
-                data_type_name, client)
+            cti_data_type = SemanticDataType.by_name(data_type_name, client)
             dsv_instance.data_types += [cti_data_type]
 
         if embargo:
@@ -77,7 +76,7 @@ def fetch_data_info(dt_id, token):
 
         # access = DSV.accessibility.resolve(client)
         # accessebility = access.name
-        return ({"metadata saved": "success"})
+        return ({"metadata saved in the KG": "success"})
 
     except Exception as e:
         return ({"error": e})

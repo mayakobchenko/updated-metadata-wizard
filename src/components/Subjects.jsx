@@ -20,14 +20,14 @@ export default function Subjects ({ onChange, data }) {
     ]
     useEffect(() => {
         const fetchBioSex = async () => {
-        try {
-            const url = 'api/subjects/sex'
-            const response = await fetch(url)
-            if (!response.ok) {
-                throw new Error(`There is a problem fetching info about bio sex from backend: ${response.status}`)}
-            const data = await response.json()
-            setBiosex(data.biosex)
-            } catch (error) {console.error('Error fetching info from backend:', error)}}
+            try {
+                const url = 'api/subjects/sex'
+                const response = await fetch(url)
+                if (!response.ok) {
+                    throw new Error(`There is a problem fetching info about bio sex from backend: ${response.status}`)}
+                const data = await response.json()
+                setBiosex(data.biosex)
+                } catch (error) {console.error('Error fetching info from backend:', error)}}
         const fetchAgeCat = async () => {
             try {
                 const url = 'api/subjects/agecategory'

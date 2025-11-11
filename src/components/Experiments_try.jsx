@@ -1,21 +1,27 @@
 import { useState, useEffect } from 'react'
 import { Form, Input, Select, Checkbox, Button } from 'antd'
+import ConfigProvider from './ConfigProvider'
 
 const { Option } = Select
 
 export default function Experiments({ form, onChange, data }) {
-  
+
   const [experim_appr, setExperim_appr] = useState([])
-  const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: '' }])
+  const [addExperiment, setAddExperiment] = useState(data.experimental_approach?.addExperiment || [])
+
+  const initialValues = {
+      experimental_approach: {
+          addExperiment: addExperiment, 
+      },}
 
   useEffect(() => {
-      setAddExperiment(data.experimental_approach?.addExperiment || [{ id: Date.now(), selectedExpAppr: '' }])
+      setAddExperiment(data.experimental_approach?.addExperiment || [])
   }, [data])
   
   const fetchExperimentalApproaches = async () => {
     try {
         const response = await fetch('api/kginfo/experimentalapproaches')
-        if (!response.ok) {
+        if (!response) {
             throw new Error(`Error fetching experimental approaches: ${response.status}`)
         }
         const fetchedData = await response.json()
@@ -31,23 +37,21 @@ export default function Experiments({ form, onChange, data }) {
   
   const addDynamicField = () => {
     const newField = { id: Date.now(), selectedExpAppr: '' }
-    setAddExperiment([...addExperiment, newField])
-    onChange({ experimental_approach: { ...data.experimental_approach, addExperiment: [...addExperiment, newField] } })
+    const updatedFields = [...addExperiment, newField]
+    setAddExperiment(updatedFields)
+    onChange({ experimental_approach: { ...data.experimental_approach, addExperiment: updatedFields } })
   }
 
   const removeDynamicField = (index) => {
-      if (addExperiment.length > 1) {
-          const updatedFields = addExperiment.filter((_, i) => i !== index)
-          setAddExperiment(updatedFields)
-          onChange({ experimental_approach: { ...data.experimental_approach, addExperiment: updatedFields } })
-      }
+      const updatedFields = addExperiment.filter((_, i) => i !== index)
+      setAddExperiment(updatedFields)
+      onChange({ experimental_approach: { ...data.experimental_approach, addExperiment: updatedFields } })
   }
 
-  const handleFieldChange = (index, value) => {
-    const updatedFields = addExperiment.map((field, i) => 
-      i === index ? { ...field, selectedExpAppr: value } : field
-    )
-    setAddExperiment(updatedFields)
+  const handleFieldChange = (index, field, value) => {
+    const updatedFields = [...addExperiment]
+    updatedFields[index][field] = value
+    setDynamicFields(updatedFields)
     onChange({ experimental_approach: { ...data.experimental_approach, addExperiment: updatedFields } })
   }
 
@@ -62,10 +66,11 @@ export default function Experiments({ form, onChange, data }) {
 
   return (
     <div>
-      <p className="step-title">Experimental metadata</p>
+        <p className="step-title">Experimental metadata</p>
       <Form
         form={form}
         layout="vertical"
+        initialValues={initialValues} 
         onValuesChange={handleValuesChange}>
         <Form.Item
           name={['experiments', 'subjectschoice']}
@@ -83,10 +88,10 @@ export default function Experiments({ form, onChange, data }) {
                   showSearch
                   style={{ minWidth: 240 }}
                   value={field.selectedExpAppr} 
-                  onChange={(value) => handleFieldChange(index, value)} 
+                  onChange={(value) => handleFieldChange(index, 'selectedExpAppr', value)} 
                   filterOption={(input, option) => {
-                    if (!option) return false
-                    return option.children.toLowerCase().includes(input.toLowerCase())
+                  if (!option) return false
+                  return option.children.toLowerCase().includes(input.toLowerCase())
                   }}>
                   {experim_appr.map((option) => (
                       <Option key={option.identifier} value={option.identifier}>
@@ -94,10 +99,9 @@ export default function Experiments({ form, onChange, data }) {
                       </Option>
                   ))}
               </Select>
-              <Button type="dashed" onClick={() => removeDynamicField(index)}>Remove</Button>
-            </Form.Item>
-          </div>))}
-        <div style={{ textAlign: 'center' }}>
+          </Form.Item>
+        </div>))}
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
           <Button type="dashed"
               onClick={addDynamicField}
               style={{ width: '30%' }}
@@ -141,3 +145,4 @@ export default function Experiments({ form, onChange, data }) {
     </div>
   )
 }
+

@@ -38,7 +38,7 @@ export default function Dataset2({ form, onChange, data }) {
         onValuesChange={handleValuesChange}>
         { data.dataset2?.Data2UrlDoiRepo ?
           (<AntForm.Item
-            label="Has your data already been published elsewhere else?"
+            label="Has your data already been published anywhere else?"
             name={['dataset2', 'Data2UrlDoiRepo']} 
             extra="Please state the DOI(s) or URL(s) to the data repository">
             <Input />
@@ -136,8 +136,8 @@ export default function Dataset2({ form, onChange, data }) {
           name={['dataset2', 'publications']} 
           extra={<>Please list DOIs of all related publications that report on the dataset itself or on analysis
             based on the data. The DOI should be in the following format: 
-            <p><a href="https://www.doi.org/the-identifier/resources/handbook/" 
-            target="_blank" rel="noopener noreferrer"> https://doi.org/10.1000/182</a></p>
+            <a href="https://www.doi.org/the-identifier/resources/handbook/" 
+            target="_blank" rel="noopener noreferrer"> https://doi.org/10.1000/182</a>
           </>}>
           <Input />
         </AntForm.Item>
