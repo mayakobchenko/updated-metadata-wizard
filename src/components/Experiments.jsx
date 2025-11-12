@@ -75,10 +75,10 @@ export default function Experiments({ form, onChange, data }) {
           rules={[{ required: true, message: 'Please select at least one option!' }]}>
           <Checkbox.Group options={optionsYesNo} style={{ padding: '20px' }}/>
         </Form.Item>
-
+        <p className="step-title">Please indicate which experimental approaches best describe your data</p>
         {addExperiment.map((field, index) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center' }}>
-            <Form.Item label={`Select Experimental Approach`} required style={{ flex: 1 }}>
+            <Form.Item label={`Select experimental approach`} required style={{ flex: 1 }}>
               <Select
                   showSearch
                   style={{ minWidth: 240 }}
@@ -94,25 +94,18 @@ export default function Experiments({ form, onChange, data }) {
                       </Option>
                   ))}
               </Select>
-              <Button type="dashed" onClick={() => removeDynamicField(index)}>Remove</Button>
             </Form.Item>
+            <Button type="danger" onClick={() => removeDynamicField(index)}>Remove</Button>
           </div>))}
         <div style={{ textAlign: 'center' }}>
           <Button type="dashed"
               onClick={addDynamicField}
-              style={{ width: '30%' }}
+              style={{ width: '30%', margin: '0 0 50px 0'}}
               className="add-contributor-button">
               Add Experimental Approach
           </Button>
         </div>
-        <Form.Item
-          label="Experimental approach"
-          name={['experiments', 'approach']} 
-          rules={[{ required: true }]}
-          extra="Please indicate which experimental approaches best describe your data.
-          Start typing to find relevant categories and select as many as appropriate.">
-          <Input />
-        </Form.Item>
+        
         <Form.Item
           label="Preparation type"
           name={['experiments', 'preparation']} 
