@@ -129,7 +129,7 @@ const StepsWizard = () => {
     a.download = 'metadata_wizard.json'
     document.body.appendChild(a) // to work in Firefox
     a.click()
-    document.body.removeChild(a)  // Clean up
+    document.body.removeChild(a)  
     URL.revokeObjectURL(url)
   }
 

@@ -16,7 +16,8 @@ export function useNettskjema () {
         if (hasTicketRef.current) {
             try {
                 const ticketNumber = await authFunctions.getTicket()
-                await dispatch({type: 'ticket', text: ticketNumber})
+                await dispatch({ type: 'ticket', text: ticketNumber })
+                console.log('ticket number:', ticketNumber)
                 const [ nettskjemaId, datasetVersionId ] = await authFunctions.zammad(ticketNumber)
                 console.log('dataset version id:', datasetVersionId)
                 await dispatch({type: 'datasetVersionId', text: datasetVersionId})

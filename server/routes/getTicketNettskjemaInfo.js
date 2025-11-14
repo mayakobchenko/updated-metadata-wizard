@@ -101,21 +101,24 @@ const ANSWERS_ID = {
 async function getZammadInfo (req, res) {
     try {
         let ticket
-        if (req.query){ ticket = req.query }
+        if (req.query) { ticket = req.query }
+        console.log('ticket number:', ticket.TicketNumber)
         const ticketUrl = `${zammadBaseUrl}api/v1/tickets/search?query=${ticket.TicketNumber}`
         const response = await fetch(ticketUrl, zammadHeaders)
         if (!response.ok) {throw new Error('Error searching for the ticket: ' + response.status)} 
         const data = await response.json()
-        //console.log('ticket id:', data.tickets)
+        
+        console.log('ticket id:', data.tickets)
 
         let ticket_id
         if (data.tickets.length > 1) {
             ticket_id = data.tickets[0]
-        } else {ticket_id = data.tickets}
+        } else { ticket_id = data.tickets }
+        
         const ticketInfo = data.assets.Ticket[ticket_id]
         const articleIds = ticketInfo["article_ids"]
 
-        //console.log('article ids:', articleIds)
+        console.log('article ids:', articleIds)
 
         let collabId
         if (articleIds) {
@@ -125,7 +128,7 @@ async function getZammadInfo (req, res) {
             const collabInfo = await resp_article.json()
             collabId = collabInfo["body"]
 
-            //console.log('collab info:', collabId)
+            console.log('collab info:', collabId)
         }
         const regex_collab = /d-([0-9a-fA-F-]{36})/
         const match_collab = collabId.match(regex_collab)
@@ -133,7 +136,7 @@ async function getZammadInfo (req, res) {
         if (match_collab) {
             datasetVersionId = match_collab[1]
 
-            console.log('collab id:', match_collab[1])
+            console.log('datasetVersionId:', datasetVersionId)
         }
 
         const dataTitle = ticketInfo.title

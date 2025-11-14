@@ -1,11 +1,7 @@
 import sys
 import json
-import warnings
-from datetime import datetime
-import fairgraph
-from fairgraph import KGClient
-from fairgraph.openminds.core import DatasetVersion
-from fairgraph.openminds.controlledterms import SemanticDataType
+import requests as rq
+from uuid import uuid4
 
 if len(sys.argv) > 1:
     personal_token = sys.argv[1]
@@ -22,66 +18,55 @@ else:
 try:
     with open(json_file_path, 'r') as json_file:
         data = json.load(json_file)
-        dsv_id = data['datasetVersionId']
-        dsv_short_title = data['dataset1']['shortTitle']
-        dsv_title = data['dataset1']['dataTitle']
-        embargo = data['dataset1']['embargo']
+
+        dsv_id = data.get("datasetVersionId", "")
+        dsv_short_title = data.get("dataset1", {}).get("shortTitle", "")
+        dsv_title = data.get("dataset1", {}).get("dataTitle", "")
+        license_dsv = data.get("dataset1", {}).get("license", "")
+        embargo = data.get("dataset1", {}).get("embargo", False)
         if embargo:
             embargo_release_date = data['dataset1']['embargoDate']
         else:
             embargo_release_date = None
-        dsv_brief_summary = data['dataset1']['briefSummary']
-        data_type_list = data['dataset1']['optionsData']
-        # print(json.dumps({"message": "Successfully read JSON", "data title": dataset1_title}))
+        # dsv_brief_summary = data.get("dataset1", {}).get("briefSummary", "")
+        expappr_uuid = [exp.get('selectedExpAppr', '') for exp in data.get(
+            'experimental_approach', {}).get('addExperiment', [])]
 
-        # orcidUrl = `https://orcid.org/${orcidId}`
-  # const orcidUrl = formatedOrcid(initialValues.custodian.orcid)
+        data_type_list = data['dataset1']['optionsData']
 
 except Exception as e:
     print(json.dumps({"error": str(e)}))
     sys.exit(1)
 
-# -----------------------------------------------
 
-# dataset_id = "12195530-5751-44a9-a2b3-82613a387642"
-
-
-def fetch_data_info(dt_id, token):
+def KG_patch(entry_id, attr, space_id):
     try:
-        client = KGClient(token, host="core.kg.ebrains.eu")
-        with warnings.catch_warnings(record=False):
-            dsv_instance = DatasetVersion.from_id(
-                dt_id, client, scope="in progress")
-            # ds_instance = fairgraph.openminds.core.Dataset.from_id(dt_id, client, scope="in progress")
-
-        dsv_instance.short_name = dsv_short_title
-        # dsv_instance.alias = dsv_short_title   #aparently depricates
-        dsv_instance.full_name = dsv_title
-        dsv_instance.data_types = []
-
-        for data_type in data_type_list:
-            data_type_name = data_type.lower()
-            cti_data_type = SemanticDataType.by_name(data_type_name, client)
-            dsv_instance.data_types += [cti_data_type]
-
-        if embargo:
-            cti_accessibility = fairgraph.openminds.controlledterms.ProductAccessibility.by_name(
-                'under embargo', client)
-            dsv_instance.accessibility = cti_accessibility
-            date_obj = datetime.fromisoformat(embargo_release_date[:-1])
-            formatted_date = date_obj.strftime('%m/%d/%Y')
-            dsv_instance.release_date = formatted_date
-
-        dsv_instance.save(client)
-
-        # access = DSV.accessibility.resolve(client)
-        # accessebility = access.name
+        if not personal_token:
+            print('No token')
+            return
+        headers = {
+            "accept": "*/*",
+            "Authorization": "Bearer " + personal_token,
+            "Content-Type": "application/json; charset=utf-8"
+        }
+        content = json.dumps(attr, indent=4)
+        url = f'https://core.kg.ebrains.eu/v3/instances/{entry_id.split("/")[-1]}?space=collab-d-{space_id}'
+        resp = rq.patch(url=url, headers=headers, data=content)
+        print(resp)
         return ({"metadata saved in the KG": "success"})
-
     except Exception as e:
         return ({"error": e})
 
 
-data_info = fetch_data_info(dsv_id, personal_token)
+# expappr_uuid = [exp['selectedExpAppr'] for exp in data['experimental_approach']['addExperiment']]
+
+attributes = {
+    "https://openminds.ebrains.eu/vocab/fullName": dsv_title,
+    "https://openminds.ebrains.eu/vocab/shortName": dsv_short_title,
+    "https://openminds.ebrains.eu/vocab/license":  license_dsv,
+    "https://openminds.ebrains.eu/vocab/experimentalApproach": [{"@id": url} for url in expappr_uuid],
+}
+
+data_info = KG_patch(dsv_id, attributes, dsv_id)
+
 print(json.dumps(data_info))
-# print(data_info)

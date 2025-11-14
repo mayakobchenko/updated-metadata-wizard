@@ -1,4 +1,4 @@
-//a workaround to use fairgraph package for KG uploading
+//a workaround to use python fairgraph package for KG uploading
 import express from 'express'
 import dotenv from 'dotenv'
 import { exec } from 'child_process'
@@ -22,22 +22,17 @@ async function sayHello(req, res) {
   console.log(`${req.method} ${req.url}`)
 } 
 
-// Endpoint to save metadata JSON locally and run Python script for KG upload
+// Endpoint to save metadata JSON locally inside container and run Python script for KG upload
 async function runPythonScript(req, res) {
     const jsonData = req.body
     const jsonFilePath = path.join(__dirname, 'data.json')
     try {
         await writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2))
         const scriptPath = path.join(__dirname, './python_scripts/python_upload_json.py')
-        //const scriptPath = path.join(__dirname, './python_scripts/python_try_collab.py')
-        //const scriptPath = path.join(__dirname, './python_scripts/load_metadata.py')
 
         //get the dataset verison id/collab id for space
         
         const kg_token = await tokenFunctions.getWorkingToken()
-        //console.log(`python "${scriptPath}" "${jsonFilePath}" "${kg_token}"`)
-
-        //`python "${scriptPath}" "${jsonFilePath}" "${kg_token}"`
 
         exec(`python "${scriptPath}" "${kg_token}" "${jsonFilePath}"`, (error, stdout, stderr) => {
             if (error) {
