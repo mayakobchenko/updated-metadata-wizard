@@ -184,6 +184,13 @@ color: var(-button-color-primary-active-hover);
   font-size: 21px;
   color: #333
 }
+.step-subtitle {
+  font-size: 16px;
+}
+.step-description {
+  margin-bottom: 20px;
+  color: rgba(0, 0, 0, 0.45)
+}
 /*navigation bauttons */
 .buttons-save-next-back {
   display: flex;
@@ -277,6 +284,17 @@ color: var(-button-color-primary-active-hover);
   background-color: var(--form-background-color);
   border-color: var(--button-color-primary);
   border-radius: 5px;
+  border-style: solid !important;
+  border-width: 1.5px !important;
+  width: 30%;  
+  font-size: 16px;    /* larger text */
+  font-weight: 600;   /* solid/bold */
+  line-height: 1;
+}
+.add-contributor-button:hover,
+.add-contributor-button:focus {
+  color: var(--button-color-primary-hover);
+  border-color: var(--button-color-primary-hover);
 }
 /*-----------------------------not edited yet by maya------------------------*/
 

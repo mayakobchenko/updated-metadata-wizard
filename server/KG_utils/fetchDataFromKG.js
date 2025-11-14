@@ -25,18 +25,6 @@ const configObject = [
     },
 ]
 
-/*export default async function fetchDataFromKg() {
-    console.log('Fetching data from KG')
-    await Promise.all( [fetchCoreSchemaInstances(configObject), fetchControlledTerms()] )
-}*/
-
-/*try {
-    await fetchCoreSchemaInstances(configObject)
-    //await fetchControlledTerms()
-} catch (error) {
-    console.log("error running fetchCoreSchemaInstances", error)
-}*/
-
 export default async function fetchDataFromKg() {
     try {
         await fetchLicenses()

@@ -5,16 +5,17 @@ const { Option } = Select
 
 export default function Contributors({ form, onChange, data }) {
     const [contributors, setContributors] = useState([])
-    const [dynamicFields, setDynamicFields] = useState(data.contributing?.dynamicFields || [])
+    const [typescontribution, setTypeContribution]= useState([])
+    const [dynamicFields, setDynamicFields] = useState(data.authors?.dynamicFields || [])
 
     const initialValues = {
-        contributing: {
+        authors: {
             dynamicFields: dynamicFields, 
         },
     }
 
     useEffect(() => {
-        setDynamicFields(data.contributing?.dynamicFields || [])
+        setDynamicFields(data.authors?.dynamicFields || [])
     }, [data])
 
     const fetchContributors = async () => {
@@ -30,33 +31,48 @@ export default function Contributors({ form, onChange, data }) {
         }
     }
 
+    const fetchTypeContribution = async () => {
+        try {
+            const response = await fetch('api/kginfo/typecontribution')
+            if (!response) {
+                throw new Error(`Error fetching contribution types: ${response.status}`)
+            }
+            const fetchedData = await response.json()
+            setTypeContribution(fetchedData.types)
+        } catch (error) {
+            console.error('Error fetching contribution types:', error)
+        }
+    }
+
     useEffect(() => {
         fetchContributors()
+        fetchTypeContribution()
     }, [])
 
     const addDynamicField = () => {
         const newField = { id: Date.now(), isCustom: false, firstName: '', lastName: '', selectedContributor: '' }
         const updatedFields = [...dynamicFields, newField]
         setDynamicFields(updatedFields)
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
+        onChange({ authors: { ...data.authors, dynamicFields: updatedFields } })
     }
 
     const removeDynamicField = (index) => {
         const updatedFields = dynamicFields.filter((_, i) => i !== index)
         setDynamicFields(updatedFields)
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
+        onChange({ authors: { ...data.authors, dynamicFields: updatedFields } })
     }
 
     const handleFieldChange = (index, field, value) => {
         const updatedFields = [...dynamicFields]
         updatedFields[index][field] = value
         setDynamicFields(updatedFields)
-        onChange({ contributing: { ...data.contributing, dynamicFields: updatedFields } })
+        onChange({ authors: { ...data.authors, dynamicFields: updatedFields } })
     }
 
     const handleValuesChange = (changedValues) => {
-        onChange({ contributing: { ...data.contributing, ...changedValues.contributing } })
+        onChange({ authors: { ...data.authors, ...changedValues.authors } })
     }
+
 //not used here because ORCID is not mandatory, implement check in the final upload 
     const checkOrcid = (rule, value, callback) => {
         const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-\d{4}$/
@@ -66,27 +82,29 @@ export default function Contributors({ form, onChange, data }) {
 
     return (
         <div>
-            <p className="step-title">Contributors</p>
+            <p className="step-title">Dataset authors:</p>
             <Form
                 form={form}
                 layout="vertical"
                 initialValues={initialValues} 
-                onValuesChange={handleValuesChange}
-            >
+                onValuesChange={handleValuesChange}>
+                <p className="step-description">Please list all authors who have contributed to the dataset, in the order you would like them to appear on the data publication.
+                Please note that the list of authors may be different for this data publication as compared to a journal article based on the data</p>
+                
                 {dynamicFields.map((field, index) => (
                     <div key={field.id} style={{ display: 'flex', alignItems: 'center' }}>
-                        <Form.Item label={`Contributor ${index + 1}`} style={{ flex: 1 }}>
+                        <Form.Item label={<span className="step-subtitle">Author {index + 1}</span>}>
                             <Checkbox
-                                style={{ marginBottom: '10px' }}
+                                style={{ marginBottom: '10px', marginRight: '15px' }}
                                 checked={field.isCustom}
                                 onChange={(e) => handleFieldChange(index, 'isCustom', e.target.checked)}
                             >
-                                This person is not in the EBRAINS Knowledge Graph.
+                                This person is not in the EBRAINS Knowledge Graph
                             </Checkbox>
                         </Form.Item>
 
                         {!field.isCustom ? (
-                            <Form.Item label={`Select Contributor`} required style={{ flex: 1 }}>
+                            <Form.Item label={`Select a person from the EBRAINS Knowledge Graph`} required style={{ flex: 1 }}>
                                 <Select
                                     showSearch
                                     style={{ minWidth: 240 }}
@@ -131,8 +149,9 @@ export default function Contributors({ form, onChange, data }) {
                         )}
                         <Button 
                             type="danger" 
+                            size="small"
                             onClick={() => removeDynamicField(index)} 
-                            style={{ marginLeft: '10px' }}
+                            style={{ marginLeft: 0, flex: '0 0 auto' }}
                         >
                             Remove
                         </Button>
@@ -143,12 +162,13 @@ export default function Contributors({ form, onChange, data }) {
                         onClick={addDynamicField}
                         style={{ width: '30%' }}
                         className="add-contributor-button">
-                        Add Contributor
+                        Add an Author
                     </Button>
                 </div>
+                <p className="step-title">Other contributors:</p>
             </Form>
         </div>
-    );
+    )
 }
 
 //<Divider orientation="left">Add More Contributors</Divider>

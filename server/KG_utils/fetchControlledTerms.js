@@ -23,7 +23,7 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
             console.log(err);
         }
     } else {
-        console.log("New directory for controlled terms successfully created.");
+        console.log("New directory for controlled terms successfully created.")
     }
 });
 
