@@ -6,9 +6,6 @@ import ConfigProvider from './ConfigProvider'
 export default function Subjects ({ onChange, data }) {
     const [agecategory, setAgeCat] = useState([])
     const [biosex, setBiosex] = useState([])
-    const [handedness, setHandedness] = useState([])
-    const [species, setSpecies] = useState([])
-
     const [isNewChecked, setNewIsChecked] = useState(false)
 
     const formSchema = [
@@ -20,7 +17,6 @@ export default function Subjects ({ onChange, data }) {
         { name: 'extraField1', label: 'Extra Field 1', type: 'text' },
         { name: 'extraField2', label: 'Extra Field 2', type: 'text' }
     ]
-    
     useEffect(() => {
         const fetchBioSex = async () => {
             try {
@@ -39,30 +35,9 @@ export default function Subjects ({ onChange, data }) {
                     throw new Error(`There is a problem fetching info about age categories from backend: ${response.status}`)}
                 const data = await response.json()
                 setAgeCat(data.age_cat)
-            } catch (error) { console.error('Error fetching age categories from backend:', error) }}
-        const fetchHandedness = async () => {
-            try {
-                const url = 'api/subjects/handedness'
-                const response = await fetch(url)
-                if (!response.ok) {
-                    throw new Error(`There is a problem fetching info about handedness from backend: ${response.status}`)}
-                const data = await response.json()
-                setHandedness(data.handedness)
-            } catch (error) { console.error('Error fetching handedness from backend:', error) }
-        }
-        const fetchSpecies = async () => {
-            try {
-                const url = 'api/subjects/species'
-                const response = await fetch(url)
-                if (!response.ok) {
-                    throw new Error(`There is a problem fetching info about species from backend: ${response.status}`)}
-                const data = await response.json()
-                setSpecies(data.species)
-                } catch (error) {console.error('Error fetching species from backend:', error)}}
-        fetchBioSex()
-        fetchAgeCat()
-        fetchHandedness()
-        fetchSpecies()
+                } catch (error) {console.error('Error fetching age categories from backend:', error)}}
+            fetchBioSex()
+            fetchAgeCat()
         }, [])
 
     const handleSubmit = (event) => {
@@ -146,5 +121,5 @@ export default function Subjects ({ onChange, data }) {
             </form>
         </div>
         </ConfigProvider>
-    )
+    );
 }

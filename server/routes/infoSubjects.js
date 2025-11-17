@@ -9,6 +9,8 @@ const __dirname = path.dirname(__filename)
 
 router.get('/sex', getBioSex)
 router.get('/agecategory', getAgeCategory)
+router.get('/subjects/handedness', getHandedness)
+router.get('/subjects/species', getSpecies)
 
 async function getBioSex(req, res) {
     const filePath = path.join(__dirname, '../data/controlledTerms/BiologicalSex.json');
@@ -39,6 +41,36 @@ async function getAgeCategory(req, res) {
     } catch (error) {
       console.error('Error fetching data from backend', error.message)
       res.status(500).send('Internal server error')}
-  }  
+} 
+  
+async function getHandedness(req, res) {
+    const filePath = path.join(__dirname, '../data/controlledTerms/Handedness.json');
+    try {
+        let handedness
+        try {
+          const data = await readFile(filePath, 'utf-8')
+          handedness = JSON.parse(data)
+          if (!handedness) {throw new Error(`Error reading json file at backend`)}
+        } catch (err) {
+            handedness = []} 
+      res.status(200).json({ handedness })
+    } catch (error) {
+      console.error('Error fetching data from backend', error.message)
+      res.status(500).send('Internal server error')}
+} 
+async function getSpecies(req, res) {
+    const filePath = path.join(__dirname, '../data/controlledTerms/Species.json');
+    try {
+        let species
+        try {
+            const data = await readFile(filePath, 'utf-8')
+            species = JSON.parse(data)
+            if (!species) {throw new Error(`Error reading json file at backend`)}
+        } catch (err) {
+            species = []} 
+        res.status(200).json({ species })
+    } catch (error) {
+        console.error('Error fetching data from backend', error.message)
+        res.status(500).send('Internal server error')}} 
 
 export default router
