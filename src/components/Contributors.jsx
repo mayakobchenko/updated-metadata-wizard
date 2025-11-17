@@ -8,7 +8,6 @@ export default function Contributors({ form, onChange, data = {} }) {
   const [typesContribution, setTypesContribution] = useState([])
   const [authors, setAuthors] = useState(data.contribution?.authors || [])
   const [otherContribs, setOtherContribs] = useState(data.contribution?.contributor?.othercontr || [])
-  //const [contrtype, setContrtype] = useState(data.contribution?.contributor?.contrtype || [])
     
   const initialValues = {
     contribution: {
@@ -22,7 +21,6 @@ export default function Contributors({ form, onChange, data = {} }) {
   useEffect(() => {
     setAuthors(data.contribution?.authors || [])
     setOtherContribs(data.contribution?.contributor?.othercontr || [])
-    //setContrtype(data.contribution?.contributor?.contrtype || [])
   }, [data])
 
   const fetchContributors = async () => {
@@ -45,7 +43,7 @@ export default function Contributors({ form, onChange, data = {} }) {
         throw new Error(`Error fetching contribution types: ${response.status}`)
       }
       const fetchedData = await response.json()
-      console.log('typecontribution fetchedData:', fetchedData)
+      //console.log('typecontribution fetchedData:', fetchedData)
       setTypesContribution(fetchedData.typecontribution || [])
     } catch (error) {
       console.error('Error fetching contribution types:', error)
@@ -105,9 +103,7 @@ export default function Contributors({ form, onChange, data = {} }) {
       contributionTypes: []
     }
     const updated = [...otherContribs, newField]
-   // const updated_type = [...contrtype, newField]
     setOtherContribs(updated)
-   // setContrtype(updated_type)
     onChange({
       contribution: {
         ...data.contribution,
@@ -119,9 +115,7 @@ export default function Contributors({ form, onChange, data = {} }) {
 
   const removeOtherContr = (index) => {
     const updated = otherContribs.filter((_, i) => i !== index)
-   // const updated_types = contrtype.filter((_, i) => i !== index)
     setOtherContribs(updated)
-    //setContrtype(updated_types)
     onChange({
       contribution: {
         ...data.contribution,

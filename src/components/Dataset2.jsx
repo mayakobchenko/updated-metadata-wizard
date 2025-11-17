@@ -1,9 +1,11 @@
-import { Form as AntForm, Input, Space, Row, Col, Button } from 'antd'
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons' //CloseOutlined
+import { Form, Input, Button } from 'antd'
 import { useState, useEffect } from 'react'
-import { v4 as uuid } from 'uuid'
 
-export default function Dataset2({ form, onChange, data }) {
+
+export default function Dataset2({ form, onChange, data = {}}) {
+
+  const [supportChannels, setSupportChannels] = useState(data.dataset2?.supportChannels || [])
+  const [relatedPublications, setRelatedPublications] = useState(data.dataset2?.relatedPublications || [])
 
   const initialValues = {
     dataset2: {
@@ -11,141 +13,92 @@ export default function Dataset2({ form, onChange, data }) {
       Data2DoiJournal: data.dataset2?.Data2DoiJournal || '',
       homePage: data.dataset2?.homePage || '',
       inputdata: data.dataset2.inputdata || '',
-      supportChannels: data.dataset2?.supportChannels || [],
+      supportChannels: supportChannels,
+      relatedPublications: relatedPublications
     }}  
 
-  const [channelFields, setChannelFields] = useState([
-    data.dataset2?.supportChannels?.map((channel) => ({
-    idChannel: channel.idChannel,
-    value: channel.value || '',
-  })) || []
-  ])
+  useEffect(() => {
+    setSupportChannels(data.dataset2?.supportChannels || [])
+    setRelatedPublications(data.dataset2?.relatedPublications || [])
+  }, [data])  
 
-  const handleValuesChange = (changedValues, allValues) => {
-    console.log('Changed Values:', changedValues)
-    console.log('All Values:', allValues)
-    /*if (changedValues.isConfirmed !== undefined) {
-      allValues.isConfirmed = changedValues.isConfirmed}*/
-   onChange(allValues)}
-
+  const addSupportChannel = () => {
+    const newField = { id: Date.now(), supportChannel: '' }
+    const updated = [...supportChannels, newField]
+    setSupportChannels(updated)
+    onChange({
+      dataset2: {
+        ...data.dataset2,
+        supportChannels: updated
+      },
+    })
+  }
+  const removeSupportChannel = (index) => {
+    const updated = supportChannels.filter((_, i) => i !== index)
+    setSupportChannels(updated)
+    onChange({
+      dataset2: {
+        ...data.dataset2,
+        supportChannels: updated
+      },
+    })
+  }
+  const handleSupportChannelChange = (index, field, value) => {
+    const updated = [...supportChannels]
+    updated[index] = { ...updated[index], [field]: value }
+    setSupportChannels(updated)
+    onChange({
+      dataset2: {
+        ...data.dataset2,
+        supportChannels: updated
+      },
+    })
+  }
+  const handleValuesChange = (changedValues) => {
+    if (changedValues.dataset2) {
+      onChange({
+        dataset2: {
+          ...data.dataset2,
+          ...changedValues.dataset2,
+          supportChannels: changedValues.dataset2.supportChannels ?? supportChannels,
+        },
+      })
+    }
+  }
   return (
     <div>
-      <div><p className="step-title">Dataset part 2</p></div>
-      <AntForm
-        form={form}
-        layout="vertical"
-        initialValues={initialValues}
-        onValuesChange={handleValuesChange}>
-        { data.dataset2?.Data2UrlDoiRepo ?
-          (<AntForm.Item
-            label="Has your data already been published anywhere else?"
-            name={['dataset2', 'Data2UrlDoiRepo']} 
-            extra="Please state the DOI(s) or URL(s) to the data repository">
-            <Input />
-           </AntForm.Item> ) : null}  
-        <AntForm.Item
-          label="Home Page"
-          name={['dataset2', 'homePage']} 
-          extra="Add the URL to the homepage describing this dataset (if applicable)">
-          <Input />
-        </AntForm.Item>
-        <AntForm.Item
-          label="Input data"
-          name={['dataset2', 'inputdata']} 
-          extra="Add the data that was used as input for this dataset version. This is typically
-          a DOI or reference to the original dataset from which the current dataset is derived (if applicable).">
-          <Input />
-        </AntForm.Item>
-      </AntForm>
+      <p className="step-title">About your dataset Part 2</p>
+      <p className="step-description">Please provide some general information about your dataset below.</p>
 
-      <br />
- {/*https://ant.design/components/form  style={{ width: '60%' }}*/}
+      <Form form={form} layout="vertical" initialValues={initialValues} onValuesChange={handleValuesChange}>
+        <p className="step-title">Support channel</p>
+        <p className="step-description">
+          Enter all channels through which a user can receive support for handling this research product (if applicable).
+          This could for example be a link to a website or a contact email address.
+        </p>
 
-      <AntForm 
-        form={form}
-        initialValues={initialValues}
-        onValuesChange={handleValuesChange}
-        layout="horizontal">
-
-        <AntForm.List name="supportChannels">
-                  {(fields, { add, remove }, { errors }) => (
-                    <>{fields.map((field, index) => (
-                        <AntForm.Item
-                          label={index === 0 ? 'Support Channels' : ''}
-                          required={false}
-                          key={field.key}>
-                          <AntForm.Item
-                            {...field}
-                            validateTrigger={['onChange', 'onBlur']}
-                            rules={[
-                              {required: true,
-                                whitespace: true,
-                                message: "Please input support channel or delete this field."}]}
-                            noStyle>
-                            <Input placeholder="link to support channel" style={{ width: '80%' }} />
-                          </AntForm.Item>
-                          {fields.length > 1 ? (
-                            <MinusCircleOutlined
-                              className="dynamic-delete-button"
-                              onClick={() => remove(field.name)}/>
-                          ) : null}
-                        </AntForm.Item>
-                      ))}
-                      <AntForm.Item>
-                        <Button
-                          type="dashed"
-                          onClick={() => add()}
-                          style={{ width: '20%' }}
-                          icon={<PlusOutlined />}>
-                          Add channel
-                        </Button>
-                        <Button
-                          type="dashed"
-                          onClick={() => {
-                            add('The head item', 0);
-                          }}
-                          style={{ width: '60%', marginTop: '20px' }}
-                          icon={<PlusOutlined />}
-                        >
-                          Add field at head
-                        </Button>
-                        <AntForm.ErrorList errors={errors} />
-                      </AntForm.Item>
-                    </>
-                  )}
-        </AntForm.List>
-      </AntForm>
-
-      <br />
-
-      <AntForm
-      form={form}
-      initialValues={initialValues}
-      onValuesChange={handleValuesChange}>
-
-        { data.dataset2?.Data2DoiJournal ? (
-          <AntForm.Item
-            label="Has your data already been described in a journal article?"
-            name={['dataset2', 'Data2DoiJournal']} 
-            extra="Please state the DOI(s) of the journal article(s)">
-            <Input />
-          </AntForm.Item>
-        ) : null}
-        <AntForm.Item
-          label="Related Publications"
-          name={['dataset2', 'publications']} 
-          extra={<>Please list DOIs of all related publications that report on the dataset itself or on analysis
-            based on the data. The DOI should be in the following format: 
-            <a href="https://www.doi.org/the-identifier/resources/handbook/" 
-            target="_blank" rel="noopener noreferrer"> https://doi.org/10.1000/182</a>
-          </>}>
-          <Input />
-        </AntForm.Item>
-
-      </AntForm>
+        {supportChannels.map((field, index) => (
+          <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div style={{ flex: 1 }}>
+              <Form.Item label={<span className="step-subtitle">Support channel {index + 1}</span>}>
+                
+                <Input value={field.supportChannel} onChange={(e) => handleSupportChannelChange(index, 'supportChannel', e.target.value)} placeholder="Enter first name" />
+              </Form.Item>
+            </div>
+            <Button type="danger" size="small" onClick={() => removeSupportChannel(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
+              Remove
+            </Button>
+          </div>
+        ))}
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          <Button type="dashed" onClick={addSupportChannel} style={{ width: '30%' }} className="add-contributor-button">
+            Add a support channel
+          </Button>
+        </div>
+      </Form>
     </div>
-  )
-}
+)}
+
 
 /*         <AntForm.Item
           label="Support channel"
