@@ -33,7 +33,7 @@ app.use(cors({
 // }
 
 // Schedule fetching data from KG every 5 minutes (300000 ms), 24 hours (86400000 ms)
-setInterval(fetchDataFromKg, 300000)
+setInterval(fetchDataFromKg, 86400000)
 
 // Fetch initially when the server starts
 //fetchDataFromKg()

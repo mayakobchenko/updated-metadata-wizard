@@ -15,7 +15,7 @@ router.get('/consortium', getConsortium)
 router.get('/contributorsfile', getContributorsfile)
 router.get('/experimentalapproaches', getExperimentalApproaches)
 router.get('/license', getLicense)
-router.get('/typecontribution', getTypeContribution)
+router.get('/typecontribution', getTypeContribution) 
 
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
@@ -59,7 +59,7 @@ async function getContributors(req, res) {
   }
 
 async function getTypeContribution(req, res) { 
-    const filePath = path.join(__dirname, '../data/kg-instances/ContributionType.json')
+    const filePath = path.join(__dirname, '../data/controlledTerms/ContributionType.json')
     try {
         let typecontribution
         try {
