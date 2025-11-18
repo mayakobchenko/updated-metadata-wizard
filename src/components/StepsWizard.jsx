@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuthContext } from './context/AuthProviderContext'
 import { useNettskjema } from "./context/useNettskjema"
 import ConfigProvider from './ConfigProvider.jsx'
-import { Form as AntForm, Button, Modal, Steps } from 'antd'
+import { Form as AntForm, Button, Modal } from 'antd'
 import ProgressBar from './ProgressBar'
 import Contributors from './Contributors.jsx'
 import Subjects from './Subjects'

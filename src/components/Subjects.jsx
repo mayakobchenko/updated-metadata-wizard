@@ -1,7 +1,6 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Checkbox, Space } from 'antd'
-import ConfigProvider from './ConfigProvider'
+import { Form, Input, Select, Checkbox, Button} from 'antd'
 
 export default function Subjects ({ onChange, data }) {
     const [agecategory, setAgeCat] = useState([])
@@ -9,18 +8,56 @@ export default function Subjects ({ onChange, data }) {
     const [handedness, setHandedness] = useState([])
     const [species, setSpecies] = useState([])
 
-    const [isNewChecked, setNewIsChecked] = useState(false)
+    const [subjects, setSubjects] = useState(data.subjects?.subjects || [])
+    const initialValues = {
+        subjects: {
+          subjects,
+        },
+    }
+    useEffect(() => {
+      setSubjects(data.subjects?.subjects || [])
+    }, [data])
 
+    const addNewSubject = () => {
+        const newField = {
+            id: Date.now(),
+            subjectID: '',
+            age: '',
+            weight: '',
+            ageCategory: '',
+            bioSex: '',
+            disease: '',
+            handedness: '',
+            species: '',
+            strain: ''}
+        const updated = [...subjects, newField]
+        setSubjects(updated)
+        onChange({
+        subjects: {
+            ...data.subjects,
+                subjects: updated,
+            },
+        })
+    }
+const removeNewSubject= (index) => {
+    const updated = subjects.filter((_, i) => i !== index)
+    setSubjects(updated)
+    onChange({
+      subjects: {
+        ...data.subjects, subjects: updated,
+      },
+    })
+  }
     const formSchema = [
         { name: 'subjectName', label: 'Subject/Tissue/Sample Group ID', type: 'text' },
         { name: 'biologicalSex', label: 'Biological sex: ', type: 'dropdown' },
         { name: 'ageCategory', label: 'Age category: ', type: 'dropdown' }
     ]
     const additionalFields = [
-        { name: 'extraField1', label: 'Extra Field 1', type: 'text' },
+        { name: 'Subject ID', label: 'Subject ID', type: 'text' },
         { name: 'extraField2', label: 'Extra Field 2', type: 'text' }
     ]
-    
+
     useEffect(() => {
         const fetchBioSex = async () => {
             try {
@@ -76,32 +113,11 @@ export default function Subjects ({ onChange, data }) {
         }, {})
         console.log('Form Values:', formValues)
     }
-    const handleChange = (event) => {
-        const { name, value } = event.target;
-        onChange({ [name]: value }); // Directly map the name to the input value
-        setFormData(prev => ({
-            ...prev,
-            [name]: value,
-        }))}
-
-    const handleNewSubjectCheck = () => {
-        setNewIsChecked(prevState => !prevState)}
 
     return (
-        <ConfigProvider>
         <div>
             <p className="step-title">Subjects</p>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={isNewChecked}
-                            onChange={handleNewSubjectCheck}/>
-                        Add new subject 
-                    </label>
-                </div>
-                {isNewChecked && (
+            <Form onSubmit={handleSubmit}>
                 <div>
                     <h3>New subject</h3>
                     {additionalFields.map(field => (
@@ -110,7 +126,38 @@ export default function Subjects ({ onChange, data }) {
                             <input type={field.type} name={field.name} />
                         </div>
                     ))}
-                </div>)}
+                </div>
+
+                {subjects.map((field, index) => (
+                  <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <div style={{ flex: 1 }}>
+                    <Form.Item label="Select" required>
+                        <Select
+                        showSearch
+                        style={{ minWidth: 40 }}
+                        value={field.ageCategory}
+                        //onChange={(value) => handleContrChange(index, 'ageCategory', value)}
+                        filterOption={(input, option) => {
+                            if (!option) return false
+                            return option.children.toLowerCase().includes(input.toLowerCase())}}>
+                        {agecategory.map((option) => (
+                            <Option key={option.identifier} value={option.identifier}>
+                            {option.name}
+                            </Option>))}
+                        </Select>
+                        </Form.Item>
+                    </div>
+                        <Button type="danger" size="small" onClick={() => removeNewSubject(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
+                        Remove
+                        </Button>
+                    </div>
+        ))}
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          <Button type="dashed" onClick={addNewSubject} style={{ width: '30%' }} className="add-contributor-button">
+            Add a new subject
+          </Button>
+        </div>
+
                 {formSchema.map(field => {
                     if (field.type === 'dropdown') {
                         if (field.name === 'biologicalSex') {
@@ -143,8 +190,7 @@ export default function Subjects ({ onChange, data }) {
                                 <input type={field.type} name={field.name} />
                             </div>)
                     })}
-            </form>
+            </Form>
         </div>
-        </ConfigProvider>
     )
 }
