@@ -35,9 +35,11 @@ export default function Subjects ({ form, onChange, data = {} }) {
         const fetchHandedness = async () => {
             try {const url = 'api/subjects/handedness'
                 const response = await fetch(url)
+                //console.log(response)
                 if (!response.ok) {
                     throw new Error(`There is a problem fetching info about handedness from backend: ${response.status}`)}
                 const data = await response.json()
+                //console.log(data)
                 setHandedness(data.handedness)
             } catch (error) { console.error('Error fetching handedness from backend:', error) }}
         const fetchSpecies = async () => {
@@ -50,8 +52,8 @@ export default function Subjects ({ form, onChange, data = {} }) {
                 } catch (error) {console.error('Error fetching species from backend:', error)}}
         fetchBioSex()
         fetchAgeCat()
-        //fetchHandedness()
-        //fetchSpecies()
+        fetchHandedness()
+        fetchSpecies()
     }, [])
 
     const addNewSubject = () => {
@@ -132,6 +134,20 @@ export default function Subjects ({ form, onChange, data = {} }) {
                     <Form.Item label={<span className="step-subtitle">Subject {index + 1}, id:</span>} required>
                         <Input value={field.subjectID} onChange={(e) => handleSubjectChange(index, 'subjectID', e.target.value)} placeholder="Enter subject id" />
                     </Form.Item>
+                        
+                    <Form.Item label="Biological sex" required>
+                        <Select
+                            showSearch
+                            style={{ minWidth: 240 }}
+                            value={field.bioSex}
+                            onChange={(value) => handleSubjectChange(index, 'bioSex', value)}
+                            placeholder="Select sex">
+                            {biosex.map((option) => (
+                                <Option key={option.identifier} value={option.identifier}>
+                                    {option.name}
+                                </Option>))}
+                        </Select>
+                    </Form.Item>    
                     <Form.Item label="Select age category" required>
                         <Select
                             showSearch
@@ -149,19 +165,20 @@ export default function Subjects ({ form, onChange, data = {} }) {
                         </Select>
                     </Form.Item>
 
-                    <Form.Item label="Biological sex">
+                    <Form.Item label="Species" required>
                         <Select
                             showSearch
                             style={{ minWidth: 240 }}
-                            value={field.bioSex}
-                            onChange={(value) => handleSubjectChange(index, 'bioSex', value)}
-                            placeholder="Select sex">
-                            {biosex.map((option) => (
+                            value={field.species}
+                            onChange={(value) => handleSubjectChange(index, 'species', value)}
+                            placeholder="Select species">
+                            {species.map((option) => (
                                 <Option key={option.identifier} value={option.identifier}>
                                     {option.name}
                                 </Option>))}
                         </Select>
-                    </Form.Item>                      
+                    </Form.Item>  
+                             
                 </div>
                     <Button type="danger" size="small" onClick={() => removeNewSubject(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
                         Remove
