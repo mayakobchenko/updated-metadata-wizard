@@ -130,7 +130,7 @@ export default function Subjects ({ form, onChange, data = {} }) {
                 
             {subjectsData.map((field, index) => (
             <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <div style={{ flex: 1 }}>
+               
                     <Form.Item label={<span className="step-subtitle">Subject {index + 1}, id:</span>} required>
                         <Input value={field.subjectID} onChange={(e) => handleSubjectChange(index, 'subjectID', e.target.value)} placeholder="Enter subject id" />
                     </Form.Item>
@@ -179,7 +179,6 @@ export default function Subjects ({ form, onChange, data = {} }) {
                         </Select>
                     </Form.Item>  
                              
-                </div>
                     <Button type="danger" size="small" onClick={() => removeNewSubject(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
                         Remove
                     </Button>
