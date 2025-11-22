@@ -132,29 +132,29 @@ export default function Subjects ({ form, onChange, data = {} }) {
             <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                
                     <Form.Item label={<span className="step-subtitle">Subject {index + 1}, id:</span>} required>
-                        <Input value={field.subjectID} onChange={(e) => handleSubjectChange(index, 'subjectID', e.target.value)} placeholder="Enter subject id" />
+                        <Input value={field.subjectID} onChange={(e) => handleSubjectChange(index, 'subjectID', e.target.value)} placeholder="Generic id" />
                     </Form.Item>
                         
                     <Form.Item label="Biological sex" required>
                         <Select
                             showSearch
-                            style={{ minWidth: 240 }}
+                            style={{ minWidth: 0 }}
                             value={field.bioSex}
                             onChange={(value) => handleSubjectChange(index, 'bioSex', value)}
-                            placeholder="Select sex">
+                            placeholder="bio sex">
                             {biosex.map((option) => (
                                 <Option key={option.identifier} value={option.identifier}>
                                     {option.name}
                                 </Option>))}
                         </Select>
                     </Form.Item>    
-                    <Form.Item label="Select age category" required>
+                    <Form.Item label="Age category" required>
                         <Select
                             showSearch
-                            style={{ minWidth: 240 }}
+                            style={{ minWidth: 0 }}
                             value={field.ageCategory}
                             onChange={(value) => handleSubjectChange(index, 'ageCategory', value)}
-                            placeholder="Select age category"
+                            placeholder="age category"
                             filterOption={(input, option) => {
                                 if (!option) return false
                                 return option.children.toLowerCase().includes(input.toLowerCase())}}>
@@ -168,16 +168,37 @@ export default function Subjects ({ form, onChange, data = {} }) {
                     <Form.Item label="Species" required>
                         <Select
                             showSearch
-                            style={{ minWidth: 240 }}
+                            style={{ minWidth: 0 }}
                             value={field.species}
                             onChange={(value) => handleSubjectChange(index, 'species', value)}
-                            placeholder="Select species">
+                            placeholder="species">
                             {species.map((option) => (
                                 <Option key={option.identifier} value={option.identifier}>
                                     {option.name}
                                 </Option>))}
                         </Select>
                     </Form.Item>  
+
+                    <Form.Item label="Age">
+                        <Input value={field.age} onChange={(e) => handleSubjectChange(index, 'age', e.target.value)} placeholder="age" />
+                    </Form.Item>
+                    <Form.Item label="Weight">
+                        <Input value={field.weight} onChange={(e) => handleSubjectChange(index, 'weight', e.target.value)} placeholder="weight" />
+                    </Form.Item>
+
+                    <Form.Item label="Handedness" required>
+                        <Select
+                            showSearch
+                            style={{ minWidth: 0 }}
+                            value={field.handedness}
+                            onChange={(value) => handleSubjectChange(index, 'handedness', value)}
+                            placeholder="handedness">
+                            {handedness.map((option) => (
+                                <Option key={option.identifier} value={option.identifier}>
+                                    {option.name}
+                                </Option>))}
+                        </Select>
+                    </Form.Item> 
                              
                     <Button type="danger" size="small" onClick={() => removeNewSubject(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
                         Remove
