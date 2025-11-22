@@ -43,7 +43,6 @@ export default function Contributors({ form, onChange, data = {} }) {
         throw new Error(`Error fetching contribution types: ${response.status}`)
       }
       const fetchedData = await response.json()
-      //console.log('typecontribution fetchedData:', fetchedData)
       setTypesContribution(fetchedData.typecontribution || [])
     } catch (error) {
       console.error('Error fetching contribution types:', error)
