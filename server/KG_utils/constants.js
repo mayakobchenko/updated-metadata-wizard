@@ -109,5 +109,10 @@ export const subjectProperties = [
   "Handedness",
   //"Technique",
   "Laterality",
-  "TissueSampleType"
+  "TissueSampleType",
+  "Strain",
+  "Disease",
+  "DiseaseModel",
+  "UnitOfMeasurement",
+  "TissueSampleType",
 ]

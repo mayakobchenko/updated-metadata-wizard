@@ -12,6 +12,7 @@ import Dataset1 from './Dataset1'
 import Dataset2 from './Dataset2'
 import Funding from './Funding'
 import Experiments from './Experiments'
+import PopoverSave from './FinalChoice.jsx'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
 
@@ -151,7 +152,9 @@ const StepsWizard = () => {
             <Button onClick={nextStep} className="next-back-button">Next</Button>)}
         {currentStepIndex === steps.length - 1 && (
           //change here the onClick function to uploadpythonKG
-            <Button onClick={downloadJson} className="next-back-button">Save</Button>)}
+          //<Button onClick={downloadJson} className="next-back-button">Save</Button>
+          <PopoverSave downloadJson={downloadJson} uploadpythonKG={savePythonKG} />
+        )}
       </div>
       <Modal
           title="Warning"

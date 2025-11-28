@@ -27,6 +27,7 @@ async function runPythonScript(req, res) {
     const jsonData = req.body
     const jsonFilePath = path.join(__dirname, 'data.json')
     try {
+        //save first metadata file locally
         await writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2))
         const scriptPath = path.join(__dirname, './python_scripts/python_upload_json.py')
 

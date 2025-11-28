@@ -187,6 +187,18 @@ color: var(-button-color-primary-active-hover);
 .step-subtitle {
   font-size: 16px;
 }
+.subject-subtitle{
+  font-size: 16px;
+  font-weight: 600;
+}
+.remove-text-btn {
+  color: #d32f2f;
+  padding: 0;
+}
+.remove-text-btn:hover {
+  color: #b71c1c;
+  background: transparent;
+}
 .step-description {
   margin-bottom: 30px;
   color: rgba(0, 0, 0, 0.45)
@@ -471,11 +483,11 @@ input[type=radio] {
 }
 
 /* Components in the form's footer i.e nav buttons etc */
-
+/*
 .container-form button {
   margin-top: 10px;
   min-width: 120px;
-}
+} */
 .container-form button.btn-default {
   margin-right: 10px;
   background-color: #ffffff;

@@ -11,6 +11,38 @@ router.get('/sex', getBioSex)
 router.get('/agecategory', getAgeCategory)
 router.get('/handedness', getHandedness)
 router.get('/species', getSpecies)
+router.get('/strain', getStrain)
+router.get('/disease', getDisease)
+
+async function getDisease(req, res) {
+    const filePath = path.join(__dirname, '../data/controlledTerms/Disease.json');
+    try {
+        let disease
+        try {
+            const data = await readFile(filePath, 'utf-8')
+            disease = JSON.parse(data)
+        } catch (err) {
+            disease = []} 
+        res.status(200).json({ disease })
+    } catch (error) {
+        console.error('Error fetching json file from backend', error.message)
+        res.status(500).send('Internal server error')}
+} 
+
+async function getStrain(req, res) {
+    const filePath = path.join(__dirname, '../data/controlledTerms/Strain.json');
+    try {
+        let strain
+        try {
+            const data = await readFile(filePath, 'utf-8')
+            strain = JSON.parse(data)
+        } catch (err) {
+            strain = []} 
+        res.status(200).json({ strain })
+    } catch (error) {
+        console.error('Error fetching json file from backend', error.message)
+        res.status(500).send('Internal server error')}
+} 
 
 async function getBioSex(req, res) {
     const filePath = path.join(__dirname, '../data/controlledTerms/BiologicalSex.json');
