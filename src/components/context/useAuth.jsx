@@ -46,7 +46,7 @@ export function useAuth () {
               /*return authFunctions.getUser(token);*/
               return authFunctions.getUserKG(token)})
                 .then( (user) => {
-                  //console.log(user)
+                  console.log('getUserKG:',user)
                   setUser(user)
                   dispatch({type: 'user', text: user})})}
       }

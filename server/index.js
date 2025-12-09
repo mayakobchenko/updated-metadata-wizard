@@ -10,6 +10,7 @@ import KGinfoSubjects from './routes/infoSubjects.js'
 import zammadInfo from './routes/getTicketNettskjemaInfo.js'
 import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
+import driveupload from './routes/driveUpload.js'
 
 dotenv.config({ path: '../.env' })
 const PORT = process.env.PORT_SERVER || 4000
@@ -44,5 +45,6 @@ app.use('/kginfo/', KGinfoRoutes)
 app.use('/subjects/', KGinfoSubjects)
 app.use('/zammad/', zammadInfo)
 app.use('/python/', runpython)
+app.use('/drive/', driveupload)
   
 ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`))

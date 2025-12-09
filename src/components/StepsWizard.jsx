@@ -120,7 +120,24 @@ const StepsWizard = () => {
 
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }
-  
+  //try to use token from the context and post to backend for uploading to the drive
+ //check if the token expired already 
+  const saveJsonToDrive = async () => {
+    try {
+      const pythonurl = 'api/drive/driveupload'
+      const response = await fetch(pythonurl, {
+        method: 'POST',  
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(formData, null, 2)})
+      
+      if (!response.ok) {
+        throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
+      const data = await response.json()
+      console.log(data)
+
+    } catch (error) { console.error('Error calling python endpoint:', error) }
+  }
+
   const downloadJson = () => {
     const json = JSON.stringify(formData, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
@@ -153,7 +170,7 @@ const StepsWizard = () => {
         {currentStepIndex === steps.length - 1 && (
           //change here the onClick function to uploadpythonKG
           //<Button onClick={downloadJson} className="next-back-button">Save</Button>
-          <PopoverSave downloadJson={downloadJson} uploadpythonKG={savePythonKG} />
+          <PopoverSave downloadJson={downloadJson} uploadpythonKG={savePythonKG} saveJsonToDrive={saveJsonToDrive} />
         )}
       </div>
       <Modal

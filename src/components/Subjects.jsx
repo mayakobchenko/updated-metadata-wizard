@@ -299,10 +299,7 @@ export default function Subjects ({ form, onChange, data = {} }) {
                         </Option>
                     ))}
                     </Select>
-                </Form.Item>
-                <Form.Item label="File path" style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
-                   <Input value={field.file_path} onChange={(e) => handleSubjectChange(index, 'file_path', e.target.value)} placeholder="folder/subfolder/sub1file.ext" />
-                </Form.Item>    
+                </Form.Item> 
             </div>
 
           </div>

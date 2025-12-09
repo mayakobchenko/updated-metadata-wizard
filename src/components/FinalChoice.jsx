@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Button, Popover } from "antd"
 
-export default function PopoverSave({ downloadJson, uploadpythonKG }) {
+export default function PopoverSave({ downloadJson, uploadpythonKG, saveJsonToDrive }) {
   const [visible, setVisible] = useState(false)
 
   const handleVisibleChange = (newVisible) => {
@@ -11,7 +11,7 @@ export default function PopoverSave({ downloadJson, uploadpythonKG }) {
     setVisible(false)
     if (action === "download") console.log('downloaded') //downloadJson()
     else if (action === "upload") console.log('uploaded') //uploadpythonKG()
-    else if (action === "share") console.log("Shared with collaborators")
+    else if (action === "share") saveJsonToDrive() //console.log("Shared with collaborators") //upload to the drive
   }
 
   const content = (
