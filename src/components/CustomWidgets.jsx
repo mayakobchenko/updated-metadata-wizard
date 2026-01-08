@@ -17,15 +17,15 @@ export const ImageWidget = function(props){
   export default RichTextWidget;
   
   const CustomArraySchemaField = function(props) {
-    const { registry } = props;
-    const { SchemaField } = registry.fields;
+    const { registry } = props
+    const { SchemaField } = registry.fields
     //const name = `Entry ${index+1}`;
     //const name = props.name.replace(/-(\d+)/g, (match, number) => ` ${Number(number) + 1}`);
     //const name = `${props.schema._name} ${index+1}`
-    const name = '';
-    return <SchemaField {...props} name={name} />;
-  };
+    const name = ''
+    return <SchemaField {...props} name={name} />
+  }
   
   export const CustomArrayField = {
     ArraySchemaField: CustomArraySchemaField
-  };
+  }

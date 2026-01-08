@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuthContext } from './context/NewContextProvider.jsx'
-import { useNettskjema } from "./context/useNettskjema"
+import { useNettskjema } from "./context/useNettskjema.jsx"
 import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal } from 'antd'
 import ProgressBar from './ProgressBar'
@@ -17,7 +17,7 @@ import LoadingSpinner from './LoadingSpinner'
 //npm install file-saver
 
 const StepsWizard = () => {
-  //useNettskjema()  //move to AuthProvider
+  useNettskjema()  //move to AuthProvider
   const skjemaInfo = useAuthContext()
   const initialValues = {
     ticketNumber: skjemaInfo?.ticketNumber || '',

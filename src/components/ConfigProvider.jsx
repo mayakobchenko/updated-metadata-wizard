@@ -1,4 +1,4 @@
-import {ConfigProvider} from 'antd';
+import {ConfigProvider} from 'antd'
 
 const EbrainsConfigProvider = ({children, ...props}) => {
     return ( 

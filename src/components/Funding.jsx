@@ -1,4 +1,3 @@
-import React from 'react'
 import { Form as AntForm, Input, Checkbox } from 'antd'
 import ConfigProvider from './ConfigProvider'
 

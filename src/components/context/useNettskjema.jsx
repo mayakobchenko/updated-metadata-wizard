@@ -1,15 +1,16 @@
 //fetching submission nettskjema data from backend
 import { useEffect, useRef } from 'react'
 import authFunctions from "./authenticate"
-import { useAuthDispatch } from "./old_context/AuthProviderContext.jsx"
+import { useAuthDispatch } from './NewContextProvider.jsx'
 
 export function useNettskjema () {
 
-    const hasTicketRef = useRef(false)
-    const dispatch = useAuthDispatch()
-
-    if (urlContainsTicket()) {
-      hasTicketRef.current = true} 
+  const hasTicketRef = useRef(false)
+  const dispatch = useAuthDispatch()
+  const url = new URL(window.location.href)
+  const urlContainsTicket = url.searchParams.has('TicketNumber')
+    
+  if (urlContainsTicket) { hasTicketRef.current = true } 
 
     useEffect(() => {
       const fetchTicket = async () => {
@@ -48,8 +49,3 @@ export function useNettskjema () {
 
     }, [])
 }
-
-function urlContainsTicket () {
-  const URL = window.location.href
-  return (URL.includes('TicketNumber='))
-}  
