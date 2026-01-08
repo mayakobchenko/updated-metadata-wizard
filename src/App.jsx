@@ -4,12 +4,13 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import DropdownMenu from './components/DropdownMenu'
 import StepsWizard from './components/StepsWizard'
-import AuthProvider from './components/context/AuthProviderContext'
+//import AuthProvider from './components/context/AuthProviderContext'
+import NewContextProvider from './components/context/NewContextProvider'
 import LoginButton from './components/LoginButton'
 import Greetings from './components/Greetings'
 
 function App() {
-  
+
   function handleMenuSelection(selection) {
     if (selection) {
       console.log('dropdown menu selected:', selection)
@@ -20,7 +21,7 @@ function App() {
   return (
     <div className="body-wrapper">
       <Header/>
-          <AuthProvider>
+        <NewContextProvider>
           <div className="container-subheader">
             <div className="privacy-banner"><PrivacyBanner /></div>
             <div className="greetings"><Greetings/></div>
@@ -30,31 +31,10 @@ function App() {
             </div>
           </div> 
           <div className='container-form'><StepsWizard/></div>
-          </AuthProvider>
+        </NewContextProvider>
       <Footer />
     </div>
   )
 }
 
 export default App
-
-
-
-
-//here is the logic of my trials
-//import WelcomeText from './components/WelcomeText'
-//          <StatusBar/>
-//<SaveButton/>
-//          <EnvComponent/>
-//</AuthProvider>            <LoginButtonFinal/>
-//      <Page/>
-//<LoginButton/>
-//        <TaskApp/>
-
-// </AuthProvider>
-
-//      <ContextWrap>
-//import Page from './components/headersExampleContext'
-//import TaskApp from './components/example/TaskVisit'
-//import EnvComponent from './components/context/OnMount'
-//import { StatusBar, SaveButton } from './components/example/StatusSaveButtonTogether' //online status example

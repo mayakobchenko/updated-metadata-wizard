@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuthContext } from './context/AuthProviderContext'
+import { useAuthContext } from './context/NewContextProvider.jsx'
 import { useNettskjema } from "./context/useNettskjema"
 import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal } from 'antd'
@@ -7,17 +7,17 @@ import ProgressBar from './ProgressBar'
 import Contributors from './Contributors.jsx'
 import Subjects from './Subjects'
 import Introduction from './Introduction'
-import WelcomeAlert from './WelcomeAlert'
 import Dataset1 from './Dataset1'
 import Dataset2 from './Dataset2'
 import Funding from './Funding'
 import Experiments from './Experiments'
 import PopoverSave from './FinalChoice.jsx'
+import LoadingSpinner from './LoadingSpinner'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
 
 const StepsWizard = () => {
-  useNettskjema()
+  //useNettskjema()  //move to AuthProvider
   const skjemaInfo = useAuthContext()
   const initialValues = {
     ticketNumber: skjemaInfo?.ticketNumber || '',
@@ -203,6 +203,6 @@ function Intro ({ form, onChange, data }) {
       <Introduction form={form} onChange={onChange} data={data}/>
       </div>
     )}
-return (<WelcomeAlert/>)}
+return (<LoadingSpinner/>)}
 
 export default StepsWizard

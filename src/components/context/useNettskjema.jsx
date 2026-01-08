@@ -1,7 +1,7 @@
 //fetching submission nettskjema data from backend
 import { useEffect, useRef } from 'react'
 import authFunctions from "./authenticate"
-import { useAuthDispatch } from "./AuthProviderContext.jsx"
+import { useAuthDispatch } from "./old_context/AuthProviderContext.jsx"
 
 export function useNettskjema () {
 

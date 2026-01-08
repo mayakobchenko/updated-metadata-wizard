@@ -1,5 +1,5 @@
 import { useAuth } from "./context/useAuth"
-import { useAuthContext, useAuthDispatch } from './context/AuthProviderContext'
+import { useAuthContext, useAuthDispatch } from './context/old_context/AuthProviderContext'
 import authFunctions from "./context/authenticate"
 import { useState, useEffect } from 'react'
 import LoadingSpinner from './LoadingSpinner'
@@ -21,7 +21,7 @@ const clientId = import.meta.env.VITE_WIZARD_OIDC_CLIENT_ID
 
 export default function WelcomeText() {
   
-  useAuth()
+  //useAuth()
   const userInfo = useAuthContext()
   const dispatch = useAuthDispatch()
   const [showDialog, setShowDialog] = useState(false)

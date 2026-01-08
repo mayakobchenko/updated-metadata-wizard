@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import authFunctions from "./authenticate"
-import { useAuthDispatch } from "./AuthProviderContext.jsx"
+import { useAuthDispatch } from "./old_context/AuthProviderContext.jsx"
 
 export function useAuth () {
 
@@ -31,8 +31,8 @@ export function useAuth () {
 
     useEffect(() => {
       if (!hasAuthenticatedRef.current) {
-        console.log('running authFunctions.authenticate()')
-        authFunctions.authenticate()
+        console.log('running authFunctions.getRedirectUrl()')
+        authFunctions.login()
       } else {
         if (window.location.href.includes('error=')) {
           handleLoginError()

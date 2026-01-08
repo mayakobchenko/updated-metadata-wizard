@@ -1,7 +1,6 @@
-import React from 'react';
-import { DownloadOutlined, UploadOutlined, DeleteOutlined, MenuOutlined } from '@ant-design/icons';
-import { Dropdown, Space } from 'antd';
-import ConfigProvider from './ConfigProvider';
+import { DownloadOutlined, UploadOutlined, DeleteOutlined, MenuOutlined } from '@ant-design/icons'
+import { Dropdown, Space } from 'antd'
+import ConfigProvider from './ConfigProvider'
 
 const items = [
   {
@@ -19,24 +18,24 @@ const items = [
     key: '3',
     icon: <DeleteOutlined />,
   },
-];
+]
 
 const DropdownMenu = ({ handleMenuSelection }) => {
   const handleMenuClick = (info) => {
-    const { key } = info; 
-    const selectedItem = items.find(item => item.key === key);
+    const { key } = info
+    const selectedItem = items.find(item => item.key === key)
     if (selectedItem) {
         //console.log('Menu item clicked:', selectedItem.label);
-        handleMenuSelection(selectedItem.label); 
+        handleMenuSelection(selectedItem.label)
     } else {
-        console.warn('Dropdown menu is not working:', key); 
+        console.warn('Dropdown menu is not working:', key)
     }
 };
 
   const menuProps = {
       items,
       onClick: handleMenuClick,
-  };
+  }
 
   return (
     <ConfigProvider>
@@ -51,7 +50,7 @@ const DropdownMenu = ({ handleMenuSelection }) => {
           </Dropdown.Button>
       </Space>
     </ConfigProvider>  
-  );
-};
+  )
+}
 
-export default DropdownMenu;
+export default DropdownMenu

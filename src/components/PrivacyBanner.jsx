@@ -1,15 +1,15 @@
 let toggleExpandNotice = function () {
-  const container = document.getElementById("notice-details");
-  const button = document.getElementById("notice-button");
+  const container = document.getElementById("notice-details")
+  const button = document.getElementById("notice-button")
 
   if (container.style.display === "none") {
-    container.style.display = "block";
-    button.style.backgroundImage = "url('/icons/up_arrow.svg')";
-    button.innerHTML = 'Hide';
+    container.style.display = "block"
+    button.style.backgroundImage = "url('/icons/up_arrow.svg')"
+    button.innerHTML = 'Hide'
   } else {
-    container.style.display = "none";
-    button.style.backgroundImage = "url('/icons/down_arrow.svg')";
-    button.innerHTML = 'Show more';
+    container.style.display = "none"
+    button.style.backgroundImage = "url('/icons/down_arrow.svg')"
+    button.innerHTML = 'Show more'
   }
 }
   
