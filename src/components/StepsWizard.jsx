@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuthContext } from './context/NewContextProvider.jsx'
+import { useAuthContext } from './context/NewContextProvider_my.jsx'
 //import { useNettskjema } from "./context/useNettskjema.jsx"
 import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal } from 'antd'

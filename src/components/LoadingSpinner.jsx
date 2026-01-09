@@ -1,6 +1,6 @@
 import { Spin } from 'antd'
 import ConfigProvider from './ConfigProvider'
-import { useAuthContext } from './context/NewContextProvider.jsx'
+import { useAuthContext } from './context/NewContextProvider_my.jsx'
 
 const Spinner = () => {
     const state = useAuthContext()
