@@ -8,6 +8,12 @@ const TOKEN_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/token"
 const AUTH_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/auth"
 const LOGOUT_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/logout"
 const USERINFO_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/userinfo"
+const USER_INFO_URL = "https://core.kg.ebrains.eu/v3/users/me"
+const userMap = {
+    username: 'http://schema.org/alternateName',
+    fullname: 'http://schema.org/name',
+    email: 'http://schema.org/email'
+}
 
 const router = express.Router()
 
@@ -49,6 +55,14 @@ async function getLoginUrl(req, res) {
 }
 
 async function getToken(req, res) {
+    const controller = new AbortController()
+    //const { signal } = controller
+    const onClose = () => {
+      console.warn('Client disconnected, aborting request to iam')
+      controller.abort()
+    }
+    req.on('close', onClose)
+  
     try {      
       const authorizationCode = req.query.code
       //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
@@ -75,7 +89,7 @@ async function getToken(req, res) {
         client_secret: clientSecret,
         redirect_uri: redirectUrl,
       })
-      console.log('fetching token at backend')
+      console.log('fetching token at backend (outbound fetch to IAM)')
       const requestOptions = {
         method: 'post',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -83,23 +97,45 @@ async function getToken(req, res) {
       }
       const tokenResponse = await fetch(TOKEN_ENDPOINT, requestOptions)
       if (!tokenResponse.ok) {
-        throw new Error(`problem fetching token from IAM: ${tokenResponse.status}`)
+        throw new Error(`problemTokenIAM: ${tokenResponse.status}`)
       }
       const tokenData = await tokenResponse.json()
-      //console.log('my token:', tokenData)     
+      console.log('token at backend:')     
       if (tokenData) {
         const expiresIn = tokenData.expires_in
         const refresh_token = tokenData.refresh_token
         const refresh_token_exp = tokenData.refresh_expires_in
         const access_token = tokenData["access_token"]
         tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
-        res.status(tokenResponse.status).send(access_token)
+        console.log('outbout fetch for userinfo')
+        const userResponse = await fetch(`${USER_INFO_URL}`, {headers: {authorization: access_token, 'Content-Type': 'application/json'}})
+        if (!userResponse.ok) {
+          throw new Error(`Failed to get user, status: ${userResponse.status}`)
+        }
+        const responseData = await userResponse.json()
+        const data = responseData.data
+        let userInfo = {}
+        Object.keys(userMap).forEach(key => {
+            userInfo[key] = data[userMap[key]]
+        })
+        console.log('user info from KG endpoint:', userInfo)
+               
+        res.status(userResponse.status).send(userInfo)
       } else {
         throw new Error('Could not fetch personal token')}
     } catch (error) {
-      console.error('Error fetching personal token from IAM:', error.message)
-      //res.status(500).send('Backend server error', error.message)
-    }
+      if (error && error.name === 'AbortError') {
+      console.log('Outbound token fetch aborted due to client disconnect.');
+      if (!res.headersSent) {
+        try { res.status(499).end() } catch (e) { /* ignore */ }
+      }
+      return
+      }
+      console.error('Error fetching personal token from IAM:', error && error.message ? error.message : error)
+      if (!res.headersSent) return res.status(500).send('Backend server error')
+    } finally {
+    req.off('close', onClose)
+  }
 }
 
 async function getLogOutUrl(req, res) {

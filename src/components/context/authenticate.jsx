@@ -3,7 +3,8 @@ const userMap = {
     username: 'http://schema.org/alternateName',
     fullname: 'http://schema.org/name',
     email: 'http://schema.org/email'
-};
+}
+
 const authFunctions = {
 
 getTicket: async function getTicket () {
@@ -62,32 +63,21 @@ logout: async function logout() {
     } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
 
-getToken: async function getToken() {
+getToken: async function getToken(opts = {}) {
+    const { signal } = opts
     const urlParams = new URLSearchParams(window.location.search)
     let url = 'api/auth/token'
     url += '?' + urlParams.toString()
     try {
-      const tokenResponse = await fetch(url)
+      const tokenResponse = await fetch(url, {
+        method: "GET",
+        signal,
+        headers: {"Accept": "text/plain"}})
       if (!tokenResponse.ok) {
-        throw new Error(`Failed to fetch token from backend: ${tokenResponse.status}`)}
+        throw new Error(`Failed to fetch token and user info from backend: ${tokenResponse.status}`)}
       return tokenResponse.text()
     } catch (error) {
-      console.error('Error occurred while fetching token from backend:', error.message)}
-},
-
-//this one is not used, CORS problems
-getUser: async function getUser(token) {
-    const url = 'api/auth/user'
-    try {
-      const userResponse = await fetch(url, {headers: {authorization: token, 'Content-Type': 'application/json'}});
-      if (!userResponse.ok) {
-        throw new Error(`Failed to get user, status: ${userResponse.status}`)
-      }
-      const data = await userResponse.json()
-      console.log(data)
-      return data
-    } catch (error) {console.error('Error fetching user from backend:', error.message)
-  }
+      console.error('Error occurred while fetching token and user info from backend:', error.message)}
     },
 
 getUserKG: async function getUserKG(token) {
@@ -105,7 +95,24 @@ getUserKG: async function getUserKG(token) {
         console.log('user info from KG endpoint:', userInfo)
         return userInfo
     } 
-    catch (error) {console.error('Error fetching user from backend:', error.message)}}
+        catch (error) { console.error('Error fetching user from backend:', error.message) }
+    },
+    
+//this one is not used, CORS problems
+getUser: async function getUser(token) {
+    const url = 'api/auth/user'
+    try {
+      const userResponse = await fetch(url, {headers: {authorization: token, 'Content-Type': 'application/json'}});
+      if (!userResponse.ok) {
+        throw new Error(`Failed to get user, status: ${userResponse.status}`)
+      }
+      const data = await userResponse.json()
+      console.log(data)
+      return data
+    } catch (error) {console.error('Error fetching user from backend:', error.message)
+  }
+    },
+
 }
 
 export default authFunctions
