@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useAuthContext } from './context/NewContextProvider.jsx'
-//import { useNettskjema } from "./context/useNettskjema.jsx"
 import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal } from 'antd'
 import ProgressBar from './ProgressBar'
@@ -17,11 +16,10 @@ import LoadingSpinner from './LoadingSpinner'
 //npm install file-saver
 
 const StepsWizard = () => {
-  //useNettskjema()  //move to AuthProvider
   const skjemaInfo = useAuthContext()
   const initialValues = {
-    ticketNumber: skjemaInfo?.ticketNumber || '',
-    datasetVersionId: skjemaInfo?.datasetVersionId || '',
+    //ticketNumber: skjemaInfo?.ticketNumber || '',
+    //datasetVersionId: skjemaInfo?.datasetVersionId || '',
     contactperson: {
       firstName: skjemaInfo?.nettskjemaInfo?.contactFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.contactSurname || '',
@@ -132,8 +130,8 @@ const StepsWizard = () => {
       
       if (!response.ok) {
         throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
-      const data = await response.json()
-      console.log(data)
+      const data_response = await response.json()
+      console.log('response from drive',data_response)
 
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }

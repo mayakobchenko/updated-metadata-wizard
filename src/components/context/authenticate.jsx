@@ -12,8 +12,9 @@ getTicket: async function getTicket () {
     return ticketNumber
 },
 
-zammad: async function zammad (ticketNumber) {
+zammad: async function zammad () {
     try {
+        const ticketNumber = new URLSearchParams(window.location.search).get('TicketNumber')
         const response = await fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`)
         if (!response.ok) {
             throw new Error(`Failed to fetch zammad info from express server: ${response.status}`)
@@ -62,17 +63,50 @@ logout: async function logout() {
         window.location.href = await logoutResponse.text()
     } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
-
+/* Claude
 getToken: async function getToken(opts = {}) {
     const { signal } = opts
     const urlParams = new URLSearchParams(window.location.search)
+    console.log('code', urlParams.get('code'))
+    let url = 'api/auth/token'
+    url += '?' + urlParams.toString()
+    
+    try {
+      const tokenResponse = await fetch(url, {
+        method: "GET",
+        signal,
+        headers: { "Accept": "application/json" }  // Changed to JSON
+      })
+      
+      if (!tokenResponse.ok) {
+        throw new Error(`Failed to fetch token and user info from backend: ${tokenResponse.status}`)
+      }
+      
+      const data = await tokenResponse.json()  // Parse as JSON
+      
+      return {
+        user: data.user,
+        token: data.token  // Backend should return this
+      }
+    } catch (error) {
+      console.error('Error occurred while fetching token and user info from backend:', error.message)
+      return null
+    }
+},
+*/
+getToken: async function getToken(opts = {}) {
+    const { signal } = opts
+    const urlParams = new URLSearchParams(window.location.search)
+    console.log('code', urlParams.code)
     let url = 'api/auth/token'
     url += '?' + urlParams.toString()
     try {
       const tokenResponse = await fetch(url, {
         method: "GET",
         signal,
-        headers: {"Accept": "text/plain"}})
+        headers: { "Accept": "text/plain" }
+      })
+        //removeUrlParams(["code", "iss", "session_state"])
       if (!tokenResponse.ok) {
         throw new Error(`Failed to fetch token and user info from backend: ${tokenResponse.status}`)}
       return tokenResponse.text()

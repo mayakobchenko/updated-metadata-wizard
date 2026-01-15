@@ -1,9 +1,10 @@
 import { Form as AntForm, Input } from 'antd'
+import { useEffect } from 'react'
 
 export default function Introduction({ form, onChange, data }) {
   const initialValues = {
-    ticketNumber: data.ticketNumber || '',
-    datasetVersionId: data.datasetVersionId || '',
+    //ticketNumber: data.ticketNumber || '',
+    //datasetVersionId: data.datasetVersionId || '',
     contactperson: {
       firstName: data.contactperson?.firstName || '',
       familyName: data.contactperson?.familyName || '',
@@ -16,7 +17,14 @@ export default function Introduction({ form, onChange, data }) {
       institution: data.custodian?.institution || ''},
     groupLeader: {
       name: data.groupLeader?.name || '',
-      orcid: data.groupLeader?.orcid || ''}} 
+      orcid: data.groupLeader?.orcid || ''
+    }
+  } 
+  
+  useEffect(() => {
+    if (!form) return
+    form.setFieldsValue(initialValues)
+  }, [form, initialValues])
 
   const handleValuesChange = (changedValues, allValues) => {
     //console.log('Changed Values:', changedValues)
@@ -47,6 +55,7 @@ export default function Introduction({ form, onChange, data }) {
         layout="vertical"
         initialValues={initialValues}
         onValuesChange={handleValuesChange}>
+        {/*
         <AntForm.Item
           label="Zammad ticket Number"
           name="ticketNumber"
@@ -59,6 +68,7 @@ export default function Introduction({ form, onChange, data }) {
           rules={[{ required: false }]}>
           <Input />
         </AntForm.Item>
+        */}
         <AntForm.Item
           label="Contact person's first name"
           name={['contactperson', 'firstName']} 
@@ -130,5 +140,5 @@ export default function Introduction({ form, onChange, data }) {
         </AntForm.Item>
       </AntForm>
     </div>
-  );
+  )
 }

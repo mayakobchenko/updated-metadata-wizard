@@ -4,14 +4,19 @@ import { useAuthContext } from './context/NewContextProvider.jsx'
 
 const Spinner = () => {
     const state = useAuthContext()
+    //console.log(state)
+    //console.log('spinner')
     const message = state?.message
     const showLoginDialog = state?.showLoginDialog
+    const isAuthenticating = state?.isAuthenticating
     
     // Don't show spinner if login dialog is visible
     if (showLoginDialog) {
         return null
     }
-    
+    if (!isAuthenticating) {
+        return null
+    }
     const overlayStyle = {
         position: 'fixed',
         top: 0,

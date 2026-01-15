@@ -9,9 +9,6 @@ const initialState = {
     isAuthenticating: true,
     showLoginDialog: false,
     nettskjemaInfo: null,
-    datasetVersionId: null,
-    ticketNumber: null,
-    nettskjemaId: null,
 }
 export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
@@ -22,166 +19,111 @@ export default function NewContextProvider({ children }) {
 
   const mountedRef = useRef(false)
   const hasAuthenticatedRef = useRef(false)
-  //const hasTicketRef = useRef(false)
-  const fetchedTicketRef = useRef(false)
 
   const removeUrlParams = useCallback((params = []) => {
-      try {
-      const url = new URL(window.location.href)
-      params.forEach((p) => url.searchParams.delete(p))
-      window.history.replaceState({}, document.title, url.toString())
-      } catch (err) {}
+    try {
+    const url = new URL(window.location.href)
+    params.forEach((p) => url.searchParams.delete(p))
+    window.history.replaceState({}, document.title, url.toString())
+    } catch (err) {}
   }, [])
   
   useEffect(() => {
     mountedRef.current = true
     console.log('mounted:', mountedRef.current)
-    return () => {mountedRef.current = false}
-    }, [])
-  
-  useEffect(() => {
-    console.log('auth use Effect')
-    let aborted = false
     const controller = new AbortController()
     const signal = controller.signal
+    const url = new URL(window.location.href)
 
-    async function authenticateUser() {
+    async function doAuthThenTicket() {
       try {
-        const url = new URL(window.location.href)
+        const authenticated = await (async () => {
         const hasCode = url.searchParams.has("code")
         const hasError = url.searchParams.has("error")
         console.log('hasCode:', hasCode, 'hasError:', hasError)
-
         if (hasError) {
-          console.warn("Auth redirect had error:", url.searchParams.get("error"))
-          removeUrlParams(["error"])
-          setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}}, 3000) 
-          return
+            console.log("Auth redirect had error:", url.searchParams.get("error"))
+            removeUrlParams(["error"])
+            setTimeout(() => { if (mountedRef.current) { dispatch({ type: "SHOW_LOGIN_DIALOG" }) } }, 3000)
+            return false
         }
-        
         if (hasCode && !hasAuthenticatedRef.current) {
-          console.log('fetching token')
-          console.log('signal:', signal)
-          const user = await authFunctions.getToken({ signal })
-          console.log(user)
-          //const token = info.token
-          //const user = info.user_info
-          console.log('aborted:', aborted)
-          if (!mountedRef.current || aborted) return
-          if (!user) {
+            console.log('get token function')
+            const user = await authFunctions.getToken({ signal })
+            if (!mountedRef.current) return false
             removeUrlParams(["code", "iss", "session_state"])
-            setTimeout(() => {
-              if (mountedRef.current && !aborted) dispatch({ type: "SHOW_LOGIN_DIALOG" })
-            }, 3000)
-            return
-          }
-          //dispatch({ type: "SET_TOKEN", text: token })
-          //console.log('token dispatched')
-          removeUrlParams(["code", "iss", "session_state"])
-          if (user) {
+            /*if (!user) {
+                setTimeout(() => { if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" }) }, 3000)
+                return false
+            }*/
             const trimmed = user.replace(/^'|'\s*$/g, '')
             const json_user = JSON.parse(trimmed)
-            console.log(json_user.familyname)
-            //console.log(user)
+            console.log('fetched user info', json_user)
             dispatch({ type: "SET_USER", text: json_user })
             hasAuthenticatedRef.current = true
             console.log('Authentication complete!')
-          }
-            
-          /*console.log('fetching user')
-          const user = await authFunctions.getUserKG(token)
-          console.log('fetched user')
-          if (!mountedRef.current || aborted) return
-          if (user) {
-            dispatch({ type: "SET_USER", text: user })
-            hasAuthenticatedRef.current = true
-            console.log('Authentication complete!')
-          }*/
-        }        
-      } catch (err) {
-        if (err.name == "AbortError") return
-        console.error("Error during token exchange or fetching user:", err)
-        removeUrlParams(["code", "iss", "session_state"])
-        setTimeout(() => {
-          if (mountedRef.current && !aborted) dispatch({ type: "SHOW_LOGIN_DIALOG" })
-        }, 3000)
-      }
-
-      //console.log('No auth code found, showing login dialog...')
-      if (!hasAuthenticatedRef.current) {
-        setTimeout(() => {
-          if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
-        }, 3000)
+          return true
         }
-      
-    }
+        if (!hasAuthenticatedRef.current) {
+            console.log('dispatch show login dialog is set')
+              setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
+              }, 3000)
+            return false
+        }
+        return false        
+    })()
 
-    authenticateUser()
+    if (!mountedRef.current) return
+
+    if (authenticated) {
+      await (async function fetchTicket() {
+        const urlContainsTicket = url.searchParams.has('TicketNumber')
+        if (!urlContainsTicket) return
+        //const ticketNumber = await authFunctions.getTicket({ signal })
+        if (!mountedRef.current) return
+        const [nettskjemaId] = await authFunctions.zammad()
+        const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
+        console.log(nettskjemaInfo)
+        const skjemaInfo = {
+            contactFirstName: nettskjemaInfo.ContactInfo[0],
+            contactSurname: nettskjemaInfo.ContactInfo[1],
+            contactEmail: nettskjemaInfo.ContactInfo[2],
+            custodionaFirstName: nettskjemaInfo.CustodianInfo[0],  //typo
+            custodianSurname: nettskjemaInfo.CustodianInfo[1],
+            custodianEmail: nettskjemaInfo.CustodianInfo[2],
+            custodianORCID: nettskjemaInfo.CustodianInfo[3],
+            custodianInstitution: nettskjemaInfo.CustodianInfo[4],
+            GroupLeaderName: nettskjemaInfo.GroupLeader[0],
+            GroupLeaderOrcid: nettskjemaInfo.GroupLeader[1],
+            dataTitle: nettskjemaInfo.DataInfo[0],
+            briefSummary: nettskjemaInfo.DataInfo[1],
+            embargo: nettskjemaInfo.DataInfo[2],
+            optionsData: nettskjemaInfo.DataInfo[3],
+            embargoReview: nettskjemaInfo.DataInfo[4],
+            submitJournalName: nettskjemaInfo.DataInfo[5],
+            Data2UrlDoiRepo: nettskjemaInfo.Data2Info[0],
+            Data2DoiJournal: nettskjemaInfo.Data2Info[1]
+        }
+        dispatch({ type: 'nettskjemaInfo', text: skjemaInfo })
+      })()
+    }
+    } catch (err) {
+        if (err.name === "AbortError") return
+        console.error(err)
+    }
+    }
+    doAuthThenTicket()
 
     return () => {
-      aborted = true
-      controller.abort()
-    }
-  }, [removeUrlParams, dispatch])
+        mountedRef.current = false
+        controller.abort()
+        }
+    }, [removeUrlParams])  //needed dispatch here? 
   
-  //nettskjema
-  useEffect(() => {
-    const controller = new AbortController()
-    const signal = controller.signal
-    let cancelled = false
-
-    const url = new URL(window.location.href)
-    const urlContainsTicket = url.searchParams.has('TicketNumber')
-    if (!urlContainsTicket || fetchedTicketRef.current) return
-    //if (urlContainsTicket) { hasTicketRef.current = true }
-    fetchedTicketRef.current = true
-
-    const fetchTicket = async () => {
-      if (fetchedTicketRef.current) {
-          try {
-            const ticketNumber = await authFunctions.getTicket()
-            if (!mountedRef.current) return
-            if (ticketNumber) {
-              dispatch({ type: 'ticket', text: ticketNumber })
-              //console.log('ticket number:', ticketNumber)
-              const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
-              if (!mountedRef.current) return
-              //console.log('dataset version id:', datasetVersionId)
-              dispatch({ type: 'datasetVersionId', text: datasetVersionId })
-              const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-              if (!mountedRef.current) return
-              console.log(nettskjemaInfo)
-              const skjemaInfo = {
-                contactFirstName: nettskjemaInfo.ContactInfo[0],
-                contactSurname: nettskjemaInfo.ContactInfo[1],
-                contactEmail: nettskjemaInfo.ContactInfo[2],
-                custodionaFirstName: nettskjemaInfo.CustodianInfo[0],
-                custodianSurname: nettskjemaInfo.CustodianInfo[1],
-                custodianEmail: nettskjemaInfo.CustodianInfo[2],
-                custodianORCID: nettskjemaInfo.CustodianInfo[3],
-                custodianInstitution: nettskjemaInfo.CustodianInfo[4],
-                GroupLeaderName: nettskjemaInfo.GroupLeader[0],
-                GroupLeaderOrcid: nettskjemaInfo.GroupLeader[1],
-                dataTitle: nettskjemaInfo.DataInfo[0],
-                briefSummary: nettskjemaInfo.DataInfo[1],
-                embargo: nettskjemaInfo.DataInfo[2],
-                optionsData: nettskjemaInfo.DataInfo[3],
-                embargoReview: nettskjemaInfo.DataInfo[4],
-                submitJournalName: nettskjemaInfo.DataInfo[5],
-                Data2UrlDoiRepo: nettskjemaInfo.Data2Info[0],
-                Data2DoiJournal: nettskjemaInfo.Data2Info[1]
-              }
-              dispatch({ type: 'nettskjemaInfo', text: skjemaInfo })
-            }
-          } catch (error) {console.error('Error fetching ticket:', error)}}}
-    
-      fetchTicket()
-
-    }, [removeUrlParams])
   
   return (
-    <AuthContext value={state}>
-        <AuthDispatch value={dispatch}>
+    <AuthContext.Provider value={state}>
+        <AuthDispatch.Provider value={dispatch}>
           {state.showLoginDialog && (
             <Dialog open>
                 <DialogTitle>Welcome to the Ebrains Metadata Wizard</DialogTitle>
@@ -193,8 +135,8 @@ export default function NewContextProvider({ children }) {
                 </DialogActions>
             </Dialog>)}
           {children}
-      </AuthDispatch>
-    </AuthContext>
+      </AuthDispatch.Provider>
+    </AuthContext.Provider>
   )
 }
 
@@ -210,16 +152,14 @@ export function authReducer(state, action) {
         return { ...state, token: null, user: null, showLoginDialog: false }  
     case 'LOGIN':
       return {...state, showLoginDialog: true} 
-    case 'ticket':
-      return {...state, ticketNumber: action.text} 
     case 'nettskjemaInfo':
       return {...state, nettskjemaInfo: action.text}  
-    case 'datasetVersionId':
-      return {...state, datasetVersionId: action.text} 
     default:
       return state
   }
 }
 
 export function useAuthContext() {return useContext(AuthContext)}
-export function useAuthDispatch() {return useContext(AuthDispatch)}
+export function useAuthDispatch() { return useContext(AuthDispatch) }
+
+//https://127.0.0.1:8080/?TicketNumber=4826029
