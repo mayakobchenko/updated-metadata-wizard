@@ -1,0 +1,83 @@
+name: Build, Push and Deploy (frontend + backend)
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY_HOST: ${{ secrets.REGISTRY_HOST }}                      
+  SHORT_TAG: ${{ github.sha }}
+  FRONTEND_IMAGE: ${{ secrets.REGISTRY_HOST }}/ebrains-data-curation/metadata-wizard-dev-frontend
+  BACKEND_IMAGE: ${{ secrets.REGISTRY_HOST }}/ebrains-data-curation/metadata-wizard-dev-backend
+  NAMESPACE: metadata-wizard-dev                        
+  FRONTEND_DEPLOYMENT: wizard-frontend             
+  FRONTEND_CONTAINER: frontend                  
+  BACKEND_DEPLOYMENT: wizard-backend              
+  BACKEND_CONTAINER: backend                      
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Debug registry connectivity (optional)
+        run: |
+          curl -v https://${{ secrets.REGISTRY_HOST }}/v2/ || true
+      - name: Login to registry
+        run: |
+          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin ${{ secrets.REGISTRY_HOST }}
+      - name: Build & push frontend image
+        run: |
+          echo "Building frontend image..."
+          docker build -f ./client/Dockerfile -t ${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }} -t ${{ env.FRONTEND_IMAGE }}:latest .
+          docker push ${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }}
+          docker push ${{ env.FRONTEND_IMAGE }}:latest
+
+      - name: Build & push backend image
+        run: |
+          echo "Building backend image..."
+          # adjust Dockerfile path if server/Dockerfile is in repo root/server/Dockerfile
+          docker build -f ./server/Dockerfile -t ${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }} -t ${{ env.BACKEND_IMAGE }}:latest .
+          docker push ${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }}
+          docker push ${{ env.BACKEND_IMAGE }}:latest
+
+      - name: Write kubeconfig to file
+        # If you stored the raw kubeconfig content in KUBE_CONFIG secret, we write it directly.
+        # If you encoded it base64, decode it here instead: echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ...
+        run: |
+          mkdir -p ${{ runner.temp }}/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" > ${{ runner.temp }}/.kube/kubeconfig.yaml
+          chmod 600 ${{ runner.temp }}/.kube/kubeconfig.yaml
+
+      - name: Set KUBECONFIG env var
+        run: |
+          echo "KUBECONFIG=${{ runner.temp }}/.kube/kubeconfig.yaml" >> $GITHUB_ENV
+
+      - name: Verify cluster connectivity (optional)
+        run: |
+          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" cluster-info
+          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" get ns || true
+
+      - name: Update backend Deployment image
+        run: |
+          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} set image deployment/${BACKEND_DEPLOYMENT} \
+            ${BACKEND_CONTAINER}=${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }} --record
+
+      - name: Update frontend Deployment image
+        run: |
+          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} set image deployment/${FRONTEND_DEPLOYMENT} \
+            ${FRONTEND_CONTAINER}=${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }} --record
+
+      - name: Wait for backend rollout
+        run: |
+          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} rollout status deployment/${BACKEND_DEPLOYMENT} --timeout=180s
+
+      - name: Wait for frontend rollout
+        run: |
+          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} rollout status deployment/${FRONTEND_DEPLOYMENT} --timeout=180s
+
+      - name: Cleanup kubeconfig
+        if: always()
+        run: |
+          shred -u ${{ runner.temp }}/.kube/kubeconfig.yaml || rm -f ${{ runner.temp }}/.kube/kubeconfig.yaml

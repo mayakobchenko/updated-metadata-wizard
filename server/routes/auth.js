@@ -181,7 +181,7 @@ async function getToken(req, res) {
   
     try {      
       const authorizationCode = req.query.code
-      console.log('code recieved by backend:', authorizationCode)
+      //console.log('code recieved by backend:', authorizationCode)
       //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
       let redirectUrl = 'https://127.00.0.1:8080/'
       const clientId = process.env.WIZARD_OIDC_CLIENT_ID
@@ -220,7 +220,7 @@ async function getToken(req, res) {
         return res.status(502).send({ error: 'Failed to fetch token from IAM', details: text })
       }
       const tokenData = JSON.parse(text)
-      console.log('token expires in:', tokenData["access_token"])     
+      console.log('token expires in:', tokenData["expires_in"])     
       if (tokenData) {
         const expiresIn = tokenData.expires_in
         const refresh_token = tokenData.refresh_token

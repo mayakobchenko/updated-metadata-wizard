@@ -38,38 +38,38 @@ export default function NewContextProvider({ children }) {
     async function doAuthThenTicket() {
       try {
         const authenticated = await (async () => {
-        const hasCode = url.searchParams.has("code")
-        const hasError = url.searchParams.has("error")
-        console.log('hasCode:', hasCode, 'hasError:', hasError)
-        if (hasError) {
-            console.log("Auth redirect had error:", url.searchParams.get("error"))
-            removeUrlParams(["error"])
-            setTimeout(() => { if (mountedRef.current) { dispatch({ type: "SHOW_LOGIN_DIALOG" }) } }, 3000)
-            return false
-        }
-        if (hasCode && !hasAuthenticatedRef.current) {
-            console.log('get token function')
-            const user = await authFunctions.getToken({ signal })
-            if (!mountedRef.current) return false
-            removeUrlParams(["code", "iss", "session_state"])
-            /*if (!user) {
-                setTimeout(() => { if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" }) }, 3000)
-                return false
-            }*/
-            const trimmed = user.replace(/^'|'\s*$/g, '')
-            const json_user = JSON.parse(trimmed)
-            console.log('fetched user info', json_user)
-            dispatch({ type: "SET_USER", text: json_user })
-            hasAuthenticatedRef.current = true
-            console.log('Authentication complete!')
-          return true
-        }
-        if (!hasAuthenticatedRef.current) {
-            console.log('dispatch show login dialog is set')
-              setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
-              }, 3000)
-            return false
-        }
+          const hasCode = url.searchParams.has("code")
+          const hasError = url.searchParams.has("error")
+          console.log('hasCode:', hasCode, 'hasError:', hasError)
+          if (hasError) {
+              console.log("Auth redirect had error:", url.searchParams.get("error"))
+              removeUrlParams(["error"])
+              setTimeout(() => { if (mountedRef.current) { dispatch({ type: "SHOW_LOGIN_DIALOG" }) } }, 3000)
+              return false
+          }
+          if (hasCode && !hasAuthenticatedRef.current) {
+              console.log('get token function')
+              const user = await authFunctions.getToken({ signal })
+              if (!mountedRef.current) return false
+              removeUrlParams(["code", "iss", "session_state"])
+              /*if (!user) {
+                  setTimeout(() => { if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" }) }, 3000)
+                  return false
+              }*/
+              const trimmed = user.replace(/^'|'\s*$/g, '')
+              const json_user = JSON.parse(trimmed)
+              console.log('fetched user info', json_user)
+              dispatch({ type: "SET_USER", text: json_user })
+              hasAuthenticatedRef.current = true
+              console.log('Authentication complete!')
+            return true
+          }
+          if (!hasAuthenticatedRef.current) {
+              console.log('dispatch show login dialog is set')
+                setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
+                }, 3000)
+              return false
+          }
         return false        
     })()
 
