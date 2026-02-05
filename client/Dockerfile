@@ -1,7 +1,7 @@
 # docker build -f client/Dockerfile -t <image>
 # In GitHub Actions: docker/build-push-action context to . and file to client/Dockerfile
 
-FROM node:18 AS builder
+FROM node:22.14.0 AS builder
 WORKDIR /app
 
 COPY package*.json ./
