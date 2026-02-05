@@ -5,77 +5,95 @@ on:
     branches: [ "main" ]
 
 env:
-  REGISTRY_HOST: ${{ secrets.REGISTRY_HOST }}                      
+  # Tag to use for images (7-char short SHA)
   SHORT_TAG: ${{ github.sha }}
-  FRONTEND_IMAGE: ${{ secrets.REGISTRY_HOST }}/ebrains-data-curation/metadata-wizard-dev-frontend
-  BACKEND_IMAGE: ${{ secrets.REGISTRY_HOST }}/ebrains-data-curation/metadata-wizard-dev-backend
-  NAMESPACE: metadata-wizard-dev                        
-  FRONTEND_DEPLOYMENT: wizard-frontend             
-  FRONTEND_CONTAINER: frontend                  
-  BACKEND_DEPLOYMENT: wizard-backend              
-  BACKEND_CONTAINER: backend                      
+
+  # Harbor registry/project (both images will live under REGISTRY/PROJECT)
+  REGISTRY: docker-registry.ebrains.eu
+  PROJECT: ebrains-data-curation
+
+  # Kubernetes namespace (where Deployments exist)
+  K8S_NAMESPACE: metadata-wizard-dev
+
+  # Full image names (registry/project/repo)
+  FRONTEND_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/image-frontend
+  BACKEND_IMAGE:  docker-registry.ebrains.eu/ebrains-data-curation/image-backend
+
+  # Container names inside the Deployments (must match k8s manifests)
+  FRONTEND_CONTAINER: container-frontend
+  BACKEND_CONTAINER:  container-backend
+
+  # Kubernetes Deployment names (adjust to your real names)
+  FRONTEND_DEPLOYMENT: frontend-deployment
+  BACKEND_DEPLOYMENT: backend-deployment
 
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Debug registry connectivity (optional)
-        run: |
-          curl -v https://${{ secrets.REGISTRY_HOST }}/v2/ || true
-      - name: Login to registry
-        run: |
-          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin ${{ secrets.REGISTRY_HOST }}
-      - name: Build & push frontend image
-        run: |
-          echo "Building frontend image..."
-          docker build -f ./client/Dockerfile -t ${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }} -t ${{ env.FRONTEND_IMAGE }}:latest .
-          docker push ${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }}
-          docker push ${{ env.FRONTEND_IMAGE }}:latest
 
-      - name: Build & push backend image
-        run: |
-          echo "Building backend image..."
-          # adjust Dockerfile path if server/Dockerfile is in repo root/server/Dockerfile
-          docker build -f ./server/Dockerfile -t ${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }} -t ${{ env.BACKEND_IMAGE }}:latest .
-          docker push ${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }}
-          docker push ${{ env.BACKEND_IMAGE }}:latest
+      - name: Log in to Harbor
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
 
-      - name: Write kubeconfig to file
-        # If you stored the raw kubeconfig content in KUBE_CONFIG secret, we write it directly.
-        # If you encoded it base64, decode it here instead: echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ...
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+
+      - name: Build & push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }}
+            ${{ env.BACKEND_IMAGE }}:latest
+
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ${{ runner.temp }}/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > ${{ runner.temp }}/.kube/kubeconfig.yaml
+          echo "${KUBECONFIG_CONTENT}" > ${{ runner.temp }}/.kube/kubeconfig.yaml
           chmod 600 ${{ runner.temp }}/.kube/kubeconfig.yaml
 
-      - name: Set KUBECONFIG env var
-        run: |
-          echo "KUBECONFIG=${{ runner.temp }}/.kube/kubeconfig.yaml" >> $GITHUB_ENV
+      - name: Set KUBECONFIG
+        run: echo "KUBECONFIG=${{ runner.temp }}/.kube/kubeconfig.yaml" >> $GITHUB_ENV
 
-      - name: Verify cluster connectivity (optional)
+      - name: Verify cluster (optional)
         run: |
-          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" cluster-info
-          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" get ns || true
+          kubectl cluster-info
+          kubectl get ns || true
 
-      - name: Update backend Deployment image
+      - name: Patch backend image
         run: |
-          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} set image deployment/${BACKEND_DEPLOYMENT} \
-            ${BACKEND_CONTAINER}=${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }} --record
+          kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${{ env.BACKEND_DEPLOYMENT }} \
+            ${{ env.BACKEND_CONTAINER }}=${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }} --record
 
-      - name: Update frontend Deployment image
+      - name: Patch frontend image
         run: |
-          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} set image deployment/${FRONTEND_DEPLOYMENT} \
-            ${FRONTEND_CONTAINER}=${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }} --record
+          kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${{ env.FRONTEND_DEPLOYMENT }} \
+            ${{ env.FRONTEND_CONTAINER }}=${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }} --record
 
       - name: Wait for backend rollout
         run: |
-          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} rollout status deployment/${BACKEND_DEPLOYMENT} --timeout=180s
+          kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.BACKEND_DEPLOYMENT }} --timeout=180s
 
       - name: Wait for frontend rollout
         run: |
-          kubectl --kubeconfig="${{ runner.temp }}/.kube/kubeconfig.yaml" -n ${NAMESPACE} rollout status deployment/${FRONTEND_DEPLOYMENT} --timeout=180s
+          kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.FRONTEND_DEPLOYMENT }} --timeout=180s
 
       - name: Cleanup kubeconfig
         if: always()
