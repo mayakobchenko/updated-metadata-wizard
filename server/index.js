@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 })
 
 app.use(cors({
-    origin: 'https://127.0.0.1:8080', // port for react
+    origin: 'https://metadata-wizard-dev.apps.ebrains.eu:8080',//'https://127.0.0.1:8080', // port for react
     credentials: true
 }));
 
