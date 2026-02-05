@@ -35,7 +35,7 @@ jobs:
       - name: Debug TLS
         run: |
           curl -v https://docker-registry.ebrains.eu/v2/ 
-          
+
       - name: Log in to Harbor
         uses: docker/login-action@v2
         with:
@@ -46,7 +46,7 @@ jobs:
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
-          context: ./client
+          context: .
           file: ./client/Dockerfile
           push: true
           tags: |
