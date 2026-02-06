@@ -29,6 +29,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Debug TLS
         run: |
           curl -v https://docker-registry.ebrains.eu/v2/ 
@@ -54,28 +55,50 @@ jobs:
         env:
           KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG }}
         run: |
-          mkdir -p "${{ runner.temp }}/.kube"
-          echo "${KUBECONFIG_B64}" | base64 --decode > "${{ runner.temp }}/.kube/kubeconfig.yaml"
-          chmod 600 "${{ runner.temp }}/.kube/kubeconfig.yaml"
+          set -euo pipefail
+          KUBE_DIR="${{ runner.temp }}/.kube"
+          KUBE_FILE="${KUBE_DIR}/kubeconfig.yaml"
+          mkdir -p "${KUBE_DIR}"
 
-      - name: Set KUBECONFIG
-        run: echo "KUBECONFIG=${{ runner.temp }}/.kube/kubeconfig.yaml" >> $GITHUB_ENV
+          # Decode the base64 secret into the kubeconfig file
+          echo "${KUBECONFIG_B64}" | base64 --decode > "${KUBE_FILE}"
+
+          # Sanity check: make sure it looks like a kubeconfig (contains apiVersion)
+          if ! grep -q "apiVersion" "${KUBE_FILE}" ; then
+            echo "Decoded file does not look like a kubeconfig; aborting"
+            sed -n '1,200p' "${KUBE_FILE}" || true
+            exit 1
+          fi
+
+          chmod 600 "${KUBE_FILE}"
+          echo "Wrote kubeconfig to ${KUBE_FILE}"
+          # optional preview for debugging (first 10 lines)
+          sed -n '1,10p' "${KUBE_FILE}"
 
       - name: Verify cluster (optional)
         run: |
-          kubectl cluster-info
-          kubectl get ns || true
+          set -euo pipefail
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          # Use explicit --kubeconfig so we don't depend on env var
+          kubectl --kubeconfig="${KUBE_FILE}" cluster-info || true
+          kubectl --kubeconfig="${KUBE_FILE}" get ns || true
 
       - name: Patch image
         run: |
-          kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${{ env.WIZARD_DEPLOYMENT }} \
+          set -euo pipefail
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          kubectl --kubeconfig="${KUBE_FILE}" -n ${{ env.K8S_NAMESPACE }} set image \
+            deployment/${{ env.WIZARD_DEPLOYMENT }} \
             ${{ env.WIZARD_CONTAINER }}=${{ env.DEV_WIZARD_IMAGE }}:${{ env.SHORT_TAG }} --record
 
       - name: Wait for rollout
         run: |
-          kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.WIZARD_DEPLOYMENT }} --timeout=180s
+          set -euo pipefail
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          kubectl --kubeconfig="${KUBE_FILE}" -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.WIZARD_DEPLOYMENT }} --timeout=180s
 
       - name: Cleanup kubeconfig
         if: always()
         run: |
-          shred -u ${{ runner.temp }}/.kube/kubeconfig.yaml || rm -f ${{ runner.temp }}/.kube/kubeconfig.yaml
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          shred -u "${KUBE_FILE}" || rm -f "${KUBE_FILE}"
