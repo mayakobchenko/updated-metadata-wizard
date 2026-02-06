@@ -15,13 +15,13 @@ env:
   K8S_NAMESPACE: metadata-wizard-dev
 
   # Full image names (registry/project/repo)
-  DEV_WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-frontend
+  DEV_WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-wizard-dev
   
   # Container names inside the Deployments (must match k8s manifests)
-  WIZARD_CONTAINER: container-wizard
+  WIZARD_CONTAINER: container-dev-wizard
 
   # Kubernetes Deployment names (adjust to your real names)
-  WIZARD_DEPLOYMENT: wizard-frontend
+  WIZARD_DEPLOYMENT: dev-wizard-deployment
 
 jobs:
   build-push-deploy:
