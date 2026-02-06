@@ -46,5 +46,7 @@ app.use('/subjects/', KGinfoSubjects)
 app.use('/zammad/', zammadInfo)
 app.use('/python/', runpython)
 app.use('/drive/', driveupload)
-  
+
+app.get('/health', (req, res) => res.status(200).send('ok'))
+
 ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`))

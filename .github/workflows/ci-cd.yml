@@ -15,16 +15,13 @@ env:
   K8S_NAMESPACE: metadata-wizard-dev
 
   # Full image names (registry/project/repo)
-  FRONTEND_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-frontend
-  BACKEND_IMAGE:  docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-backend
-
+  DEV_WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-frontend
+  
   # Container names inside the Deployments (must match k8s manifests)
-  FRONTEND_CONTAINER: container-frontend
-  BACKEND_CONTAINER:  container-backend
+  WIZARD_CONTAINER: container-wizard
 
   # Kubernetes Deployment names (adjust to your real names)
-  FRONTEND_DEPLOYMENT: wizard-frontend
-  BACKEND_DEPLOYMENT: wizard-backend
+  WIZARD_DEPLOYMENT: wizard-frontend
 
 jobs:
   build-push-deploy:
@@ -43,25 +40,15 @@ jobs:
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
-      - name: Build & push frontend
+      - name: Build & push image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./client/Dockerfile
           push: true
           tags: |
-            ${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }}
-            ${{ env.FRONTEND_IMAGE }}:latest
-
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./server/Dockerfile
-          push: true
-          tags: |
-            ${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }}
-            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.DEV_WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
+            ${{ env.DEV_WIZARD_IMAGE }}:latest
 
       - name: Write kubeconfig
         env:
@@ -79,23 +66,14 @@ jobs:
           kubectl cluster-info
           kubectl get ns || true
 
-      - name: Patch backend image
+      - name: Patch image
         run: |
-          kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${{ env.BACKEND_DEPLOYMENT }} \
-            ${{ env.BACKEND_CONTAINER }}=${{ env.BACKEND_IMAGE }}:${{ env.SHORT_TAG }} --record
+          kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${{ env.WIZARD_DEPLOYMENT }} \
+            ${{ env.WIZARD_CONTAINER }}=${{ env.DEV_WIZARD_IMAGE }}:${{ env.SHORT_TAG }} --record
 
-      - name: Patch frontend image
+      - name: Wait for rollout
         run: |
-          kubectl -n ${{ env.K8S_NAMESPACE }} set image deployment/${{ env.FRONTEND_DEPLOYMENT }} \
-            ${{ env.FRONTEND_CONTAINER }}=${{ env.FRONTEND_IMAGE }}:${{ env.SHORT_TAG }} --record
-
-      - name: Wait for backend rollout
-        run: |
-          kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.BACKEND_DEPLOYMENT }} --timeout=180s
-
-      - name: Wait for frontend rollout
-        run: |
-          kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.FRONTEND_DEPLOYMENT }} --timeout=180s
+          kubectl -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.WIZARD_DEPLOYMENT }} --timeout=180s
 
       - name: Cleanup kubeconfig
         if: always()
