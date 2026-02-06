@@ -50,13 +50,13 @@ jobs:
             ${{ env.DEV_WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
             ${{ env.DEV_WIZARD_IMAGE }}:latest
 
-      - name: Write kubeconfig
+      - name: Write kubeconfig (base64)
         env:
-          KUBECONFIG_CONTENT: ${{ secrets.KUBE_CONFIG }}
+          KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG }}
         run: |
-          mkdir -p ${{ runner.temp }}/.kube
-          echo "${KUBECONFIG_CONTENT}" > ${{ runner.temp }}/.kube/kubeconfig.yaml
-          chmod 600 ${{ runner.temp }}/.kube/kubeconfig.yaml
+          mkdir -p "${{ runner.temp }}/.kube"
+          echo "${KUBECONFIG_B64}" | base64 --decode > "${{ runner.temp }}/.kube/kubeconfig.yaml"
+          chmod 600 "${{ runner.temp }}/.kube/kubeconfig.yaml"
 
       - name: Set KUBECONFIG
         run: echo "KUBECONFIG=${{ runner.temp }}/.kube/kubeconfig.yaml" >> $GITHUB_ENV
