@@ -1,8 +1,10 @@
 import express from 'express'
-import ViteExpress from "vite-express"
-import cors from 'cors'; 
+import ViteExpress from 'vite-express'
+import cors from 'cors'
 import dotenv from 'dotenv'
+import path from 'path'
 import logger from './logger.js'
+
 import formRoutes from './routes/metadataSubmission.js'
 import authRoutes from './routes/auth.js'
 import KGinfoRoutes from './routes/infoKG.js'
@@ -13,40 +15,56 @@ import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
 
 dotenv.config({ path: '../.env' })
+
 const PORT = process.env.PORT_SERVER || 4000
+const HOST = process.env.HOST || '0.0.0.0'
 const app = express()
 
+// Basic middleware
 app.use(express.json())
 app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.url}`)
-    //console.log(`${req.method} ${req.url}`);
-    next()
+  logger.info(`${req.method} ${req.originalUrl}`)
+  next()
 })
 
 app.use(cors({
-    origin: 'https://metadata-wizard-dev.apps.ebrains.eu:8080',//'https://127.0.0.1:8080', // port for react
-    credentials: true
-}));
+  origin: 'https://metadata-wizard-dev.apps.ebrains.eu:8080',
+  credentials: true
+}))
 
-// CORS Middleware Toggle
-// if (process.env.ENABLE_CORS === 'true') {
-//     app.use(cors());
-// }
-
-// Schedule fetching data from KG every 15 minutes (900000 ms), 24 hours (86400000 ms)
+// Schedule fetch (as before)
 setInterval(fetchDataFromKg, 86400000)
 
-// Fetch initially when the server starts
-//fetchDataFromKg()
+// Mount all API routers under /api so client requests to /api/... match
+app.use('/api', formRoutes)        // now available at /api/...
+app.use('/api/auth', authRoutes)   // now available at /api/auth/...
+app.use('/api/kginfo', KGinfoRoutes)
+app.use('/api/subjects', KGinfoSubjects)
+app.use('/api/zammad', zammadInfo)
+app.use('/api/python', runpython)
+app.use('/api/drive', driveupload)
 
-app.use('/', formRoutes)
-app.use('/auth/', authRoutes)
-app.use('/kginfo/', KGinfoRoutes)
-app.use('/subjects/', KGinfoSubjects)
-app.use('/zammad/', zammadInfo)
-app.use('/python/', runpython)
-app.use('/drive/', driveupload)
-
+// Small test endpoint
+app.get('/api/test', (req, res) => res.status(200).send('BACKEND_OK'))
 app.get('/health', (req, res) => res.status(200).send('ok'))
 
-ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`))
+// Serve static files in production (adjust path if your Docker copies dist to ./server/dist)
+if (process.env.NODE_ENV === 'production') {
+  const staticDir = path.join(process.cwd(), 'server', 'dist')
+  app.use(express.static(staticDir))
+
+  // Fallback to index.html for requests that accept HTML (client-side routing)
+  app.get('*', (req, res, next) => {
+    const acceptsHtml = req.accepts('html')
+    if (!acceptsHtml) return next()
+    res.sendFile(path.join(staticDir, 'index.html'), (err) => {
+      if (err) next(err)
+    })
+  })
+}
+
+// Start server bound to 0.0.0.0 so it is reachable from service/ingress
+// ViteExpress.listen supports same signature as app.listen in many versions, but to be safe:
+ViteExpress.listen(app, PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`)
+})
