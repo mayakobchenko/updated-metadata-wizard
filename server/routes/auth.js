@@ -48,7 +48,7 @@ async function getLoginUrl(req, res) {
       response_type: 'code',
       client_id: clientId,
       scope: 'openid', // 'team%20collab.drive'  join with space, formating !
-      redirect_uri: 'https://metadata-wizard-dev.apps.ebrains.eu',
+      redirect_uri: 'metadata-wizard-dev.apps.ebrains.eu',
     })    
     console.log('params for the iam request:', params)
     res.status(200).send(AUTH_ENDPOINT + '?' + params.toString())
