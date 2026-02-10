@@ -12,9 +12,10 @@ getTicket: async function getTicket () {
     return ticketNumber
 },
 
-zammad: async function zammad () {
+zammad: async function zammad (ticketNumber) {
     try {
-        const ticketNumber = new URLSearchParams(window.location.search).get('TicketNumber')
+        //const ticketNumber = new URLSearchParams(window.location.search).get('TicketNumber')
+        console.log('zammad auth functions got ticket:', ticketNumber)
         const response = await fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`)
         if (!response.ok) {
             throw new Error(`Failed to fetch zammad info from express server: ${response.status}`)

@@ -59,7 +59,9 @@ export default function NewContextProvider({ children }) {
               const trimmed = user.replace(/^'|'\s*$/g, '')
               const json_user = JSON.parse(trimmed)
               console.log('fetched user info', json_user)
-              dispatch({ type: "SET_USER", text: json_user })
+              console.log('user info', json_user.user)
+              console.log('ticket:', json_user.ticket)
+              dispatch({ type: "SET_USER", text: json_user.user })
               hasAuthenticatedRef.current = true
               console.log('Authentication complete!')
             return true
@@ -77,11 +79,12 @@ export default function NewContextProvider({ children }) {
 
     if (authenticated) {
       await (async function fetchTicket() {
-        const urlContainsTicket = url.searchParams.has('TicketNumber')
-        if (!urlContainsTicket) return
+        const ticketNumber = json_user.ticket
+        //const urlContainsTicket = url.searchParams.has('TicketNumber')
+        //if (!urlContainsTicket) return
         //const ticketNumber = await authFunctions.getTicket({ signal })
         if (!mountedRef.current) return
-        const [nettskjemaId] = await authFunctions.zammad()
+        const [nettskjemaId] = await authFunctions.zammad(ticketNumber)
         const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
         console.log(nettskjemaInfo)
         const skjemaInfo = {
