@@ -207,7 +207,7 @@ async function getToken(req, res) {
         code: authorizationCode,
         client_id: clientId,
         client_secret: clientSecret,
-        redirect_uri: redirectUrl,
+        redirect_uri: 'https://metadata-wizard-dev.apps.ebrains.eu/',
       })
       console.log('fetching token at backend (outbound fetch to IAM)')
       const requestOptions = {
