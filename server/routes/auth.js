@@ -215,6 +215,7 @@ async function getToken(req, res) {
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: params.toString()
       }
+      console.log('token endpoint request options:', requestOptions)
       const tokenResponse = await fetch(TOKEN_ENDPOINT, requestOptions)
       const text = await tokenResponse.text().catch(()=>null)
       if (!tokenResponse.ok) {
