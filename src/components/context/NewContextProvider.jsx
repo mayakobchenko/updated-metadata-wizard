@@ -19,6 +19,7 @@ export default function NewContextProvider({ children }) {
 
   const mountedRef = useRef(false)
   const hasAuthenticatedRef = useRef(false)
+  const hasTicket = useRef(null)
 
   const removeUrlParams = useCallback((params = []) => {
     try {
@@ -58,11 +59,12 @@ export default function NewContextProvider({ children }) {
               }*/
               const trimmed = user.replace(/^'|'\s*$/g, '')
               const json_user = JSON.parse(trimmed)
-              console.log('fetched user info', json_user)
-              console.log('user info', json_user.user)
-              console.log('ticket:', json_user.ticket)
+              //console.log('fetched user info', json_user)
+              //console.log('user info', json_user.user)
+              //console.log('ticket:', json_user.ticket)
               dispatch({ type: "SET_USER", text: json_user.user })
               hasAuthenticatedRef.current = true
+              hasTicket.current = json_user.ticket
               console.log('Authentication complete!')
             return true
           }
@@ -79,9 +81,9 @@ export default function NewContextProvider({ children }) {
 
     if (authenticated) {
       await (async function fetchTicket() {
-        const ticketNumber = json_user.ticket
+        const ticketNumber = hasTicket.current
         //const urlContainsTicket = url.searchParams.has('TicketNumber')
-        //if (!urlContainsTicket) return
+        if (!ticketNumber) return
         //const ticketNumber = await authFunctions.getTicket({ signal })
         if (!mountedRef.current) return
         const [nettskjemaId] = await authFunctions.zammad(ticketNumber)
