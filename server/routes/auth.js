@@ -186,7 +186,7 @@ async function getToken(req, res) {
       const authorizationCode = req.query.code
       //console.log('code recieved by backend:', authorizationCode)
       //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
-      let redirectUrl = 'https://127.00.0.1:8080/'
+      let redirectUrl = 'https://metadata-wizard-dev.apps.ebrains.eu/'
       const clientId = process.env.WIZARD_OIDC_CLIENT_ID
       const clientSecret = process.env.WIZARD_OIDC_CLIENT_SECRET
       if (!authorizationCode || !redirectUrl || !clientId || !clientSecret) {
@@ -264,7 +264,7 @@ async function getToken(req, res) {
 async function getLogOutUrl(req, res) {
     try {
       //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
-      let redirectUrl = 'https://127.00.0.1:8080/'
+      let redirectUrl = 'https://metadata-wizard-dev.apps.ebrains.eu/'
       if (!redirectUrl) {throw new Error('Missing redirect url')}
       if (req.query && Object.keys(req.query).length > 0) {
         const searchParamString = new URLSearchParams(req.query).toString()
