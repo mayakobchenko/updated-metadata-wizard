@@ -36,7 +36,7 @@ async function getLoginUrl(req, res) {
     //let redirectUrl = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
     //window.location.href = `${OIDC}?response_type=code&login=true&client_id=${clientId}&redirect_uri=${MY_URL}`
     //let redirectUrl = 'https://127.00.0.1:8080/'
-    let redirectUrl = 'https://metadata-wizard-dev.apps.ebrains.eu'
+    let redirectUrl = 'https://metadata-wizard-dev.apps.ebrains.eu/'
     if (!redirectUrl || !clientId) {throw new Error('Missing redirect url and client ID')}
     if (req.query && Object.keys(req.query).length > 0) {
       delete req.query.iss
