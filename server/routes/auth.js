@@ -131,7 +131,7 @@ async function getToken(req, res) {
       redirect_uri: REDIRECT_URI
     })
 
-    console.log('Exchanging code at token endpoint (backend)')
+    console.log('Exchanging code at token endpoint (auth.js), personal token')
     const requestOptions = {
       method: 'post',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -145,7 +145,7 @@ async function getToken(req, res) {
 
     if (!tokenResponse.ok) {
       console.error('Token endpoint returned error', tokenResponse.status, text)
-      return res.status(502).send({ error: 'Failed to fetch token from IAM', details: text })
+      return res.status(502).send({ error: 'Failed to fetch personal token from IAM', details: text })
     }
 
     const tokenData = JSON.parse(text)
@@ -219,35 +219,4 @@ async function getLogOutUrl(req, res) {
   }
 }
 
-// this route is not used, because of CORS policies
-/*
-async function getUser(req, res) {
-  try {
-    const token = req.headers.authorization
-    if (!token) { throw new Error('Missing token') }
-    const userResponse = await fetch(USERINFO_ENDPOINT, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    if (!userResponse.ok) {
-      throw new Error(`problem fetching user info: ${userResponse.status}`)
-    }
-    const userData = await userResponse.json()
-    if (userData) {
-      const userInfo = {
-        name: userData.name,
-        preferred_username: userData.preferred_username,
-        given_name: userData.given_name,
-        family_name: userData.family_name,
-        email: userData.email,
-      }
-      res.status(userResponse.status).send(userInfo)
-    } else {
-      throw new Error('Could not fetch user data')
-    }
-  } catch (error) {
-    console.error('Error occurred while fetching user:', error.message)
-    res.status(500).send('Internal server error')
-  }
-}
-*/
 export default router

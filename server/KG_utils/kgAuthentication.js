@@ -1,8 +1,6 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: '../../.env' });
+import dotenv from 'dotenv'
+dotenv.config({ path: '../../.env' })
 
-//const clientId = process.env.OIDC_CLIENT_ID;
-//const clientSecret = process.env.CLIENT_SECRET;
 const clientId = process.env.WIZARD_OIDC_CLIENT_ID
 const clientSecret = process.env.WIZARD_OIDC_CLIENT_SECRET
 
@@ -26,7 +24,7 @@ export async function getRequestOptions() {
         
 export async function getTokenFromServiceAccount(clientSecret) {
     const endpointURL = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/token"
-    const body = "grant_type=client_credentials&client_id=" + clientId + "&client_secret=" + clientSecret + "&scope=openid%20group%20roles%20email%20profile%20team"
+    const body = "grant_type=client_credentials&client_id=" + clientId + "&client_secret=" + clientSecret + "&scope=email%20profile%20team%20group"//"&scope=openid%20group%20roles%20email%20profile%20team"
     const requestOptions = {
 	    method: 'post',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},

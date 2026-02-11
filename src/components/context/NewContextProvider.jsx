@@ -14,7 +14,7 @@ export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
 
 export default function NewContextProvider({ children }) {
-  console.log('app is mounted')
+  //console.log('app is mounted')
   const [state, dispatch] = useReducer(authReducer, initialState)
 
   const mountedRef = useRef(false)
@@ -31,7 +31,7 @@ export default function NewContextProvider({ children }) {
   
   useEffect(() => {
     mountedRef.current = true
-    console.log('mounted:', mountedRef.current)
+    //console.log('mounted:', mountedRef.current)
     const controller = new AbortController()
     const signal = controller.signal
     const url = new URL(window.location.href)
@@ -41,7 +41,7 @@ export default function NewContextProvider({ children }) {
         const authenticated = await (async () => {
           const hasCode = url.searchParams.has("code")
           const hasError = url.searchParams.has("error")
-          console.log('hasCode:', hasCode, 'hasError:', hasError)
+          //console.log('hasCode:', hasCode, 'hasError:', hasError)
           if (hasError) {
               console.log("Auth redirect had error:", url.searchParams.get("error"))
               removeUrlParams(["error"])
@@ -53,10 +53,6 @@ export default function NewContextProvider({ children }) {
               const user = await authFunctions.getToken({ signal })
               if (!mountedRef.current) return false
               removeUrlParams(["code", "iss", "session_state"])
-              /*if (!user) {
-                  setTimeout(() => { if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" }) }, 3000)
-                  return false
-              }*/
               const trimmed = user.replace(/^'|'\s*$/g, '')
               const json_user = JSON.parse(trimmed)
               //console.log('fetched user info', json_user)
