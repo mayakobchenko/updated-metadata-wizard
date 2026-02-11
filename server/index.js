@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv'
 import logger from './logger.js'
 import formRoutes from './routes/metadataSubmission.js'
-import authRoutes from './routes/auth_old.js'
+import authRoutes from './routes/auth.js'
 import KGinfoRoutes from './routes/infoKG.js'
 import KGinfoSubjects from './routes/infoSubjects.js'
 import zammadInfo from './routes/getTicketNettskjemaInfo.js'
