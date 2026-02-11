@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv'
 import logger from './logger.js'
 import formRoutes from './routes/metadataSubmission.js'
-import authRoutes from './routes/auth.js'
+import authRoutes from './routes/auth_old.js'
 import KGinfoRoutes from './routes/infoKG.js'
 import KGinfoSubjects from './routes/infoSubjects.js'
 import zammadInfo from './routes/getTicketNettskjemaInfo.js'
@@ -37,7 +37,7 @@ app.use(cors({
 setInterval(fetchDataFromKg, 86400000)
 
 // Fetch initially when the server starts
-//fetchDataFromKg()
+fetchDataFromKg()
 
 app.use('/api/', formRoutes)
 app.use('/api/auth/', authRoutes)
@@ -50,4 +50,4 @@ app.use('/api/drive/', driveupload)
 app.get('/health', (req, res) => res.status(200).send('ok'))
 app.get('/api/test', (req, res) => res.send('BACKEND_OK'))
 
-ViteExpress.listen(app, PORT, () => console.log(`Server running on http://127.0.0.1:${PORT}`))
+ViteExpress.listen(app, PORT, () => console.log(`Server running on ${PORT}`))

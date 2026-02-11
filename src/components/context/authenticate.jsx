@@ -64,37 +64,7 @@ logout: async function logout() {
         window.location.href = await logoutResponse.text()
     } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
-/* Claude
-getToken: async function getToken(opts = {}) {
-    const { signal } = opts
-    const urlParams = new URLSearchParams(window.location.search)
-    console.log('code', urlParams.get('code'))
-    let url = 'api/auth/token'
-    url += '?' + urlParams.toString()
-    
-    try {
-      const tokenResponse = await fetch(url, {
-        method: "GET",
-        signal,
-        headers: { "Accept": "application/json" }  // Changed to JSON
-      })
-      
-      if (!tokenResponse.ok) {
-        throw new Error(`Failed to fetch token and user info from backend: ${tokenResponse.status}`)
-      }
-      
-      const data = await tokenResponse.json()  // Parse as JSON
-      
-      return {
-        user: data.user,
-        token: data.token  // Backend should return this
-      }
-    } catch (error) {
-      console.error('Error occurred while fetching token and user info from backend:', error.message)
-      return null
-    }
-},
-*/
+
 getToken: async function getToken(opts = {}) {
     const { signal } = opts
     const urlParams = new URLSearchParams(window.location.search)
@@ -133,7 +103,8 @@ getUserKG: async function getUserKG(token) {
         catch (error) { console.error('Error fetching user from backend:', error.message) }
     },
     
-//this one is not used, CORS problems
+  //this route is not used, CORS problems
+/*
 getUser: async function getUser(token) {
     const url = 'api/auth/user'
     try {
@@ -147,6 +118,7 @@ getUser: async function getUser(token) {
     } catch (error) {console.error('Error fetching user from backend:', error.message)
   }
     },
+*/
 
 }
 

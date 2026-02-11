@@ -1,4 +1,4 @@
-// auth.js
+//to keep ticket number when redirecting: Use the OIDC state parameter 
 import express from 'express'
 import dotenv from 'dotenv'
 import crypto from 'crypto'
@@ -19,18 +19,17 @@ const userMap = {
 
 const router = express.Router()
 
-// State store (in-memory). Use Redis/DB in production for multi-instance reliability.
 const stateStore = new Map()
 const STATE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 function genState() {
-  return crypto.randomBytes(32).toString('hex') // 64 hex chars
+  return crypto.randomBytes(32).toString('hex') 
 }
 
 function storeState(state, payload) {
   const expiresAt = Date.now() + STATE_TTL_MS
   stateStore.set(state, { payload, expiresAt })
-  // schedule cleanup (not strictly necessary, but helps free memory)
+  // cleanup 
   setTimeout(() => {
     const entry = stateStore.get(state)
     if (entry && entry.expiresAt <= Date.now()) stateStore.delete(state)
@@ -44,7 +43,6 @@ function consumeState(state) {
     stateStore.delete(state)
     return null
   }
-  // single-use
   stateStore.delete(state)
   return entry.payload
 }
@@ -60,25 +58,19 @@ async function helloAuth (req, res) {
   console.log(`${req.method} ${req.url}`)
 }
 
-// IMPORTANT: REDIRECT_URI must exactly match what you registered in the OIDC client.
+// REDIRECT_URI must exactly match the one registered in the OIDC client.
 const REDIRECT_URI = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL || 'https://metadata-wizard-dev.apps.ebrains.eu/'
 
 async function getLoginUrl(req, res) {
   try {
     const clientId = process.env.WIZARD_OIDC_CLIENT_ID
     if (!REDIRECT_URI || !clientId) { throw new Error('Missing redirect url and client ID') }
-
-    // Collect what you want to carry thru the flow (e.g. TicketNumber).
-    // Only store needed, non-sensitive fields; don't store secrets in state payload.
     const payload = {}
     if (req.query) {
-      // Accept either TicketNumber or ticket
       if (req.query.TicketNumber) payload.ticket = req.query.TicketNumber
-      if (req.query.ticket) payload.ticket = req.query.ticket
-      // You can store other small non-sensitive fields as needed
+      //if (req.query.ticket) payload.ticket = req.query.ticket
     }
 
-    // Generate state and store mapping state -> payload server-side
     const state = genState()
     storeState(state, payload)
 
@@ -89,11 +81,9 @@ async function getLoginUrl(req, res) {
       redirect_uri: REDIRECT_URI,
       state,
       login: 'true'
-      // optionally: prompt, nonce, etc.
     })
 
-    console.log('Auth URL params:', params.toString())
-    // Return authorize URL to client; client should redirect browser to this URL
+    //console.log('Auth URL params:', params.toString())
     res.status(200).send(AUTH_ENDPOINT + '?' + params.toString())
   } catch (error) {
     console.error('Error fetching IAM url from backend', error.message)
@@ -110,7 +100,6 @@ async function getToken(req, res) {
   req.on('close', onClose)
 
   try {
-    // The IdP will redirect to your REDIRECT_URI with ?code=...&state=...
     const authorizationCode = req.query.code
     const state = req.query.state
 
@@ -121,7 +110,6 @@ async function getToken(req, res) {
       throw new Error('Missing state parameter.')
     }
 
-    // Recover payload stored under state (single-use)
     const storedPayload = consumeState(state)
     if (!storedPayload) {
       console.warn('Invalid or expired state:', state)
@@ -134,7 +122,7 @@ async function getToken(req, res) {
       throw new Error('Missing client credentials.')
     }
 
-    // Build token request. Note: redirect_uri must match the one used in getLoginUrl.
+    // redirect_uri must match the one used in getLoginUrl.
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       code: authorizationCode,
@@ -151,7 +139,7 @@ async function getToken(req, res) {
       signal: controller.signal
     }
 
-    console.log('token endpoint request options:', { ...requestOptions, body: 'REDACTED' })
+    //console.log('token endpoint request options:', { ...requestOptions, body: 'REDACTED' })
     const tokenResponse = await fetch(TOKEN_ENDPOINT, requestOptions)
     const text = await tokenResponse.text().catch(() => null)
 
@@ -171,7 +159,6 @@ async function getToken(req, res) {
       tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
 
       console.log('outbound fetch for userinfo')
-      // Provide the token as Bearer token
       const userResponse = await fetch(`${USER_INFO_URL}`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -192,14 +179,9 @@ async function getToken(req, res) {
       })
       console.log('user info from KG endpoint:', userInfo)
 
-      // You now have user info and storedPayload (e.g. ticket)
-      // Decide how to deliver this to the client / session:
-      // - Create a server session and store tokens & ticket there
-      // - Or respond with user info (but avoid sending tokens in responses if not needed)
-      // For demo: return user info plus stored ticket (do not return tokens here)
       const result = {
         user: userInfo,
-        ticket: storedPayload.ticket // may be undefined if none was passed
+        ticket: storedPayload.ticket 
       }
       res.status(userResponse.status).send(result)
     } else {
@@ -238,6 +220,7 @@ async function getLogOutUrl(req, res) {
 }
 
 // this route is not used, because of CORS policies
+/*
 async function getUser(req, res) {
   try {
     const token = req.headers.authorization
@@ -266,5 +249,5 @@ async function getUser(req, res) {
     res.status(500).send('Internal server error')
   }
 }
-
+*/
 export default router
