@@ -49,7 +49,7 @@ function consumeState(state) {
 
 router.get('/loginurl', getLoginUrl)
 router.get('/logouturl', getLogOutUrl)
-router.get('/user', getUser)
+//router.get('/user', getUser)
 router.get('/token', getToken)
 router.get('/hello', helloAuth)
 
