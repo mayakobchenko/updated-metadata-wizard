@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio  } from 'antd'
+import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio } from 'antd'
+import dayjs from 'dayjs'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -9,6 +10,7 @@ export default function Dataset1({ form, onChange, data }) {
   const [embargo, setEmbargo] = useState(data.dataset1?.embargo || false)
   const [copyright, setCopyright] = useState(data.dataset1?.copyright || '')
   const [copyrightHolder, setCopyrightHolder] = useState(data.dataset1?.copyrightHolder || 'Person')
+  const currentYear = dayjs().year()
 
   const initialValues = {
     dataset1: {
@@ -197,7 +199,12 @@ export default function Dataset1({ form, onChange, data }) {
                 <DatePicker           
                   picker="year" 
                   style={{ width: '10%' }} 
-                  placeholder="Select copyright year"  />
+                  placeholder="Select copyright year"
+                  disabledDate={(date) => {
+                    if (!date) return false
+                    return date.year() > currentYear
+                  }}
+                />
               </AntForm.Item>
           </>)}
         <AntForm.Item
