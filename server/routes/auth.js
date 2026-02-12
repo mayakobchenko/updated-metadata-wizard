@@ -9,7 +9,7 @@ const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
 const TOKEN_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/token"
 const AUTH_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/auth"
 const LOGOUT_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/logout"
-const USERINFO_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/userinfo"
+//const USERINFO_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/userinfo"
 const USER_INFO_URL = "https://core.kg.ebrains.eu/v3/users/me"
 const userMap = {
   username: 'http://schema.org/alternateName',
