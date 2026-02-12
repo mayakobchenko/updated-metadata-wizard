@@ -3,7 +3,7 @@ dotenv.config() //on localhost: dotenv.config({ path: '../../.env' })
 
 export async function getRequestOptions() {
     try{
-        let token = await getTokenFromServiceAccount()
+        const token = await getTokenFromServiceAccount()
         const requestHeader = { 
             Accept: "*/*", 
             Authorization: "Bearer " + token, 
@@ -11,9 +11,10 @@ export async function getRequestOptions() {
             'Content-Type': 'application/json',
             'Content-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive'
-        }               
-    const requestOptions = {headers: requestHeader}
-    return requestOptions
+        }    
+        console.log(token)
+        const requestOptions = {headers: requestHeader}
+        return requestOptions
     } catch (error) {
         throw new Error(`getRequestOptions failure: ${error.message}`)
     }
