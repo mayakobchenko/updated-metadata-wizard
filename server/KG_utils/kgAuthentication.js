@@ -7,12 +7,12 @@ export async function getRequestOptions() {
         const requestHeader = { 
             Accept: "*/*", 
             Authorization: "Bearer " + token, 
-            'User-Agent': "python-requests/2.25.0",
+            //'User-Agent': "python-requests/2.25.0",
             'Content-Type': 'application/json',
             'Content-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive'
         }    
-        console.log(token)
+        //console.log(token)
         const requestOptions = {headers: requestHeader}
         return requestOptions
     } catch (error) {
