@@ -68,7 +68,7 @@ logout: async function logout() {
 getToken: async function getToken(opts = {}) {
     const { signal } = opts
     const urlParams = new URLSearchParams(window.location.search)
-    console.log('code', urlParams.code)
+    //console.log('code', urlParams.code)
     let url = 'api/auth/token'
     url += '?' + urlParams.toString()
     try {

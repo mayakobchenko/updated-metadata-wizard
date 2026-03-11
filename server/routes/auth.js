@@ -159,6 +159,58 @@ async function getToken(req, res) {
       tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
 
       console.log('outbound fetch for userinfo')
+
+      const MAX_USERINFO_RETRIES = 3
+      const RETRY_DELAY_MS = 500
+
+      async function sleep(ms, signal) {
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(resolve, ms)
+          if (signal) {
+            signal.addEventListener('abort', () => {
+              clearTimeout(timeout)
+              reject(new DOMException('Aborted', 'AbortError'))})}
+        })
+      }
+
+      let userResponse
+      let lastError
+
+      for (let attempt = 1; attempt <= MAX_USERINFO_RETRIES; attempt++) {
+        try {
+          console.log(`outbound fetch for userinfo (attempt ${attempt})`)
+          userResponse = await fetch(`${USER_INFO_URL}`, {
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+              'Content-Type': 'application/json'},
+            signal: controller.signal
+          })
+
+          if (userResponse.ok) {break}
+
+          lastError = new Error(`Failed to get user, status: ${userResponse.status}`)
+          console.warn(`USER_INFO_URL error on attempt ${attempt}:`, lastError.message)
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            console.log('User info fetch aborted.')
+            throw err
+          }
+          lastError = err
+          console.warn(`USER_INFO_URL request failed on attempt ${attempt}:`, err.message || err)
+        }
+
+        if (attempt < MAX_USERINFO_RETRIES) {
+          const delay = RETRY_DELAY_MS * attempt 
+          console.log(`Retrying USER_INFO_URL in ${delay}ms...`)
+          await sleep(delay, controller.signal)
+        }
+      }
+
+      if (!userResponse || !userResponse.ok) {
+        throw lastError || new Error('Failed to get user after retries')
+      }
+
+      /*
       const userResponse = await fetch(`${USER_INFO_URL}`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
@@ -170,7 +222,8 @@ async function getToken(req, res) {
       if (!userResponse.ok) {
         throw new Error(`Failed to get user, status: ${userResponse.status}`)
       }
-
+      */
+      
       const responseData = await userResponse.json()
       const data = responseData.data
       let userInfo = {}

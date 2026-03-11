@@ -14,7 +14,6 @@ export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
 
 export default function NewContextProvider({ children }) {
-  //console.log('app is mounted')
   const [state, dispatch] = useReducer(authReducer, initialState)
 
   const mountedRef = useRef(false)
@@ -31,14 +30,13 @@ export default function NewContextProvider({ children }) {
   
   useEffect(() => {
     mountedRef.current = true
-    //console.log('mounted:', mountedRef.current)
     const controller = new AbortController()
     const signal = controller.signal
     const url = new URL(window.location.href)
 
     async function doAuthThenTicket() {
       try {
-        const authenticated = await (async () => {
+          const authenticated = await (async () => {
           const hasCode = url.searchParams.has("code")
           const hasError = url.searchParams.has("error")
           //console.log('hasCode:', hasCode, 'hasError:', hasError)
@@ -49,7 +47,7 @@ export default function NewContextProvider({ children }) {
               return false
           }
           if (hasCode && !hasAuthenticatedRef.current) {
-              console.log('get token function')
+              //console.log('get token function')
               const user = await authFunctions.getToken({ signal })
               if (!mountedRef.current) return false
               removeUrlParams(["code", "iss", "session_state"])
@@ -65,7 +63,7 @@ export default function NewContextProvider({ children }) {
             return true
           }
           if (!hasAuthenticatedRef.current) {
-              console.log('dispatch show login dialog is set')
+              //console.log('dispatch show login dialog is set')
                 setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
                 }, 3000)
               return false
@@ -127,9 +125,9 @@ export default function NewContextProvider({ children }) {
         <AuthDispatch.Provider value={dispatch}>
           {state.showLoginDialog && (
             <Dialog open>
-                <DialogTitle>Welcome to the Ebrains Metadata Wizard</DialogTitle>
+                <DialogTitle>Welcome to the EBRAINS Metadata Wizard</DialogTitle>
                 <DialogContent>
-                    <Typography>Please login with your Ebrains account to continue.</Typography>
+                    <Typography>Please login with your EBRAINS account to continue.</Typography>
                 </DialogContent>
                 <DialogActions>
                     <Button variant="contained" onClick={authFunctions.login}>Login</Button>
