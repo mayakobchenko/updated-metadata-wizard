@@ -188,7 +188,7 @@ async function getToken(req, res) {
 
           if (userResponse.ok) {break}
 
-          lastError = new Error(`Failed to get user, status: ${userResponse.status}`)
+          lastError = new Error(`Failed to get user, response: ${userResponse}`)
           console.warn(`USER_INFO_URL error on attempt ${attempt}:`, lastError.message)
         } catch (err) {
           if (err && err.name === 'AbortError') {
