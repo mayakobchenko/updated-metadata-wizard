@@ -158,7 +158,7 @@ async function getToken(req, res) {
       const access_token = tokenData["access_token"]
       tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
 
-      console.log('outbound fetch for userinfo')
+      //console.log('outbound fetch for userinfo')
 
       const MAX_USERINFO_RETRIES = 3
       const RETRY_DELAY_MS = 500
@@ -188,7 +188,14 @@ async function getToken(req, res) {
 
           if (userResponse.ok) {break}
 
-          lastError = new Error(`Failed to get user, response: ${userResponse}`)
+          //lastError = new Error(`Failed to get user, response: ${userResponse}`)
+          const errorText = await userResponse.text().catch(() => null)
+
+          lastError = new Error(
+            `Failed to get user, status: ${userResponse.status}, ` +
+            `statusText: ${userResponse.statusText}, ` +
+            `body: ${errorText}`
+          )
           console.warn(`USER_INFO_URL error on attempt ${attempt}:`, lastError.message)
         } catch (err) {
           if (err && err.name === 'AbortError') {
