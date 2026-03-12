@@ -73,7 +73,7 @@ export default function NewContextProvider({ children }) {
               //console.log('fetched user info', json_user)
               //console.log('user info', json_user.user)
             //console.log('ticket:', json_user.ticket)
-              console.log('response from user fetch:', user_response.success)
+              console.log('response from user fetch:', user_response)
               if (user_response.success) {
                 dispatch({ type: "SET_USER", text: user_response.user })
               } else {

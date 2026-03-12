@@ -223,17 +223,17 @@ async function getToken(req, res) {
           Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/json'
         }, signal: controller.signal})
-
-      //if (!userResponse.ok) {throw new Error(`Failed to get user, status: ${userResponse.status}`)}
       
-      if (!userResponse.ok) {
-        return res.status(userResponse.status).json({
+      if (!userResponse || !userResponse.ok) {
+        console.log('failed to fetch user, status:', userResponse.status)
+        return res.status(userResponse.status).send(json({
           success: false,
           message: `Failed to get user`,
           status: userResponse.status,
-        })
-      }
+        }))}
 
+      //if (!userResponse.ok) {throw new Error(`Failed to get user, status: ${userResponse.status}`)}
+      
       const responseData = await userResponse.json()
       const data = responseData.data
       let userInfo = {}
@@ -244,10 +244,10 @@ async function getToken(req, res) {
         user: userInfo,
         ticket: storedPayload.ticket 
       }
-      res.status(200).json({
+      res.status(200).send(json({
           success: true,
           result: result,
-        })
+        }))
       //res.status(userResponse.status).send(result)
     } else {
       throw new Error('Could not fetch personal token')
