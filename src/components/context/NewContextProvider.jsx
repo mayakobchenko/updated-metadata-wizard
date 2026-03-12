@@ -75,14 +75,14 @@ export default function NewContextProvider({ children }) {
             //console.log('ticket:', json_user.ticket)
               console.log('response from user fetch:', user_response)
               if (user_response.success) {
-                dispatch({ type: "SET_USER", text: user_response.user })
+                dispatch({ type: "SET_USER", text: user_response.result.user })
               } else {
                 console.log(user_response.message)
                 dispatch({ type: "RELOAD_WIZARD" })
                 }
               //dispatch({ type: "SET_USER", text: json_user.user })
               hasAuthenticatedRef.current = true
-              hasTicket.current = user_response.ticket
+              hasTicket.current = user_response.result.ticket
               console.log('Authentication complete!')
             return true
           }
