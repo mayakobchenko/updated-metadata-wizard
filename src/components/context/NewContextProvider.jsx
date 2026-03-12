@@ -3,12 +3,13 @@ import { Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button }
 import authFunctions from "./authenticate"
 
 const initialState = {   
-    token: null, 
-    user: null, 
-    message: "Loading...",
-    isAuthenticating: true,
-    showLoginDialog: false,
-    nettskjemaInfo: null,
+  token: null, 
+  user: null, 
+  message: "Loading...",
+  isAuthenticating: true,
+  showLoginDialog: false,
+  nettskjemaInfo: null,
+  reloadWizard: false
 }
 export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
@@ -28,11 +29,27 @@ export default function NewContextProvider({ children }) {
     } catch (err) {}
   }, [])
   
+  function handleReloadClick() {
+    if (typeof window === 'undefined') return
+    const firstUrl = localStorage.getItem(WIZARD_LINK)
+    if (firstUrl) {
+      window.location.href = firstUrl
+    } else {
+      window.location.reload()
+    }
+  }
+
   useEffect(() => {
     mountedRef.current = true
     const controller = new AbortController()
     const signal = controller.signal
     const url = new URL(window.location.href)
+
+    const WIZARD_LINK = 'wizard_link_ticket'
+    const storedFirstUrl = localStorage.getItem(WIZARD_LINK)
+    if (!storedFirstUrl) {
+      localStorage.setItem(WIZARD_LINK, url)
+    }
 
     async function doAuthThenTicket() {
       try {
@@ -48,22 +65,27 @@ export default function NewContextProvider({ children }) {
           }
           if (hasCode && !hasAuthenticatedRef.current) {
               //console.log('get token function')
-              const user = await authFunctions.getToken({ signal })
+              const user_response = await authFunctions.getToken({ signal })
               if (!mountedRef.current) return false
               removeUrlParams(["code", "iss", "session_state"])
-              const trimmed = user.replace(/^'|'\s*$/g, '')
-              const json_user = JSON.parse(trimmed)
+              //const trimmed = user.replace(/^'|'\s*$/g, '')
+              //const json_user = JSON.parse(trimmed)
               //console.log('fetched user info', json_user)
               //console.log('user info', json_user.user)
               //console.log('ticket:', json_user.ticket)
-              dispatch({ type: "SET_USER", text: json_user.user })
+              if (user_response.success) {
+                dispatch({ type: "SET_USER", text: user_response.user })
+              } else {
+                console.log(user_response.message)
+                dispatch({ type: "RELOAD_WIZARD" })
+                }
+              //dispatch({ type: "SET_USER", text: json_user.user })
               hasAuthenticatedRef.current = true
               hasTicket.current = json_user.ticket
               console.log('Authentication complete!')
             return true
           }
           if (!hasAuthenticatedRef.current) {
-              //console.log('dispatch show login dialog is set')
                 setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
                 }, 3000)
               return false
@@ -127,10 +149,20 @@ export default function NewContextProvider({ children }) {
             <Dialog open>
                 <DialogTitle>Welcome to the EBRAINS Metadata Wizard</DialogTitle>
                 <DialogContent>
-                    <Typography>Please login with your EBRAINS account to continue.</Typography>
+                  <Typography>Please login with your EBRAINS account to continue.</Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button variant="contained" onClick={authFunctions.login}>Login</Button>
+                  <Button variant="contained" onClick={authFunctions.login}>Login</Button>
+                </DialogActions>
+            </Dialog>)}
+          {state.reloadWizard && (
+            <Dialog open>
+                <DialogTitle>There is an error at IAM service.</DialogTitle>
+                <DialogContent>
+                  <Typography>Please reload the Wizard link to try again.</Typography>
+                </DialogContent>
+                <DialogActions>
+                  <Button variant="contained" onClick={handleReloadClick}>Reload</Button>
                 </DialogActions>
             </Dialog>)}
           {children}
@@ -147,6 +179,8 @@ export function authReducer(state, action) {
       return { ...state, showLoginDialog: true }
     case "HIDE_LOGIN_DIALOG":
       return { ...state, showLoginDialog: false }
+    case "RELOAD_WIZARD":
+      return { ...state, reloadWizard: true }
     case 'LOGOUT':
         return { ...state, token: null, user: null, showLoginDialog: false }  
     case 'LOGIN':

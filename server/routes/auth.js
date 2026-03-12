@@ -158,9 +158,10 @@ async function getToken(req, res) {
       const access_token = tokenData["access_token"]
       tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
 
-      //console.log('outbound fetch for userinfo')
-
-      const MAX_USERINFO_RETRIES = 3
+      console.log('outbound fetch for userinfo')
+      
+      /*
+      const MAX_USERINFO_RETRIES = 1
       const RETRY_DELAY_MS = 500
 
       async function sleep(ms, signal) {
@@ -215,35 +216,39 @@ async function getToken(req, res) {
 
       if (!userResponse || !userResponse.ok) {
         throw lastError || new Error('Failed to get user after retries')
-      }
+      } */
 
-      /*
       const userResponse = await fetch(`${USER_INFO_URL}`, {
         headers: {
           Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/json'
-        },
-        signal: controller.signal
-      })
+        }, signal: controller.signal})
 
-      if (!userResponse.ok) {
-        throw new Error(`Failed to get user, status: ${userResponse.status}`)
-      }
-      */
+      //if (!userResponse.ok) {throw new Error(`Failed to get user, status: ${userResponse.status}`)}
       
+      if (!userResponse.ok) {
+        return res.status(userResponse.status).json({
+          success: false,
+          message: `Failed to get user`,
+          status: userResponse.status,
+        })
+      }
+
       const responseData = await userResponse.json()
       const data = responseData.data
       let userInfo = {}
-      Object.keys(userMap).forEach(key => {
-        userInfo[key] = data[userMap[key]]
-      })
+      Object.keys(userMap).forEach(key => {userInfo[key] = data[userMap[key]]})
       console.log('user info from KG endpoint:', userInfo)
 
       const result = {
         user: userInfo,
         ticket: storedPayload.ticket 
       }
-      res.status(userResponse.status).send(result)
+      res.status(200).json({
+          success: true,
+          result: result,
+        })
+      //res.status(userResponse.status).send(result)
     } else {
       throw new Error('Could not fetch personal token')
     }
