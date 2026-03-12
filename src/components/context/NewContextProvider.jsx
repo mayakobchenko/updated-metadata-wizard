@@ -72,7 +72,8 @@ export default function NewContextProvider({ children }) {
               //const json_user = JSON.parse(trimmed)
               //console.log('fetched user info', json_user)
               //console.log('user info', json_user.user)
-              //console.log('ticket:', json_user.ticket)
+            //console.log('ticket:', json_user.ticket)
+              console.log('response from user fetch:', user_response.success)
               if (user_response.success) {
                 dispatch({ type: "SET_USER", text: user_response.user })
               } else {
@@ -81,7 +82,7 @@ export default function NewContextProvider({ children }) {
                 }
               //dispatch({ type: "SET_USER", text: json_user.user })
               hasAuthenticatedRef.current = true
-              hasTicket.current = json_user.ticket
+              hasTicket.current = user_response.ticket
               console.log('Authentication complete!')
             return true
           }
@@ -174,17 +175,17 @@ export default function NewContextProvider({ children }) {
 export function authReducer(state, action) {
   switch (action.type) {
     case 'SET_USER':
-      return {...state, user: action.text, showLoginDialog: false, isAuthenticating: false}
+      return {...state, user: action.text, showLoginDialog: false, isAuthenticating: false, reloadWizard: false}
     case "SHOW_LOGIN_DIALOG":
-      return { ...state, showLoginDialog: true }
+      return { ...state, showLoginDialog: true, reloadWizard: false }
     case "HIDE_LOGIN_DIALOG":
-      return { ...state, showLoginDialog: false }
+      return { ...state, showLoginDialog: false, reloadWizard: false }
     case "RELOAD_WIZARD":
       return { ...state, reloadWizard: true }
     case 'LOGOUT':
-        return { ...state, token: null, user: null, showLoginDialog: false }  
+        return { ...state, token: null, user: null, showLoginDialog: false, reloadWizard: false }  
     case 'LOGIN':
-      return {...state, showLoginDialog: true} 
+      return {...state, showLoginDialog: true, reloadWizard: false} 
     case 'nettskjemaInfo':
       return {...state, nettskjemaInfo: action.text}  
     default:
