@@ -226,11 +226,11 @@ async function getToken(req, res) {
       
       if (!userResponse || !userResponse.ok) {
         console.log('failed to fetch user, status:', userResponse.status)
-        return res.status(userResponse.status).send(json({
+        return res.status(userResponse.status).send({
           success: false,
           message: `Failed to get user`,
           status: userResponse.status,
-        }))}
+        })}
 
       //if (!userResponse.ok) {throw new Error(`Failed to get user, status: ${userResponse.status}`)}
       
@@ -244,10 +244,10 @@ async function getToken(req, res) {
         user: userInfo,
         ticket: storedPayload.ticket 
       }
-      res.status(200).send(json({
+      res.status(200).send({
           success: true,
           result: result,
-        }))
+        })
       //res.status(userResponse.status).send(result)
     } else {
       throw new Error('Could not fetch personal token')
