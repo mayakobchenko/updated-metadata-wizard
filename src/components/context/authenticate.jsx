@@ -80,8 +80,8 @@ getToken: async function getToken(opts = {}) {
         //removeUrlParams(["code", "iss", "session_state"])
       if (!tokenResponse.ok) {
         throw new Error(`Failed to fetch token and user info from backend: ${tokenResponse.status}`)}
-        //return tokenResponse.text()
-        return tokenResponse
+        return tokenResponse.text()
+        //return tokenResponse
     } catch (error) {
       console.error('Error occurred while fetching token and user info from backend:', error.message)}
     },
