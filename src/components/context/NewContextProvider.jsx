@@ -65,15 +65,18 @@ export default function NewContextProvider({ children }) {
           }
           if (hasCode && !hasAuthenticatedRef.current) {
               //console.log('get token function')
-              const user_response = await authFunctions.getToken({ signal })
-              if (!mountedRef.current) return false
-              removeUrlParams(["code", "iss", "session_state"])
-              //const trimmed = user.replace(/^'|'\s*$/g, '')
-              //const json_user = JSON.parse(trimmed)
-              //console.log('fetched user info', json_user)
-              //console.log('user info', json_user.user)
+            const user_response = await authFunctions.getToken({ signal })
+            const body = await user_response.json().catch(() => null)
+            console.log('status:', user_response.status)
+            console.log('body:', body)
+            if (!mountedRef.current) return false
+            removeUrlParams(["code", "iss", "session_state"])
+            //const trimmed = user.replace(/^'|'\s*$/g, '')
+            //const json_user = JSON.parse(trimmed)
+            //console.log('fetched user info', json_user)
+            //console.log('user info', json_user.user)
             //console.log('ticket:', json_user.ticket)
-              console.log('response from user fetch:', user_response)
+              //console.log('response from user fetch:', user_response)
               if (user_response.success) {
                 dispatch({ type: "SET_USER", text: user_response.result.user })
               } else {

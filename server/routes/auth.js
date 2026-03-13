@@ -167,14 +167,14 @@ async function getToken(req, res) {
       //if (!userResponse.ok) {throw new Error(`Failed to get user, status: ${userResponse.status}`)}
       if (!userResponse.ok) {
         console.log('backend failed to fetch user from the iam end point, status:', userResponse.status)
-        const response = {
+        const server_response = {
           success: false,
           user: null,
           ticket: null
         }
-        return res.status(userResponse.status).send(response)
+        return res.status(502).send(server_response)
       }
-      
+
       const responseData = await userResponse.json()
       const data = responseData.data
       let userInfo = {}
