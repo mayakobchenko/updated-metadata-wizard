@@ -172,7 +172,7 @@ async function getToken(req, res) {
           user: null,
           ticket: null
         }
-        return res.status(502).send(server_response)
+        return res.status(200).send(server_response)
       }
 
       const responseData = await userResponse.json()
