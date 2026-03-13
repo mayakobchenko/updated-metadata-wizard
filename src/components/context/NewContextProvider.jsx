@@ -78,10 +78,11 @@ export default function NewContextProvider({ children }) {
             //console.log('ticket:', json_user.ticket)
             console.log('response from user fetch:', user_response)
             console.log('response parsed:', JSON.parse(user_response))
-              if (user_response.success) {
-                dispatch({ type: "SET_USER", text: user_response.result.user })
+            const resp_data = JSON.parse(user_response)
+              if (resp_data.success) {
+                dispatch({ type: "SET_USER", text: resp_data.result.user })
               } else {
-                console.log(user_response.message)
+                console.log(resp_data.message)
                 dispatch({ type: "RELOAD_WIZARD" })
                 }
               //dispatch({ type: "SET_USER", text: json_user.user })
