@@ -13,6 +13,7 @@ const initialState = {
 }
 export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
+const WIZARD_LINK = 'wizard_link_ticket'
 
 export default function NewContextProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState)
@@ -45,10 +46,9 @@ export default function NewContextProvider({ children }) {
     const signal = controller.signal
     const url = new URL(window.location.href)
 
-    const WIZARD_LINK = 'wizard_link_ticket'
     const storedFirstUrl = localStorage.getItem(WIZARD_LINK)
     if (!storedFirstUrl) {
-      localStorage.setItem(WIZARD_LINK, url)
+      localStorage.setItem(WIZARD_LINK, url.toString())
     }
 
     async function doAuthThenTicket() {
