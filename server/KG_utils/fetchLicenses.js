@@ -12,7 +12,7 @@ const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 export async function fetchLicenses () {
     const requestOptions = await getRequestOptions()
     const API_BASE_URL = "https://core.kg.ebrains.eu/"
-    const API_ENDPOINT = "v3/instances"
+    const API_ENDPOINT = "v4/instances"
     const QUERY_PARAMS = ["stage=RELEASED", "space=controlled", "type=https://openminds.ebrains.eu/core/License"]
     const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}`
     const propertyNameList = ["fullName", "shortName", "legalCode", "webpage"]

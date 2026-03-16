@@ -113,7 +113,7 @@ export default function Introduction({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Institution Name"
+          label="Data custodian's institution Name"
           name={['custodian', 'institution']} 
           rules={[{ required: false}]}>
           <Input />
