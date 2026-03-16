@@ -81,12 +81,13 @@ export default function NewContextProvider({ children }) {
             const resp_data = JSON.parse(user_response)
               if (resp_data.success) {
                 dispatch({ type: "SET_USER", text: resp_data.user })
+                hasAuthenticatedRef.current = true
               } else {
                 console.log(resp_data.message)
                 dispatch({ type: "RELOAD_WIZARD" })
                 }
               //dispatch({ type: "SET_USER", text: json_user.user })
-              hasAuthenticatedRef.current = true
+              //hasAuthenticatedRef.current = true
               hasTicket.current = resp_data.ticket
               console.log('Authentication complete!')
             return true
@@ -163,9 +164,9 @@ export default function NewContextProvider({ children }) {
             </Dialog>)}
           {state.reloadWizard && (
             <Dialog open>
-                <DialogTitle>There is an error at IAM service.</DialogTitle>
+                <DialogTitle>There is an error at the EBRAINS IAM service.</DialogTitle>
                 <DialogContent>
-                  <Typography>Please reload the Wizard link to try again.</Typography>
+                  <Typography>Please press reload to try again.</Typography>
                 </DialogContent>
                 <DialogActions>
                   <Button variant="contained" onClick={handleReloadClick}>Reload</Button>
