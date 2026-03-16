@@ -87,7 +87,7 @@ export default function NewContextProvider({ children }) {
                 }
               //dispatch({ type: "SET_USER", text: json_user.user })
               hasAuthenticatedRef.current = true
-              hasTicket.current = user_response.result.ticket
+              hasTicket.current = resp_data.ticket
               console.log('Authentication complete!')
             return true
           }
