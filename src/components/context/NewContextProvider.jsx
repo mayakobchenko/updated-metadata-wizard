@@ -80,7 +80,7 @@ export default function NewContextProvider({ children }) {
             console.log('response parsed:', JSON.parse(user_response))
             const resp_data = JSON.parse(user_response)
               if (resp_data.success) {
-                dispatch({ type: "SET_USER", text: resp_data.result.user })
+                dispatch({ type: "SET_USER", text: resp_data.user })
               } else {
                 console.log(resp_data.message)
                 dispatch({ type: "RELOAD_WIZARD" })

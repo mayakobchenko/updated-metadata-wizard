@@ -200,6 +200,6 @@ function Intro ({ form, onChange, data }) {
           </a></p>
         <Introduction form={form} onChange={onChange} data={data}/>
       </div>)}
-return (<LoadingSpinner/>)}
+  if (!state.reloadWizard) { return (<LoadingSpinner />) } }
 
 export default StepsWizard
