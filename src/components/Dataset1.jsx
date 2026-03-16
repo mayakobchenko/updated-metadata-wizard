@@ -29,6 +29,7 @@ export default function Dataset1({ form, onChange, data }) {
       copyrightOrganization: data.dataset1?.copyrightOrganization || '',
       copyrightYear: data.dataset1?.copyrightYear || '',
       license: data.dataset1?.license || '',
+      dataStandart: data.dataset1?.dataStandart || '',
     }}
 
   const handleValuesChange = (changedValues, allValues) => {
@@ -222,6 +223,13 @@ export default function Dataset1({ form, onChange, data }) {
                 </Option>
             ))}
           </Select>
+        </AntForm.Item>
+        <AntForm.Item
+          label="data organization"
+          name={['dataset1', 'dataStandart']} 
+          rules={[{ required: true, message: 'Please indicate if your data follows any standart' }]}
+          extra="Do your data organization follows any community standards such as BIDS or NWB?">
+          <Input />
         </AntForm.Item>
 
       </AntForm>

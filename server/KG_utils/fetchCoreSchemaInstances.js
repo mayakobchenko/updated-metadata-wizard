@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'kg-instances')
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
-const API_ENDPOINT = "v3/instances"
+const API_ENDPOINT = "v4/instances"
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err) {

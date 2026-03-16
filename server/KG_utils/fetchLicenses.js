@@ -11,9 +11,11 @@ const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 
 export async function fetchLicenses () {
     const requestOptions = await getRequestOptions()
+    //'https://core.kg.ebrains.eu/v3/instances?stage=RELEASED&type=https%3A%2F%2Fopenminds.om-i.org%2Ftypes%2FLicense&space=controlled'
     const API_BASE_URL = "https://core.kg.ebrains.eu/"
-    const API_ENDPOINT = "v4/instances"
-    const QUERY_PARAMS = ["stage=RELEASED", "space=controlled", "type=https://openminds.ebrains.eu/core/License"]
+    const API_ENDPOINT = "v3/instances"
+    //type=https://openminds.ebrains.eu/core/License
+    const QUERY_PARAMS = ["stage=RELEASED", "space=controlled", "type=https://openminds.om-i.org/types/License"]
     const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}`
     const propertyNameList = ["fullName", "shortName", "legalCode", "webpage"]
     //webpage can be array

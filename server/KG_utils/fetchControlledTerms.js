@@ -9,7 +9,7 @@ import {getRequestOptions} from './kgAuthentication.js'
 import {subjectProperties} from './constants.js'
 
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
-const API_ENDPOINT = "v3/instances"
+const API_ENDPOINT = "v4/instances"
 const QUERY_PARAMS = ["stage=RELEASED", "space=controlled", "type=https://openminds.ebrains.eu/controlledTerms/"]
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
