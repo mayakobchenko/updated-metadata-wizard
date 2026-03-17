@@ -218,8 +218,8 @@ export default function Dataset1({ form, onChange, data }) {
             filterOption={(input, option) =>
                 option?.props?.children?.toLowerCase().includes(input.toLowerCase())}>
             {license.filter(option =>
-              option.fullName?.includes('CC-BY') ||
-              option.fullName?.includes('CC0')
+              option.shortName?.includes('CC-BY') ||
+              option.shortName?.includes('CC0')
               ).map(option => (
                 <Option key={option.identifier} value={option.identifier}>
                   <span>{option.fullName}</span>

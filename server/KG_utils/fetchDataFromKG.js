@@ -9,7 +9,7 @@ const configObject = [
     },
     {
         openMindsType: "Person",
-        typeProperties: ["familyName", "givenName", "digitalIdentifier"]
+        typeProperties: ["familyName", "givenName", "@id"] //@id  /&digitalIdentifier
     },
     {
         openMindsType: "Organization",
