@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'kg-instances')
-const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
+const OPENMINDS_VOCAB = "https://openminds.om-i.org/props"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT = "v3/instances"
 
@@ -45,7 +45,7 @@ async function fetchInstances(apiQueryUrl, requestOptions, typeName, propertyNam
         if (response.status === 200) {
             const data = await response.json()
             await parseAndSaveData(data, typeName, propertyNames)
-        } else { throw new Error('Error fetching instances for ' + typeName + '. Status code: ' + response.status);}
+        } else { throw new Error('Error fetching instances for ' + typeName + '. Status code: ' + response.status)}
     } catch (error) {
         console.log(`Error fetching instances for ${typeName}:`, error)
     }

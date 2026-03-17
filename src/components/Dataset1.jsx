@@ -219,13 +219,25 @@ export default function Dataset1({ form, onChange, data }) {
                 option.children.toLowerCase().includes(input.toLowerCase())}>
             {license.map(option => (
                 <Option key={option.identifier} value={option.identifier}>
-                    {option.fullName}
+                  <span>{option.fullName}</span>
+                  {option.webpage && (
+                  <>
+                    {' '}
+                    <a
+                      href={option.webpage}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}>
+                      more info
+                    </a>
+                  </>
+                )}
                 </Option>
             ))}
           </Select>
         </AntForm.Item>
         <AntForm.Item
-          label="data organization"
+          label="Data organization"
           name={['dataset1', 'dataStandart']} 
           rules={[{ required: true, message: 'Please indicate if your data follows any standart' }]}
           extra="Do your data organization follows any community standards such as BIDS or NWB?">
