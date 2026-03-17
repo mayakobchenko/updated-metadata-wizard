@@ -61,7 +61,7 @@ async function parseAndSaveData (data, instanceName) {
         try {
             for (let thisInstance of data.data) {
                 let newInstance = { "identifier": thisInstance["@id"] }
-                newInstance["name"] = thisInstance["https://openminds.ebrains.eu/vocab/name"]
+                newInstance["name"] = thisInstance["https://openminds.om-i.org/props/name"]
                 InstanceList.push(newInstance)
             };  
             InstanceList.sort((a, b) => a.name.localeCompare(b.name))  //sort alphabetically
