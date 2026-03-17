@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'kg-instances')
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
-const API_ENDPOINT = "v4/instances"
+const API_ENDPOINT = "v3/instances"
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err) {
@@ -27,7 +27,7 @@ export const fetchCoreSchemaInstances = async (typeSpecifications) => {
 
     const fetchPromises = typeSpecifications.map(async (typeSpecification) => {
         const spaceName = typeSpecification.space !== undefined ? typeSpecification.space : "common"
-        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.ebrains.eu/core/"]
+        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.om-i.org/types"]
         const TYPE_NAME = typeSpecification.openMindsType
         const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
         try {

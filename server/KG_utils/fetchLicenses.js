@@ -1,4 +1,8 @@
 // https://core.kg.ebrains.eu/swagger-ui
+//- Namespace changed from https://openminds.ebrains.eu/(core|sands|controlledTerms|chemicals|ephys|computation|stimulation|specimenPrep|publications|neuroimaging)/ to https://openminds.om-i.org/types/.
+//- Namespace changed from https://openminds.ebrains.eu/vocab/ to https://openminds.om-i.org/props/.
+//- Namespace changed from https://openminds.ebrains.eu/instances/ to https://openminds.om-i.org/instances/
+//https://github.com/openMetadataInitiative/openMINDS/blob/main/schemas/v4.0/release_notes_v4.0.txt
 import fs from 'fs'
 import path from 'path'
 import {getRequestOptions} from './kgAuthentication.js'
@@ -7,7 +11,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'kg-instances')
-const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
+const OPENMINDS_VOCAB = "https://openminds.om-i.org/props"//"https://openminds.ebrains.eu/vocab"
 
 export async function fetchLicenses () {
     const requestOptions = await getRequestOptions()
