@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio } from 'antd'
+import { ExportOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 
 const { TextArea } = Input
@@ -220,23 +221,25 @@ export default function Dataset1({ form, onChange, data }) {
             {license.filter(option =>
               option.shortName?.includes('CC-BY') ||
               option.shortName?.includes('CC0')
-              ).map(option => (
-                <Option key={option.identifier} value={option.identifier}>
-                  <span>{option.fullName}</span>
-                  {option.webpage && (
+            ).map(option => {
+              const firstWebpage = Array.isArray(option.webpage) ? option.webpage[0] : option.webpage
+              return (<Option key={option.identifier} value={option.identifier}>
+                <span>{option.shortName}</span>
+                <span>{option.fullName}</span>
+                {firstWebpage && (
                   <>
                     {' '}
                     <a
-                      href={option.webpage}
+                      href={firstWebpage}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}>
-                      more info
+                      <ExportOutlined style={{ fontSize: 12 }} /> more info
                     </a>
                   </>
                 )}
-                </Option>
-            ))}
+              </Option>)
+            })}
           </Select>
         </AntForm.Item>
         <AntForm.Item
