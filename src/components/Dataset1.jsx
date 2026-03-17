@@ -224,7 +224,7 @@ export default function Dataset1({ form, onChange, data }) {
             ).map(option => {
               const firstWebpage = Array.isArray(option.webpage) ? option.webpage[0] : option.webpage
               return (<Option key={option.identifier} value={option.identifier}>
-                <span>{option.shortName}</span>
+                <span>{option.shortName}{' '}</span>
                 <span>{option.fullName}</span>
                 {firstWebpage && (
                   <>

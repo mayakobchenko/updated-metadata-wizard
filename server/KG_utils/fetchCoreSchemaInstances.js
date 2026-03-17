@@ -27,7 +27,7 @@ export const fetchCoreSchemaInstances = async (typeSpecifications) => {
 
     const fetchPromises = typeSpecifications.map(async (typeSpecification) => {
         const spaceName = typeSpecification.space !== undefined ? typeSpecification.space : "common"
-        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.om-i.org/types"]
+        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.om-i.org/types/"]
         const TYPE_NAME = typeSpecification.openMindsType
         const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
         try {
