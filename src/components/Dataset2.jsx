@@ -96,7 +96,8 @@ export default function Dataset2({ form, onChange, data = {}}) {
         <p className="step-title">Support channel</p>
         <p className="step-description">
           Enter all channels through which a user can receive support for handling this research product (if applicable).
-          This could for example be a link to a website or a contact email address.
+          This could for example be a link to a website or a contact email address. Please notice: if you provide your personal email for this,
+          it will be openly displayed on the EBRAINS pages.
         </p>
         {supportChannels.map((field, index) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>

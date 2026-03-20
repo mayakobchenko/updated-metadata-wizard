@@ -68,6 +68,7 @@ async function parseAndSaveData(data, instanceName) {
         }
 
         for (let thisInstance of data.data) {
+            console.log(data.data)
             let newInstance = {
                 identifier: thisInstance["@id"],
                 name: thisInstance[`${OPENMINDS_VOCAB}/name`]
