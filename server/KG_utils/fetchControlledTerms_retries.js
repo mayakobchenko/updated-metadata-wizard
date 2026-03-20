@@ -8,10 +8,14 @@ import { subjectProperties } from './constants.js'
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT = "v3/instances"
 const QUERY_PARAMS = ["stage=RELEASED", "space=controlled", "type=https://openminds.om-i.org/types/"]
+const STRAIN_QUERY_PARAMS = ["stage=RELEASED", "space=dataset", "type=https://openminds.om-i.org/types/"]
 const OPENMINDS_VOCAB = "https://openminds.om-i.org/props"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'controlledTerms')
+
+const MAX_RETRIES = 3        // maximum number of attempts
+const RETRY_DELAY_MS = 1000  // wait 1 second between retries
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err) {
@@ -29,32 +33,48 @@ export default async function fetchControlledTerms() {
 
     // ── Species must complete before Strain runs ──────────────────────────
     const speciesUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}Species`
-    await fetchInstances(speciesUrl, requestOptions, "Species")
+    await fetchWithRetry(speciesUrl, requestOptions, "Species")
 
     // ── all other terms (including Strain) can now run in parallel ────────
     const remainingTerms = CONTROLLED_TERMS.filter(term => term !== "Species")
     const fetchPromises = remainingTerms.map(async (term) => {
-        const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${term}`
-        try {
-            await fetchInstances(queryUrl, requestOptions, term)
-        } catch (error) {
-            console.error(`Error fetching instances for ${term}:`, error)
-        }
+        const queryParams = term === "Strain" ? STRAIN_QUERY_PARAMS : QUERY_PARAMS
+        const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${queryParams.join("&")}${term}`
+        await fetchWithRetry(queryUrl, requestOptions, term)
     })
     await Promise.all(fetchPromises)
 }
 
-async function fetchInstances(apiQueryUrl, requestOptions, controlledTerm) {
-    try {
-        const response = await fetch(apiQueryUrl, requestOptions)
-        if (response.status === 200) {
-            const data = await response.json()
-            await parseAndSaveData(data, controlledTerm)
-        } else {
-            throw new Error(`Error fetching instances for ${controlledTerm}. Status code: ${response.status}`)
+// ── retry wrapper ─────────────────────────────────────────────────────────────
+async function fetchWithRetry(url, requestOptions, controlledTerm) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            console.log(`Fetching ${controlledTerm} (attempt ${attempt}/${MAX_RETRIES})...`)
+            await fetchInstances(url, requestOptions, controlledTerm)
+            return  // success — exit the retry loop
+        } catch (error) {
+            const isLastAttempt = attempt === MAX_RETRIES
+            if (isLastAttempt) {
+                console.error(`Failed to fetch ${controlledTerm} after ${MAX_RETRIES} attempts:`, error.message)
+            } else {
+                console.warn(`Attempt ${attempt} failed for ${controlledTerm}. Retrying in ${RETRY_DELAY_MS}ms...`)
+                await sleep(RETRY_DELAY_MS)
+            }
         }
-    } catch (error) {
-        console.log(`Error fetching instances for ${controlledTerm}:`, error)
+    }
+}
+
+// ── sleep helper ──────────────────────────────────────────────────────────────
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function fetchInstances(apiQueryUrl, requestOptions, controlledTerm) {
+    const response = await fetch(apiQueryUrl, requestOptions)
+    if (response.status === 200) {
+        const data = await response.json()
+        await parseAndSaveData(data, controlledTerm)
+    } else {
+        // throw so the retry wrapper catches it
+        throw new Error(`Error fetching instances for ${controlledTerm}. Status code: ${response.status}`)
     }
 }
 
@@ -68,23 +88,19 @@ async function parseAndSaveData(data, instanceName) {
         }
 
         for (let thisInstance of data.data) {
-            //console.log('thisInstance:',thisInstance)
             let newInstance = {
                 identifier: thisInstance["@id"],
                 name: thisInstance[`${OPENMINDS_VOCAB}/name`]
             }
 
-            // ── enrich Strain: resolve species @id → species name ─────────
+            // ── enrich Strain: resolve species @id → species identifier ───
             if (instanceName === "Strain") {
-                console.log('thisInstance:',thisInstance)
                 const speciesRef = thisInstance[`${OPENMINDS_VOCAB}/species`]
-                console.log('speciesRef',speciesRef)
                 if (speciesRef !== undefined) {
                     const speciesId = speciesRef["@id"]
-                    console.log('spicesId', speciesId)
                     const matchedSpecies = speciesData.find(s => s.identifier === speciesId)
                     if (matchedSpecies !== undefined) {
-                        newInstance["species"] = speciesRef["@id"]
+                        newInstance["species"] = matchedSpecies.identifier
                     }
                 }
             }
