@@ -46,13 +46,24 @@ const StepsWizard = () => {
       Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 
     }
 
-  const [formData, setFormData] = useState({}) 
+  //const [formData, setFormData] = useState({}) 
   const [form] = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [isModalVisible, setIsModalVisible] = useState(false)
 
-  useEffect(() => {setFormData(initialValues)}, [skjemaInfo])
+  //useEffect(() => {setFormData(initialValues)}, [skjemaInfo])
+  //--------------------------------------
+  const formDataRef = useRef(initialValues)
+  const [formData, setFormData] = useState(initialValues)
 
+  const handleInputChange = (data) => {
+    setFormData((prev) => {
+      const next = { ...prev, ...data }
+      formDataRef.current = next   // keep ref in sync
+      return next
+    })
+  }
+  //--------------------------------
   const steps = [
     { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
@@ -62,8 +73,7 @@ const StepsWizard = () => {
     { id: 5, component: Experiments },
     { id: 6, component: Subjects }]
 
-  const handleInputChange = (data) => {
-    setFormData((prev) => ({ ...prev, ...data }))}
+  //const handleInputChange = (data) => {setFormData((prev) => ({ ...prev, ...data }))}
 
   const nextStep = () => {
     form.validateFields()
@@ -102,7 +112,7 @@ const StepsWizard = () => {
 
   const savePythonKG = async () => {
     try {
-      downloadJson()
+      //downloadJson()
       const pythonurl = 'api/python/runpython'
       //const hello_url = 'api/python/hello'  //test endpoint
       //const response = await fetch(pythonurl)  //get request
@@ -137,7 +147,8 @@ const StepsWizard = () => {
   }
 
   const downloadJson = () => {
-    const json = JSON.stringify(formData, null, 2)
+    const json = JSON.stringify(formDataRef.current, null, 2)
+    //const json = JSON.stringify(formData, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

@@ -7,7 +7,6 @@ import authFunctions from "./context/authenticate.jsx"
 
 export default function LoginButton () {
 
-    console.log('login button')
   const state = useAuthContext()
   const dispatch = useAuthDispatch()
   const user = state?.user
