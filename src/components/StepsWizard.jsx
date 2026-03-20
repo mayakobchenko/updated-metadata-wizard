@@ -44,17 +44,20 @@ const StepsWizard = () => {
     dataset2: {
       Data2UrlDoiRepo: skjemaInfo?.nettskjemaInfo?.Data2UrlDoiRepo || '',
       Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 
-    }
-
-  //const [formData, setFormData] = useState({}) 
+  }
+  
+  const formDataRef = useRef({})  //added from Claude
+  const [formData, setFormData] = useState({}) 
   const [form] = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [isModalVisible, setIsModalVisible] = useState(false)
 
   //useEffect(() => {setFormData(initialValues)}, [skjemaInfo])
-  //--------------------------------------
-  const formDataRef = useRef(initialValues)
-  const [formData, setFormData] = useState(initialValues)
+  //--------------------------------------added from Claude
+  useEffect(() => {
+    formDataRef.current = initialValues
+    setFormData(initialValues)
+  }, [skjemaInfo])
 
   const handleInputChange = (data) => {
     setFormData((prev) => {
