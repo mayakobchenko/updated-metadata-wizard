@@ -165,7 +165,7 @@ export default function Contributors({ form, onChange, data = {} }) {
         <p className="step-description">
           Please list all authors who have contributed to the dataset, in the order you would like them to appear on
           the data publication. Please note that the list of authors may be different for this data publication as compared
-          to a journal article based on the data
+          to a journal article based on the data.
         </p>
 
         {authors.map((field, index) => (
@@ -229,7 +229,7 @@ export default function Contributors({ form, onChange, data = {} }) {
         </div>
 
         <p className="step-title">Other contributors:</p>
-        <p className="step-description">Please list all other contributors to this dataset (technicians, data managers, etc.).</p>
+        <p className="step-description">Please list all other contributors to this dataset (technicians, data managers, etc.)</p>
 
         {otherContribs.map((field, index) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
