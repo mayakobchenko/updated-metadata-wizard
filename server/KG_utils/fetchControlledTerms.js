@@ -68,7 +68,7 @@ async function parseAndSaveData(data, instanceName) {
         }
 
         for (let thisInstance of data.data) {
-            console.log(data.data)
+            //console.log('thisInstance:',thisInstance)
             let newInstance = {
                 identifier: thisInstance["@id"],
                 name: thisInstance[`${OPENMINDS_VOCAB}/name`]
@@ -76,8 +76,9 @@ async function parseAndSaveData(data, instanceName) {
 
             // ── enrich Strain: resolve species @id → species name ─────────
             if (instanceName === "Strain") {
+                console.log('thisInstance:',thisInstance)
                 const speciesRef = thisInstance[`${OPENMINDS_VOCAB}/species`]
-                console.log(speciesRef)
+                console.log('speciesRef',speciesRef)
                 if (speciesRef !== undefined) {
                     const speciesId = speciesRef["@id"]
                     console.log('spicesId', speciesId)
