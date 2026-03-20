@@ -76,8 +76,10 @@ async function parseAndSaveData(data, instanceName) {
             // ── enrich Strain: resolve species @id → species name ─────────
             if (instanceName === "Strain") {
                 const speciesRef = thisInstance[`${OPENMINDS_VOCAB}/species`]
+                console.log(speciesRef)
                 if (speciesRef !== undefined) {
                     const speciesId = speciesRef["@id"]
+                    console.log('spicesId', speciesId)
                     const matchedSpecies = speciesData.find(s => s.identifier === speciesId)
                     if (matchedSpecies !== undefined) {
                         newInstance["species"] = speciesRef["@id"]
