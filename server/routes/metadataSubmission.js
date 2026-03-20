@@ -40,7 +40,7 @@ router.get('/hello', (req, res) => {
 router.post('/testpost', (req, res) => {
   const data = req.body;
   console.log('Received data:', data);
-  res.status(200).json({ status: 'success test', received: data });
+  res.status(200).json({ status: 'success test', received: data })
 });
 
-export default router;
+export default router

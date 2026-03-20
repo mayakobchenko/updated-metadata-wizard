@@ -1,348 +1,342 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button } from 'antd'
+import { Form, Input, Select, Button, Radio } from 'antd'
 
 const { Option } = Select
 
-export default function Subjects ({ form, onChange, data = {} }) {
-  const [agecategory, setAgeCat] = useState([])
-  const [biosex, setBiosex] = useState([])
-  const [handedness, setHandedness] = useState([])
-  const [species, setSpecies] = useState([])
-  const [strainData, setStrainData] = useState([])
-  const [diseaseData, setDiseaseData] = useState([])
-  const [subjectsData, setSubjectData] = useState(data.subjectMetadata?.subjects || [])
-  const initialValues = { subjectMetadata: { subjects: subjectsData } }
+// ─── helpers ────────────────────────────────────────────────────────────────
 
+const newSubject = () => ({
+  id: Date.now() + Math.random(),
+  subjectID: '', age: '', weight: '',
+  ageCategory: '', bioSex: '', disease: '',
+  handedness: '', species: '', strain: '', file_path: ''
+})
+
+const newGroup = (index) => ({
+  id: Date.now() + Math.random(),
+  name: `Group ${index + 1}`,
+  subjects: [newSubject()]
+})
+
+// ─── component ──────────────────────────────────────────────────────────────
+
+export default function Subjects({ form, onChange, data = {} }) {
+  // ── dropdown option state (unchanged) ──────────────────────────────────
+  const [agecategory, setAgeCat]     = useState([])
+  const [biosex, setBiosex]           = useState([])
+  const [handedness, setHandedness]   = useState([])
+  const [species, setSpecies]         = useState([])
+  const [strainData, setStrainData]   = useState([])
+  const [diseaseData, setDiseaseData] = useState([])
+
+  // ── fork state ─────────────────────────────────────────────────────────
+  // 'flat' | 'grouped'
+  const [mode, setMode] = useState(
+    data.subjectMetadata?.subjectGroups ? 'grouped' : 'flat'
+  )
+
+  // ── flat subjects (original behaviour) ────────────────────────────────
+  const [subjectsData, setSubjectData] = useState(
+    data.subjectMetadata?.subjects || []
+  )
+
+  // ── grouped subjects (new behaviour) ──────────────────────────────────
+  const [groups, setGroups] = useState(
+    data.subjectMetadata?.subjectGroups || []
+  )
+
+  // keep in sync when parent data changes
   useEffect(() => {
     setSubjectData(data.subjectMetadata?.subjects || [])
+    setGroups(data.subjectMetadata?.subjectGroups || [])
+    setMode(data.subjectMetadata?.subjectGroups ? 'grouped' : 'flat')
   }, [data])
 
+  // ── fetch dropdown options (unchanged) ────────────────────────────────
   useEffect(() => {
-    const fetchDisease = async () => {
+    const fetcher = (url, setter, key) => async () => {
       try {
-        const url = 'api/subjects/disease'
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Fetch failed ${response.status}`)
-        const json = await response.json()
-        setDiseaseData(json.disease)
-      } catch (error) { console.error('Error fetching strain:', error) }
-    }  
-    const fetchStrain = async () => {
-      try {
-        const url = 'api/subjects/strain'
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Fetch failed ${response.status}`)
-        const json = await response.json()
-        setStrainData(json.strain)
-      } catch (error) { console.error('Error fetching strain:', error) }
+        const res  = await fetch(url)
+        if (!res.ok) throw new Error(`Fetch failed ${res.status}`)
+        const json = await res.json()
+        setter(json[key])
+      } catch (e) { console.error(e) }
     }
-    const fetchBioSex = async () => {
-      try {
-        const url = 'api/subjects/sex'
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Fetch failed ${response.status}`)
-        const json = await response.json()
-        setBiosex(json.biosex)
-      } catch (error) { console.error('Error fetching biosex:', error) }
-    }
-    const fetchAgeCat = async () => {
-      try {
-        const url = 'api/subjects/agecategory'
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Fetch failed ${response.status}`)
-        const json = await response.json()
-        setAgeCat(json.age_cat)
-      } catch (error) { console.error('Error fetching age categories:', error) }
-    }
-    const fetchHandedness = async () => {
-      try {
-        const url = 'api/subjects/handedness'
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Fetch failed ${response.status}`)
-        const json = await response.json()
-        setHandedness(json.handedness)
-      } catch (error) { console.error('Error fetching handedness:', error) }
-    }
-    const fetchSpecies = async () => {
-      try {
-        const url = 'api/subjects/species'
-        const response = await fetch(url)
-        if (!response.ok) throw new Error(`Fetch failed ${response.status}`)
-        const json = await response.json()
-        setSpecies(json.species)
-      } catch (error) { console.error('Error fetching species:', error) }
-    }
-    fetchBioSex()
-    fetchAgeCat()
-    fetchHandedness()
-    fetchSpecies()
-    fetchStrain()
-    fetchDisease()
+    fetcher('api/subjects/disease',     setDiseaseData, 'disease')()
+    fetcher('api/subjects/strain',      setStrainData,  'strain')()
+    fetcher('api/subjects/sex',         setBiosex,      'biosex')()
+    fetcher('api/subjects/agecategory', setAgeCat,      'age_cat')()
+    fetcher('api/subjects/handedness',  setHandedness,  'handedness')()
+    fetcher('api/subjects/species',     setSpecies,     'species')()
   }, [])
 
+  // ── notify parent ──────────────────────────────────────────────────────
+  const emit = (patch) =>
+    onChange({ subjectMetadata: { ...data.subjectMetadata, ...patch } })
+
+  // ── mode switch ────────────────────────────────────────────────────────
+  const handleModeChange = (e) => {
+    const next = e.target.value
+    setMode(next)
+    if (next === 'grouped') {
+      // migrate existing flat subjects into one default group
+      const migrated = [{ ...newGroup(0), subjects: subjectsData.length ? subjectsData : [newSubject()] }]
+      setGroups(migrated)
+      emit({ subjectGroups: migrated, subjects: undefined })
+    } else {
+      // flatten first group back into subjects array
+      const flat = groups.flatMap(g => g.subjects)
+      setSubjectData(flat)
+      emit({ subjects: flat, subjectGroups: undefined })
+    }
+  }
+
+  // ── flat subject handlers (unchanged logic) ───────────────────────────
   const addNewSubject = () => {
-    const newField = {
-      id: Date.now(),
-      subjectID: '',
-      age: '',
-      weight: '',
-      ageCategory: '',
-      bioSex: '',
-      disease: '',
-      handedness: '',
-      species: '',
-      strain: '',
-      file_path: ''
-    }
-    const updated = [...subjectsData, newField]
+    const updated = [...subjectsData, newSubject()]
     setSubjectData(updated)
-    onChange({
-      subjectMetadata: {
-        ...data.subjectMetadata,
-        subjects: updated
-      }
-    })
+    emit({ subjects: updated })
   }
-
-  const removeNewSubject = (index) => {
-    const updated = subjectsData.filter((_, i) => i !== index)
+  const removeSubject = (i) => {
+    const updated = subjectsData.filter((_, idx) => idx !== i)
     setSubjectData(updated)
-    onChange({
-      subjectMetadata: {
-        ...data.subjectMetadata,
-        subjects: updated
-      }
-    })
+    emit({ subjects: updated })
   }
-
-  const duplicateSubject = (index) => {
-    const toDuplicate = subjectsData[index]
-    if (!toDuplicate) return
-
-    // Create a shallow copy and generate a new unique id.
-    // Clear fields here if you don't want them duplicated (e.g., subjectID or file_path).
-    const duplicated = {
-      ...toDuplicate,
-      id: Date.now() + Math.floor(Math.random() * 1000)
-      // subjectID: '', // uncomment to clear subjectID on duplicate
-      // file_path: ''  // uncomment to clear file_path on duplicate
-    }
-
-    // Insert the duplicated item immediately after the original
+  const duplicateSubject = (i) => {
     const updated = [
-      ...subjectsData.slice(0, index + 1),
-      duplicated,
-      ...subjectsData.slice(index + 1)
+      ...subjectsData.slice(0, i + 1),
+      { ...subjectsData[i], id: Date.now() + Math.random() },
+      ...subjectsData.slice(i + 1)
     ]
-
     setSubjectData(updated)
-    onChange({
-      subjectMetadata: {
-        ...data.subjectMetadata,
-        subjects: updated
-      }
-    })
+    emit({ subjects: updated })
+  }
+  const handleSubjectChange = (i, field, value) => {
+    const updated = subjectsData.map((s, idx) => idx === i ? { ...s, [field]: value } : s)
+    setSubjectData(updated)
+    emit({ subjects: updated })
   }
 
-  const handleSubjectChange = (index, field, value) => {
-    const updated = [...subjectsData]
-    updated[index] = { ...updated[index], [field]: value }
-    setSubjectData(updated)
-    onChange({
-      subjectMetadata: {
-        ...data.subjectMetadata,
-        subjects: updated
-      }
-    })
-  }
+  // ── group handlers (new) ───────────────────────────────────────────────
+  const updateGroups = (next) => { setGroups(next); emit({ subjectGroups: next }) }
 
-  const handleValuesChange = (changedValues) => {
-    if (changedValues.subjectMetadata) {
-      onChange({
-        subjectMetadata: {
-          ...data.subjectMetadata,
-          ...changedValues.subjectMetadata,
-          subjects: changedValues.subjectMetadata?.subjects ?? subjectsData
-        }
-      })
+  const addGroup = () => updateGroups([...groups, newGroup(groups.length)])
+
+  const removeGroup = (gi) => updateGroups(groups.filter((_, i) => i !== gi))
+
+  const duplicateGroup = (gi) => {
+    const copy = {
+      ...groups[gi],
+      id: Date.now() + Math.random(),
+      name: `${groups[gi].name} (copy)`,
+      subjects: groups[gi].subjects.map(s => ({ ...s, id: Date.now() + Math.random() }))
     }
+    const next = [...groups.slice(0, gi + 1), copy, ...groups.slice(gi + 1)]
+    updateGroups(next)
   }
 
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    const formElements = event.target.elements
-    const formValues = Array.from(formElements).reduce((acc, element) => {
-      if (element.name) { acc[element.name] = element.value }
-      return acc
-    }, {})
-    console.log('Form Values:', formValues)
-  }
+  const renameGroup = (gi, name) =>
+    updateGroups(groups.map((g, i) => i === gi ? { ...g, name } : g))
 
-  const subjectIdWidth = '36%'    
-  const selectPercent = '14%'
-  const percentAge = '10%'
+  const addSubjectToGroup = (gi) =>
+    updateGroups(groups.map((g, i) =>
+      i === gi ? { ...g, subjects: [...g.subjects, newSubject()] } : g
+    ))
+
+  const removeSubjectFromGroup = (gi, si) =>
+    updateGroups(groups.map((g, i) =>
+      i === gi ? { ...g, subjects: g.subjects.filter((_, j) => j !== si) } : g
+    ))
+
+  const duplicateSubjectInGroup = (gi, si) =>
+    updateGroups(groups.map((g, i) => {
+      if (i !== gi) return g
+      const copy = { ...g.subjects[si], id: Date.now() + Math.random() }
+      const subjects = [...g.subjects.slice(0, si + 1), copy, ...g.subjects.slice(si + 1)]
+      return { ...g, subjects }
+    }))
+
+  const handleGroupSubjectChange = (gi, si, field, value) =>
+    updateGroups(groups.map((g, i) => {
+      if (i !== gi) return g
+      const subjects = g.subjects.map((s, j) => j === si ? { ...s, [field]: value } : s)
+      return { ...g, subjects }
+    }))
+
+  // ── shared style constants (unchanged) ────────────────────────────────
+  const subjectIdWidth  = '36%'
+  const selectPercent   = '14%'
+  const percentAge      = '10%'
   const smallInputPercent = '6%'
-  const dropdownStyle = { minWidth: 'max-content', whiteSpace: 'nowrap' }
-  // const dropdownStyle = { minWidth: 360, whiteSpace: 'nowrap' }  //more consistent across browsers
-
+  const dropdownStyle   = { minWidth: 'max-content', whiteSpace: 'nowrap' }
   const selectBaseProps = {
     showSearch: true,
     popupMatchSelectWidth: false,
     dropdownStyle,
-    getPopupContainer: (triggerNode) => triggerNode?.parentElement || document.body
+    getPopupContainer: (t) => t?.parentElement || document.body
   }
 
+  // ── subject row renderer (extracted, used in both modes) ──────────────
+  const SubjectRow = ({ field, index, onRemove, onDuplicate, onChange: onRowChange, label }) => (
+    <div key={field.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: `0 0 ${subjectIdWidth}`, minWidth: 0 }}>
+        <span className="subject-subtitle" style={{ whiteSpace: 'nowrap', marginRight: 8 }}>
+          {label ?? `Subject ${index + 1}`}, id:
+        </span>
+        <div style={{ flex: '1 0 auto', minWidth: 0 }}>
+          <Form.Item noStyle>
+            <Input value={field.subjectID} onChange={(e) => onRowChange(index, 'subjectID', e.target.value)} placeholder="Generic id" />
+          </Form.Item>
+        </div>
+        <div style={{ flex: '0 0 auto', marginLeft: 8, display: 'flex', gap: 6 }}>
+          <Button type="text" onClick={() => onRemove(index)} className="remove-text-btn">Remove</Button>
+          <Button type="text" onClick={() => onDuplicate(index)} className="duplicate-text-btn">Duplicate</Button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, flex: '1 1 auto', minWidth: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <Form.Item label="Sex" required style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+          <Select {...selectBaseProps} value={field.bioSex} onChange={(v) => onRowChange(index, 'bioSex', v)} placeholder="bio sex" style={{ width: '100%' }}>
+            {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+        <Form.Item label="Age cat." required style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+          <Select {...selectBaseProps} value={field.ageCategory} onChange={(v) => onRowChange(index, 'ageCategory', v)} placeholder="age category" style={{ width: '100%' }}>
+            {agecategory.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+        <Form.Item label="Species" required style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
+          <Select {...selectBaseProps} value={field.species} onChange={(v) => onRowChange(index, 'species', v)} placeholder="species" style={{ width: '100%' }}>
+            {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+        <Form.Item label="Age" style={{ flex: `0 0 ${smallInputPercent}`, minWidth: 0, marginBottom: 0 }}>
+          <Input value={field.age} onChange={(e) => onRowChange(index, 'age', e.target.value)} placeholder="age" />
+        </Form.Item>
+        <Form.Item label="Weight" style={{ flex: `0 0 ${smallInputPercent}`, minWidth: 0, marginBottom: 0 }}>
+          <Input value={field.weight} onChange={(e) => onRowChange(index, 'weight', e.target.value)} placeholder="weight" />
+        </Form.Item>
+        <Form.Item label="Strain" style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+          <Select {...selectBaseProps} value={field.strain} onChange={(v) => onRowChange(index, 'strain', v)} style={{ width: '100%' }}>
+            {strainData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+        <Form.Item label="Pathology" style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
+          <Select {...selectBaseProps} value={field.disease} onChange={(v) => onRowChange(index, 'disease', v)} style={{ width: '100%' }}>
+            {diseaseData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+        <Form.Item label="Handedness" style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+          <Select {...selectBaseProps} value={field.handedness} onChange={(v) => onRowChange(index, 'handedness', v)} placeholder="handedness" style={{ width: '100%' }}>
+            {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+      </div>
+    </div>
+  )
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div>
       <p className="step-title">Subjects</p>
-      <Form form={form} layout="vertical"
-        initialValues={initialValues}
-        onValuesChange={handleValuesChange}
-        onSubmit={handleSubmit}>
 
-        {subjectsData.map((field, index) => (
-          <div key={field.id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap' }}>
+      {/* ── FORK QUESTION ── */}
+      <Form.Item label="Are subjects organised into groups?">
+        <Radio.Group value={mode} onChange={handleModeChange}>
+          <Radio.Button value="flat">No — single list</Radio.Button>
+          <Radio.Button value="grouped">Yes — multiple groups</Radio.Button>
+        </Radio.Group>
+      </Form.Item>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: `0 0 ${subjectIdWidth}`, minWidth: 0 }}>
-              <span className="subject-subtitle" style={{ whiteSpace: 'nowrap', marginRight: 8 }}>
-                Subject {index + 1}, id:
-              </span>
+      <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
-              <div style={{ flex: '1 0 auto', minWidth: 0 }}>
-                <Form.Item noStyle>
+        {/* ── FLAT MODE (original behaviour) ── */}
+        {mode === 'flat' && (
+          <>
+            {subjectsData.map((field, index) => (
+              <SubjectRow
+                key={field.id}
+                field={field}
+                index={index}
+                onRemove={removeSubject}
+                onDuplicate={duplicateSubject}
+                onChange={handleSubjectChange}
+              />
+            ))}
+            <div style={{ textAlign: 'center', margin: '20px 0' }}>
+              <Button type="dashed" onClick={addNewSubject} style={{ width: '30%' }} className="add-contributor-button">
+                Add new subject
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ── GROUPED MODE (new behaviour) ── */}
+        {mode === 'grouped' && (
+          <>
+            {groups.map((group, gi) => (
+              <div
+                key={group.id}
+                style={{
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 8,
+                  padding: '16px 20px',
+                  marginBottom: 24,
+                  background: '#fafafa'
+                }}
+              >
+                {/* Group header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                   <Input
-                    value={field.subjectID}
-                    onChange={(e) => handleSubjectChange(index, 'subjectID', e.target.value)}
-                    placeholder="Generic id"
+                    value={group.name}
+                    onChange={(e) => renameGroup(gi, e.target.value)}
+                    style={{ fontWeight: 600, width: 220 }}
+                    placeholder={`Group ${gi + 1} name`}
                   />
-                </Form.Item>
+                  <Button type="text" onClick={() => duplicateGroup(gi)} className="duplicate-text-btn">
+                    Duplicate group
+                  </Button>
+                  <Button
+                    type="text"
+                    danger
+                    onClick={() => removeGroup(gi)}
+                    className="remove-text-btn"
+                    disabled={groups.length === 1}   // keep at least one group
+                  >
+                    Remove group
+                  </Button>
+                </div>
+
+                {/* Subjects inside this group */}
+                {group.subjects.map((field, si) => (
+                  <SubjectRow
+                    key={field.id}
+                    field={field}
+                    index={si}
+                    label={`Subject ${si + 1}`}
+                    onRemove={(i)        => removeSubjectFromGroup(gi, i)}
+                    onDuplicate={(i)     => duplicateSubjectInGroup(gi, i)}
+                    onChange={(i, f, v)  => handleGroupSubjectChange(gi, i, f, v)}
+                  />
+                ))}
+
+                <div style={{ textAlign: 'center', marginTop: 8 }}>
+                  <Button type="dashed" onClick={() => addSubjectToGroup(gi)} style={{ width: '40%' }}>
+                    + Add subject to {group.name}
+                  </Button>
+                </div>
               </div>
+            ))}
 
-              <div style={{ flex: '0 0 auto', marginLeft: 8, display: 'flex', gap: 6 }}>
-                <Button type="text" onClick={() => removeNewSubject(index)} className="remove-text-btn">
-                    Remove
-                </Button>
-
-                <Button type="text" onClick={() => duplicateSubject(index)} className="duplicate-text-btn">
-                    Duplicate
-                </Button>
-              </div>
+            {/* Add group button */}
+            <div style={{ textAlign: 'center', margin: '20px 0' }}>
+              <Button type="dashed" onClick={addGroup} style={{ width: '30%' }} className="add-contributor-button">
+                + Add new group
+              </Button>
             </div>
+          </>
+        )}
 
-            <div style={{ display: 'flex', gap: 6, flex: `1 1 auto`, minWidth: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              <Form.Item label="Sex" required style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
-                <Select
-                  {...selectBaseProps}
-                  value={field.bioSex}
-                  onChange={(value) => handleSubjectChange(index, 'bioSex', value)}
-                  placeholder="bio sex"
-                  style={{ width: '100%' }}
-                >
-                  {biosex.map((option) => (
-                    <Option key={option.identifier} value={option.identifier}>
-                      {option.name}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label="Age" required style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
-                <Select
-                  {...selectBaseProps}
-                  value={field.ageCategory}
-                  onChange={(value) => handleSubjectChange(index, 'ageCategory', value)}
-                  placeholder="age category"
-                  filterOption={(input, option) => {
-                    if (!option) return false
-                    return option.children.toLowerCase().includes(input.toLowerCase())
-                  }}
-                  style={{ width: '100%' }}
-                >
-                  {agecategory.map((option) => (
-                    <Option key={option.identifier} value={option.identifier}>
-                      {option.name}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label="Species" required style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
-                <Select
-                  {...selectBaseProps}
-                  value={field.species}
-                  onChange={(value) => handleSubjectChange(index, 'species', value)}
-                  placeholder="species"
-                  style={{ width: '100%' }}
-                >
-                  {species.map((option) => (
-                    <Option key={option.identifier} value={option.identifier}>
-                      {option.name}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label="Age" style={{ flex: `0 0 ${smallInputPercent}`, minWidth: 0, marginBottom: 0 }}>
-                <Input value={field.age} onChange={(e) => handleSubjectChange(index, 'age', e.target.value)} placeholder="age" />
-              </Form.Item>
-              <Form.Item label="Weight" style={{ flex: `0 0 ${smallInputPercent}`, minWidth: 0, marginBottom: 0 }}>
-                <Input value={field.weight} onChange={(e) => handleSubjectChange(index, 'weight', e.target.value)} placeholder="weight" />
-              </Form.Item>
-                    
-              <Form.Item label="Strain" style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
-                <Select
-                  {...selectBaseProps}
-                  value={field.strain}
-                  onChange={(value) => handleSubjectChange(index, 'strain', value)}
-                  style={{ width: '100%' }}
-                >
-                  {strainData.map((option) => (
-                    <Option key={option.identifier} value={option.identifier}>
-                      {option.name}
-                    </Option>
-                  ))}
-                </Select>
-                </Form.Item>
-                    
-                <Form.Item label="Pathology" style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
-                    <Select
-                    {...selectBaseProps}
-                    value={field.disease}
-                    onChange={(value) => handleSubjectChange(index, 'disease', value)}
-                    style={{ width: '100%' }}
-                    >
-                    {diseaseData.map((option) => (
-                        <Option key={option.identifier} value={option.identifier}>
-                        {option.name}
-                        </Option>
-                    ))}
-                    </Select>
-                </Form.Item>    
-                <Form.Item label="Handedness" style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
-                    <Select
-                    {...selectBaseProps}
-                    value={field.handedness}
-                    onChange={(value) => handleSubjectChange(index, 'handedness', value)}
-                    placeholder="handedness"
-                    style={{ width: '100%' }}
-                    >
-                    {handedness.map((option) => (
-                        <Option key={option.identifier} value={option.identifier}>
-                        {option.name}
-                        </Option>
-                    ))}
-                    </Select>
-                </Form.Item> 
-            </div>
-
-          </div>
-        ))}
-
-        <div style={{ textAlign: 'center', margin: '20px 0' }}>
-          <Button type="dashed" onClick={addNewSubject} style={{ width: '30%' }} className="add-contributor-button">
-            Add new subject
-          </Button>
-        </div>
       </Form>
     </div>
   )

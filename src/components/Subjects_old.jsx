@@ -83,16 +83,9 @@ export default function Subjects ({ form, onChange, data = {} }) {
   const addNewSubject = () => {
     const newField = {
       id: Date.now(),
-      subjectID: '',
-      age: '',
-      weight: '',
-      ageCategory: '',
-      bioSex: '',
-      disease: '',
-      handedness: '',
-      species: '',
-      strain: '',
-      file_path: ''
+      subjectID: '', age: '', weight: '',
+      ageCategory: '', bioSex: '', disease: '',
+      handedness: '', species: '', strain: '', file_path: ''
     }
     const updated = [...subjectsData, newField]
     setSubjectData(updated)
@@ -106,6 +99,35 @@ export default function Subjects ({ form, onChange, data = {} }) {
 
   const removeNewSubject = (index) => {
     const updated = subjectsData.filter((_, i) => i !== index)
+    setSubjectData(updated)
+    onChange({
+      subjectMetadata: {
+        ...data.subjectMetadata,
+        subjects: updated
+      }
+    })
+  }
+
+  const duplicateSubject = (index) => {
+    const toDuplicate = subjectsData[index]
+    if (!toDuplicate) return
+
+    // Create a shallow copy and generate a new unique id.
+    // Clear fields here if you don't want them duplicated (e.g., subjectID or file_path).
+    const duplicated = {
+      ...toDuplicate,
+      id: Date.now() + Math.floor(Math.random() * 1000)
+      // subjectID: '', // uncomment to clear subjectID on duplicate
+      // file_path: ''  // uncomment to clear file_path on duplicate
+    }
+
+    // Insert the duplicated item immediately after the original
+    const updated = [
+      ...subjectsData.slice(0, index + 1),
+      duplicated,
+      ...subjectsData.slice(index + 1)
+    ]
+
     setSubjectData(updated)
     onChange({
       subjectMetadata: {
@@ -189,9 +211,13 @@ export default function Subjects ({ form, onChange, data = {} }) {
                 </Form.Item>
               </div>
 
-              <div style={{ flex: '0 0 auto', marginLeft: 8 }}>
+              <div style={{ flex: '0 0 auto', marginLeft: 8, display: 'flex', gap: 6 }}>
                 <Button type="text" onClick={() => removeNewSubject(index)} className="remove-text-btn">
                     Remove
+                </Button>
+
+                <Button type="text" onClick={() => duplicateSubject(index)} className="duplicate-text-btn">
+                    Duplicate
                 </Button>
               </div>
             </div>
