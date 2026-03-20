@@ -23,39 +23,31 @@ export default function Contributors({ form, onChange, data = {} }) {
     setOtherContribs(data.contribution?.contributor?.othercontr || [])
   }, [data])
 
-const fetchContributors = async () => {
+  const fetchContributors = async () => {
     try {
-    const response = await fetch('api/kginfo/contributorsfile')
-    if (!response.ok && response.status !== 0) {
+      const response = await fetch('api/kginfo/contributorsfile')
+      if (!response.ok && response.status !== 0) {
         throw new Error(`Error fetching contributors: ${response.status}`)
-    }
-    const fetchedData = await response.json()
-    const sorted = (fetchedData.person || []).sort((a, b) => {
-        const nameA = a.fullName || `${a.familyName} ${a.givenName}` || ''
-        const nameB = b.fullName || `${b.familyName} ${b.givenName}` || ''
-        return nameA.localeCompare(nameB)
-    })
-    setContributors(sorted)
+      }
+      const fetchedData = await response.json()
+      setContributors(fetchedData.person || [])
     } catch (error) {
-    console.error('Error fetching contributors:', error)
+      console.error('Error fetching contributors:', error)
     }
-}
+  }
 
-    const fetchTypeContribution = async () => {
-        try {
-        const response = await fetch('api/kginfo/typecontribution')
-        if (!response.ok) {
-            throw new Error(`Error fetching contribution types: ${response.status}`)
-        }
-        const fetchedData = await response.json()
-        const sorted = (fetchedData.typecontribution || []).sort((a, b) =>
-            a.name.localeCompare(b.name)
-        )
-        setTypesContribution(sorted)
-        } catch (error) {
-        console.error('Error fetching contribution types:', error)
-        }
+  const fetchTypeContribution = async () => {
+    try {
+      const response = await fetch('api/kginfo/typecontribution')
+      if (!response.ok) {
+        throw new Error(`Error fetching contribution types: ${response.status}`)
+      }
+      const fetchedData = await response.json()
+      setTypesContribution(fetchedData.typecontribution || [])
+    } catch (error) {
+      console.error('Error fetching contribution types:', error)
     }
+  }
 
   useEffect(() => {
     fetchContributors()
