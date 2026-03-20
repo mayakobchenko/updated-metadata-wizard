@@ -202,33 +202,7 @@ const downloadJson = () => {
   }
 
   return (
-    <ConfigProvider>
-    {/* Download status toast */}
-    {downloadStatus === 'success' && (
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 1000,
-        background: 'var(--color-background-success)',
-        color: 'var(--color-text-success)',
-        border: '0.5px solid var(--color-border-success)',
-        borderRadius: 8, padding: '10px 16px',
-        marginBottom: 12, fontSize: 14
-      }}>
-        File downloaded successfully — check your Downloads folder.
-      </div>
-    )}
-    {downloadStatus === 'error' && (
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 1000,
-        background: 'var(--color-background-danger)',
-        color: 'var(--color-text-danger)',
-        border: '0.5px solid var(--color-border-danger)',
-        borderRadius: 8, padding: '10px 16px',
-        marginBottom: 12, fontSize: 14
-      }}>
-        Download failed — form data may be empty. Check the browser console for details.
-      </div>
-      )}
-      
+    <ConfigProvider>     
       <ProgressBar step={currentStepIndex} status={statuses} onChanged={goToWizardStep} />
       <CurrentStep form={form} onChange={handleInputChange}  data={formData}/>
       <div className="buttons-save-next-back">
