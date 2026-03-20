@@ -51,6 +51,8 @@ const StepsWizard = () => {
   const [form] = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [isModalVisible, setIsModalVisible] = useState(false)
+  const [downloadStatus, setDownloadStatus] = useState(null) // null | 'success' | 'error'
+
 
   //useEffect(() => {setFormData(initialValues)}, [skjemaInfo])
   //--------------------------------------added from Claude
@@ -148,7 +150,7 @@ const StepsWizard = () => {
 
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }
-
+/*
   const downloadJson = () => {
     const json = JSON.stringify(formDataRef.current, null, 2)
     //const json = JSON.stringify(formData, null, 2)
@@ -162,7 +164,37 @@ const StepsWizard = () => {
     document.body.removeChild(a)  
     URL.revokeObjectURL(url)
   }
+*/
+const downloadJson = () => {
+  try {
+    const snapshot = formDataRef.current
+    // Warn if data looks empty
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      setDownloadStatus('error')
+      setTimeout(() => setDownloadStatus(null), 4000)
+      console.warn('downloadJson: formData is empty', snapshot)
+      return}
+    const json = JSON.stringify(snapshot, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'metadata_wizard.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
 
+    setDownloadStatus('success')
+    setTimeout(() => setDownloadStatus(null), 3000)
+    console.log('downloadJson: downloaded successfully', snapshot)
+
+  } catch (err) {
+    setDownloadStatus('error')
+    setTimeout(() => setDownloadStatus(null), 4000)
+    console.error('downloadJson failed:', err)
+  }
+}
   const saveToJson = () => {
     const json = JSON.stringify(formData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -171,6 +203,32 @@ const StepsWizard = () => {
 
   return (
     <ConfigProvider>
+    {/* Download status toast */}
+    {downloadStatus === 'success' && (
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 1000,
+        background: 'var(--color-background-success)',
+        color: 'var(--color-text-success)',
+        border: '0.5px solid var(--color-border-success)',
+        borderRadius: 8, padding: '10px 16px',
+        marginBottom: 12, fontSize: 14
+      }}>
+        File downloaded successfully — check your Downloads folder.
+      </div>
+    )}
+    {downloadStatus === 'error' && (
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 1000,
+        background: 'var(--color-background-danger)',
+        color: 'var(--color-text-danger)',
+        border: '0.5px solid var(--color-border-danger)',
+        borderRadius: 8, padding: '10px 16px',
+        marginBottom: 12, fontSize: 14
+      }}>
+        Download failed — form data may be empty. Check the browser console for details.
+      </div>
+      )}
+      
       <ProgressBar step={currentStepIndex} status={statuses} onChanged={goToWizardStep} />
       <CurrentStep form={form} onChange={handleInputChange}  data={formData}/>
       <div className="buttons-save-next-back">
