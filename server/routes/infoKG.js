@@ -14,6 +14,7 @@ router.get('/contributors', getContributors)
 router.get('/consortium', getConsortium)
 router.get('/contributorsfile', getContributorsfile)
 router.get('/experimentalapproaches', getExperimentalApproaches)
+router.get('/preparationtypes', getPreparationTypes)
 router.get('/license', getLicense)
 router.get('/typecontribution', getTypeContribution) 
 
@@ -105,21 +106,35 @@ async function getContributorsfile(req, res) {
       res.status(500).send('Internal server error')}
   }  
 
-  async function getExperimentalApproaches(req, res) {
-    const filePath = path.join(__dirname, '../data/controlledTerms/ExperimentalApproach.json')
-    try {
-        let expApproach
-        try {
-          const data = await readFile(filePath, 'utf-8')
-          expApproach = JSON.parse(data)
-        } catch (err) {
-          expApproach = []} 
-      res.status(200).json({ expApproach })
-    } catch (error) {
-      console.error('Error fetching file with kg info from the server', error.message)
-      res.status(500).send('Internal server error')}
+async function getExperimentalApproaches(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/ExperimentalApproach.json')
+  try {
+      let expApproach
+      try {
+        const data = await readFile(filePath, 'utf-8')
+        expApproach = JSON.parse(data)
+      } catch (err) {
+        expApproach = []} 
+    res.status(200).json({ expApproach })
+  } catch (error) {
+    console.error('Error fetching file with kg info from the server', error.message)
+    res.status(500).send('Internal server error')}
 }
-  
+
+async function getPreparationTypes(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/PreparationTypes.json')
+  try {
+      let prepType
+      try {
+        const data = await readFile(filePath, 'utf-8')
+        prepType = JSON.parse(data)
+      } catch (err) {
+        prepType = []} 
+    res.status(200).json({ prepType })
+  } catch (error) {
+    console.error('Error fetching file with kg info from the server', error.message)
+    res.status(500).send('Internal server error')}
+}  
 async function getLicense (req, res) {
   const filePath = path.join(__dirname, '../data/kg-instances/Licenses.json')
   try {
@@ -127,10 +142,10 @@ async function getLicense (req, res) {
     try {
       const data = await readFile(filePath, 'utf-8')
       license = JSON.parse(data)} catch (err) {license = []} 
-  res.status(200).json({ license })
-  } catch (error) {
-    console.error('Error fetching file with kg info from the server', error.message)
-    res.status(500).send('Internal server error')}
+    res.status(200).json({ license })
+    } catch (error) {
+      console.error('Error fetching file with kg info from the server', error.message)
+      res.status(500).send('Internal server error')}
 }
   
 

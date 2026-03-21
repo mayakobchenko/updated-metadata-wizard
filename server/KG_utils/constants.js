@@ -115,5 +115,5 @@ export const subjectProperties = [
   "DiseaseModel",
   "UnitOfMeasurement",
   "TissueSampleType",
-  "preparationType",
+  "PreparationType",
 ]
