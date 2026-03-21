@@ -1,20 +1,55 @@
 // todo: get directly from openMINDS schema
+//this is complete list from the KG editor 
 export const studyTargetTerms = [
-    "GeneticStrainType",
+    "AuditoryStimulusType",
+    "BiologicalOrder",
+    "BiologicalSex",
+    "BreedingType",
+    "CellCultureType",
+    "CellType",
+    //"CustomAnatomicalEntity",  //do we need this? 
     "Disease",
+    "DiseaseModel",
+    "ElectricalStimulusType",
+    "GeneticStrainType",
+    "GustatoryStimulusType",
+    "Handedness",
+    "MolecularEntity",
+    "OlfactoryStimulusType",
+    "OpticalStimulusType",
+    "Organ",
+    "OrganismSubstance",
+    "OrganismSystem",
+    //"ParcellationEntity",   //do we need this? 
+    //"ParcellationEntityVersion", //do we need this? 
     "Species",
     "SubcellularEntity",
-    "Handedness",
-    "Organ",
+    "TactileStimulusType",
+    //"TermSuggestion",    //do we need this? 
     "UBERONParcellation",
-    "CellType",
-    "BiologicalSex",
-    "MolecularEntity",
-    "BiologicalOrder",
-    "BreedingType",
-    "DiseaseModel",
-    "CellCultureType" ];
-
+    "VisualStimulusType",
+]
+   
+// ── excluded (too large or dataset-specific): ───────────────────────────────
+// ParcellationEntity       → atlas space, thousands of brain regions
+// ParcellationEntityVersion → atlas space, thousands of entries
+// CustomAnatomicalEntity   → dataset-specific, not a global controlled term
+// TermSuggestion           → dataset-specific, not a global controlled term
+export const subjectProperties = [
+  "BiologicalSex",
+  "AgeCategory",
+  "Species",
+  "Handedness",
+  "Laterality",
+  "TissueSampleType",
+  "Strain",
+  "Disease",
+  "DiseaseModel",
+  "UnitOfMeasurement",
+  "TissueSampleType",
+  "PreparationType",
+]
+  //"Technique",
 export const keywordSet = [
         "ActionStatusType",
         "AgeCategory",
@@ -101,19 +136,3 @@ export const keywordSet = [
     // "ParcellationEntity",
     // "ParcellationEntityVersion",
     // "CustomAnatomicalEntity",
-
-export const subjectProperties = [
-  "BiologicalSex",
-  "AgeCategory",
-  "Species",
-  "Handedness",
-  //"Technique",
-  "Laterality",
-  "TissueSampleType",
-  "Strain",
-  "Disease",
-  "DiseaseModel",
-  "UnitOfMeasurement",
-  "TissueSampleType",
-  "PreparationType",
-]

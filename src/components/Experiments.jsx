@@ -9,12 +9,24 @@ export default function Experiments({ form, onChange, data }) {
   const [prepTypes, setPrepTypes] = useState([])
   const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: [] }])
   const [addPreparation, setAddPreparation] = useState([{ id: Date.now(), selectedPrepType: [] }])
+  const [studyTargets, setStudyTargets] = useState([])
+  const [selectedStudyTargets, setSelectedStudyTargets] = useState([])
 
   useEffect(() => {
     setAddExperiment(data.experimental_approach?.addExperiment || [{ id: Date.now(), selectedExpAppr: [] }])
     setAddPreparation(data.experimental_approach?.addPreparation || [{ id: Date.now(), selectedPrepType: [] }])
   }, [data])
   
+  const fetchStudyTargets = async () => {
+    try {
+        const response = await fetch('api/kginfo/studytargets')
+        if (!response.ok) throw new Error(`Error fetching study targets: ${response.status}`)
+        const fetchedData = await response.json()
+        setStudyTargets(fetchedData.studyTargets)
+    } catch (error) {
+        console.error('Error fetching study targets:', error)
+    }
+}
   const fetchExperimentalApproaches = async () => {
     try {
       const response = await fetch('api/kginfo/experimentalapproaches')
@@ -44,6 +56,7 @@ export default function Experiments({ form, onChange, data }) {
   useEffect(() => {
     fetchExperimentalApproaches()
     fetchPreparationTypes()
+    fetchStudyTargets()
   }, [])
 
   // ── experimental approach handlers ──────────────────────────────────────
@@ -63,7 +76,11 @@ export default function Experiments({ form, onChange, data }) {
     setAddPreparation(updated)
     onChange({ experimental_approach: { ...data.experimental_approach, addPreparation: updated } })
   }
-
+ // ── study targets handlers ────────────────────────────────────────────
+  const handleStudyTargetChange = (values) => {
+      setSelectedStudyTargets(values)
+      onChange({ experimental_approach: { ...data.experimental_approach, studyTargets: values } })
+  }
   const handleValuesChange = (changedValues) => {
     onChange({ experimental_approach: { ...data.experimental_approach, ...changedValues.experimental_approach } })
   }
@@ -146,15 +163,37 @@ export default function Experiments({ form, onChange, data }) {
           </div>
         ))}
 
-        {/* ── other fields ── */}
         <Form.Item
-          label="Study target"
-          name={['experiments', 'target']}
-          rules={[{ required: false }]}
-          extra="Specify all interesting targets you had for producing this dataset.
-          Please select first among the categories, and then choose an instance for that category.">
-          <Input />
+            label="Study target"
+            extra="Specify all interesting targets you had for producing this dataset. 
+            Please select first among the categories, and then choose an instance for that category.">
+            <Select
+                mode="multiple"
+                showSearch
+                style={{ width: '100%' }}
+                value={selectedStudyTargets}
+                onChange={handleStudyTargetChange}
+                placeholder="Select study target(s)"
+                filterOption={(input, option) => {
+                    if (!option) return false
+                    return option.children.toLowerCase().includes(input.toLowerCase())
+                }}>
+                {/* Group options by type for easier navigation */}
+                {[...new Set(studyTargets.map(t => t.type))].map(type => (
+                    <Select.OptGroup key={type} label={type}>
+                        {studyTargets
+                            .filter(t => t.type === type)
+                            .map(option => (
+                                <Option key={option.identifier} value={option.identifier}>
+                                    {option.name}
+                                </Option>
+                            ))
+                        }
+                    </Select.OptGroup>
+                ))}
+            </Select>
         </Form.Item>
+
         <Form.Item
           label="Keywords"
           name={['experiments', 'keywords']}

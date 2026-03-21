@@ -147,6 +147,16 @@ async function getLicense (req, res) {
       console.error('Error fetching file with kg info from the server', error.message)
       res.status(500).send('Internal server error')}
 }
-  
+
+router.get('/studytargets', (req, res) => {
+    const filePath = path.join(__dirname, '..', '..', 'data', 'studyTargets', 'studyTargets.json')
+    try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+        res.json({ studyTargets: data })
+    } catch (err) {
+        console.error('Error reading studyTargets.json:', err)
+        res.status(500).json({ error: 'Failed to load study targets' })
+    }
+})  
 
 export default router
