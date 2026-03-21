@@ -1,7 +1,7 @@
 import fetchControlledTerms from './fetchControlledTerms.js'
 import {fetchCoreSchemaInstances} from './fetchCoreSchemaInstances.js'
 import { fetchLicenses } from './fetchLicenses.js'
-import {fetchStudyTargets} from './fetchStudyTargets.js'
+import fetchStudyTargets from './fetchStudyTargets.js'
 
 const configObject = [
     {
