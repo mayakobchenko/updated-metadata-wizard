@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Checkbox, Button } from 'antd'
+import { Form, Input, Select, Radio, Button } from 'antd'
 
 const { Option } = Select
 
@@ -73,7 +73,10 @@ export default function Experiments({ form, onChange, data }) {
           Tick 'Yes' if you have information about subject groups,
           individual subjects and/or tissue samples."
           rules={[{ required: true, message: 'Please select at least one option!' }]}>
-          <Checkbox.Group options={optionsYesNo} style={{ padding: '20px' }}/>
+          <Radio.Group style={{ padding: '20px' }}>   
+            <Radio value="Yes">Yes</Radio>
+            <Radio value="No">No</Radio>
+          </Radio.Group>
         </Form.Item>
         <p className="step-title">Please indicate which experimental approaches best describe your data</p>
         {addExperiment.map((field, index) => (

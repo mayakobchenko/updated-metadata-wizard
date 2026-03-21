@@ -245,7 +245,7 @@ export default function Dataset1({ form, onChange, data }) {
         <AntForm.Item
           label="Data organization"
           name={['dataset1', 'dataStandart']} 
-          rules={[{ required: true, message: 'Please indicate if your data follows any standart' }]}
+          rules={[{ required: false, message: 'Please indicate if your data follows any standart' }]}
           extra="Do your data organization follows any community standards such as BIDS or NWB?">
           <Input />
         </AntForm.Item>
