@@ -2,9 +2,9 @@
 FROM node:22.14.0-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps --silent --no-audit --no-fund
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
 COPY . .
-RUN npm run build
+RUN npm run build --verbose
 
 # Stage 2 — install production dependencies only
 FROM node:22.14.0-alpine AS prod-deps
