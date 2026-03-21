@@ -17,6 +17,7 @@ router.get('/experimentalapproaches', getExperimentalApproaches)
 router.get('/preparationtypes', getPreparationTypes)
 router.get('/license', getLicense)
 router.get('/typecontribution', getTypeContribution) 
+router.get('/studytargets', getStudyTargets)
 
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
@@ -135,6 +136,7 @@ async function getPreparationTypes(req, res) {
     console.error('Error fetching file with kg info from the server', error.message)
     res.status(500).send('Internal server error')}
 }  
+
 async function getLicense (req, res) {
   const filePath = path.join(__dirname, '../data/kg-instances/Licenses.json')
   try {
@@ -147,16 +149,19 @@ async function getLicense (req, res) {
       console.error('Error fetching file with kg info from the server', error.message)
       res.status(500).send('Internal server error')}
 }
-
-router.get('/studytargets', (req, res) => {
-    const filePath = path.join(__dirname, '..', '..', 'data', 'studyTargets', 'studyTargets.json')
-    try {
-        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-        res.json({ studyTargets: data })
-    } catch (err) {
-        console.error('Error reading studyTargets.json:', err)
-        res.status(500).json({ error: 'Failed to load study targets' })
-    }
-})  
-
+ 
+async function getStudyTargets(req, res) {
+  const filePath = path.join(__dirname, '../data/studyTargets/studyTargets.json')
+  try {
+      let studyTargets
+      try {
+        const data = await readFile(filePath, 'utf-8')
+        studyTargets = JSON.parse(data)
+      } catch (err) {
+        studyTargets = []} 
+    res.status(200).json({ studyTargets })
+  } catch (error) {
+    console.error('Error reading studyTargets.json:', error.message)
+    res.status(500).send('Failed to load study targets')}
+}  
 export default router
