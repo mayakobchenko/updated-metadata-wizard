@@ -56,21 +56,6 @@ export default function Experiments({ form, onChange, data }) {
   }
 
   // ── preparation type handlers ────────────────────────────────────────────
-  const addPreparationField = () => {
-    const newField = { id: Date.now(), selectedPrepType: [] }
-    const updated = [...addPreparation, newField]
-    setAddPreparation(updated)
-    onChange({ experimental_approach: { ...data.experimental_approach, addPreparation: updated } })
-  }
-
-  const removePreparationField = (index) => {
-    if (addPreparation.length > 1) {
-      const updated = addPreparation.filter((_, i) => i !== index)
-      setAddPreparation(updated)
-      onChange({ experimental_approach: { ...data.experimental_approach, addPreparation: updated } })
-    }
-  }
-
   const handlePreparationChange = (index, value) => {
     const updated = addPreparation.map((field, i) =>
       i === index ? { ...field, selectedPrepType: value } : field
@@ -133,7 +118,7 @@ export default function Experiments({ form, onChange, data }) {
         {/* ── preparation types ── */}
         <p className="step-title">Please indicate the preparation type(s) for your data</p>
         {addPreparation.map((field, index) => (
-          <div key={field.id} style={{ display: 'flex', alignItems: 'center' }}>
+          <div key={field.id}>
             <Form.Item
               label="Select preparation type"
               required
@@ -158,18 +143,8 @@ export default function Experiments({ form, onChange, data }) {
                 ))}
               </Select>
             </Form.Item>
-            <Button type="danger" onClick={() => removePreparationField(index)}>Remove</Button>
           </div>
         ))}
-        <div style={{ textAlign: 'center' }}>
-          <Button
-            type="dashed"
-            onClick={addPreparationField}
-            style={{ width: '30%', margin: '0 0 50px 0' }}
-            className="add-contributor-button">
-            Add Preparation Type
-          </Button>
-        </div>
 
         {/* ── other fields ── */}
         <Form.Item

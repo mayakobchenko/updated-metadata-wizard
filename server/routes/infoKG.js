@@ -122,7 +122,7 @@ async function getExperimentalApproaches(req, res) {
 }
 
 async function getPreparationTypes(req, res) {
-  const filePath = path.join(__dirname, '../data/controlledTerms/PreparationTypes.json')
+  const filePath = path.join(__dirname, '../data/controlledTerms/PreparationType.json')
   try {
       let prepType
       try {
