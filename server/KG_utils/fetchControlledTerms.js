@@ -93,6 +93,9 @@ async function parseAndSaveData(data, instanceName) {
                 name: thisInstance[`${OPENMINDS_VOCAB}/name`]
             }
 
+            if (instanceName === "preparationType") { 
+                console.log("preparationType:", thisInstance)
+            }
             // ── enrich Strain: resolve species @id → species identifier ───
             if (instanceName === "Strain") {
                 const speciesRef = thisInstance[`${OPENMINDS_VOCAB}/species`]

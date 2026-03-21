@@ -7,11 +7,11 @@ const { Option } = Select
 export default function Experiments({ form, onChange, data }) {
   
   const [experim_appr, setExperim_appr] = useState([])
-  const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: [] }])
+  const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: '' }])
 
-    useEffect(() => {
-        setAddExperiment(data.experimental_approach?.addExperiment || [{ id: Date.now(), selectedExpAppr: [] }])
-    }, [data])
+  useEffect(() => {
+      setAddExperiment(data.experimental_approach?.addExperiment || [{ id: Date.now(), selectedExpAppr: '' }])
+  }, [data])
   
   const fetchExperimentalApproaches = async () => {
     try {
@@ -83,23 +83,21 @@ export default function Experiments({ form, onChange, data }) {
         {addExperiment.map((field, index) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center' }}>
             <Form.Item label={`Select experimental approach`} required style={{ flex: 1 }}>
-            <Select
-                mode="multiple"
-                showSearch
-                style={{ minWidth: 240 }}
-                value={field.selectedExpAppr}
-                onChange={(value) => handleFieldChange(index, value)}
-                placeholder="Select experimental approach(es)"
-                filterOption={(input, option) => {
+              <Select
+                  showSearch
+                  style={{ minWidth: 240 }}
+                  value={field.selectedExpAppr} 
+                  onChange={(value) => handleFieldChange(index, value)} 
+                  filterOption={(input, option) => {
                     if (!option) return false
                     return option.children.toLowerCase().includes(input.toLowerCase())
-                }}>
-                {experim_appr.map((option) => (
-                    <Option key={option.identifier} value={option.identifier}>
-                        {option.name || `${option.name}`}
-                    </Option>
-                ))}
-            </Select>
+                  }}>
+                  {experim_appr.map((option) => (
+                      <Option key={option.identifier} value={option.identifier}>
+                          {option.name || `${option.name}`}
+                      </Option>
+                  ))}
+              </Select>
             </Form.Item>
             <Button type="danger" onClick={() => removeDynamicField(index)}>Remove</Button>
           </div>))}
