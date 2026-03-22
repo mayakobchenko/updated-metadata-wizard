@@ -165,7 +165,7 @@ export default function Experiments({ form, onChange, data }) {
 
         <Form.Item
             label="Study target"
-            extra="Specify all interesting targets you had for producing this dataset. 
+            extra="Specify all interesting targets you had for producing this dataset.
             Please select first among the categories, and then choose an instance for that category.">
             <Select
                 mode="multiple"
@@ -173,18 +173,23 @@ export default function Experiments({ form, onChange, data }) {
                 style={{ width: '100%' }}
                 value={selectedStudyTargets}
                 onChange={handleStudyTargetChange}
-                placeholder="Select study target(s)"
+                placeholder="Type to search or browse by category..."
+                optionFilterProp="label"
                 filterOption={(input, option) => {
                     if (!option) return false
-                    return option.children.toLowerCase().includes(input.toLowerCase())
+                    // skip OptGroup labels — only filter actual options
+                    if (option.options) return false
+                    return option.label.toLowerCase().includes(input.toLowerCase())
                 }}>
-                {/* Group options by type for easier navigation */}
-                {[...new Set(studyTargets.map(t => t.type))].map(type => (
+                {[...new Set(studyTargets.map(t => t.type))].sort().map(type => (
                     <Select.OptGroup key={type} label={type}>
                         {studyTargets
                             .filter(t => t.type === type)
                             .map(option => (
-                                <Option key={option.identifier} value={option.identifier}>
+                                <Option
+                                    key={option.identifier}
+                                    value={option.identifier}
+                                    label={option.name}>   {/* ← needed for filterOption */}
                                     {option.name}
                                 </Option>
                             ))
