@@ -1,47 +1,38 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Radio } from 'antd'
+import { Form, Input, Select, Radio, Button } from 'antd'
 
 const { Option } = Select
 
 export default function Experiments({ form, onChange, data }) {
   
-  const [experim_appr, setExperim_appr]     = useState([])
-  const [prepTypes, setPrepTypes]             = useState([])
-  const [addExperiment, setAddExperiment]     = useState([{ id: Date.now(), selectedExpAppr: [] }])
-  const [addPreparation, setAddPreparation]   = useState([{ id: Date.now(), selectedPrepType: [] }])
-  const [studyTargets, setStudyTargets]       = useState([])
+  const [experim_appr, setExperim_appr] = useState([])
+  const [prepTypes, setPrepTypes] = useState([])
+  const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: [] }])
+  const [addPreparation, setAddPreparation] = useState([{ id: Date.now(), selectedPrepType: [] }])
+  const [studyTargets, setStudyTargets] = useState([])
   const [selectedStudyTargets, setSelectedStudyTargets] = useState([])
-
-  // ── new: which type category the user has picked ─────────────────────────
-  const [selectedTargetType, setSelectedTargetType] = useState(null)
 
   useEffect(() => {
     setAddExperiment(data.experimental_approach?.addExperiment || [{ id: Date.now(), selectedExpAppr: [] }])
     setAddPreparation(data.experimental_approach?.addPreparation || [{ id: Date.now(), selectedPrepType: [] }])
-    // restore saved study targets and type from parent data
-    if (data.experimental_approach?.studyTargets) {
-      setSelectedStudyTargets(data.experimental_approach.studyTargets)
-    }
-    if (data.experimental_approach?.studyTargetType) {
-      setSelectedTargetType(data.experimental_approach.studyTargetType)
-    }
   }, [data])
-
+  
   const fetchStudyTargets = async () => {
     try {
-      const response = await fetch('api/kginfo/studytargets')
-      if (!response.ok) throw new Error(`Error fetching study targets: ${response.status}`)
-      const fetchedData = await response.json()
-      setStudyTargets(fetchedData.studyTargets)
+        const response = await fetch('api/kginfo/studytargets')
+        if (!response.ok) throw new Error(`Error fetching study targets: ${response.status}`)
+        const fetchedData = await response.json()
+        setStudyTargets(fetchedData.studyTargets)
     } catch (error) {
-      console.error('Error fetching study targets:', error)
+        console.error('Error fetching study targets:', error)
     }
-  }
-
+}
   const fetchExperimentalApproaches = async () => {
     try {
       const response = await fetch('api/kginfo/experimentalapproaches')
-      if (!response.ok) throw new Error(`Error fetching experimental approaches: ${response.status}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching experimental approaches: ${response.status}`)
+      }
       const fetchedData = await response.json()
       setExperim_appr(fetchedData.expApproach)
     } catch (error) {
@@ -52,14 +43,16 @@ export default function Experiments({ form, onChange, data }) {
   const fetchPreparationTypes = async () => {
     try {
       const response = await fetch('api/kginfo/preparationtypes')
-      if (!response.ok) throw new Error(`Error fetching preparation types: ${response.status}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching preparation types: ${response.status}`)
+      }
       const fetchedData = await response.json()
       setPrepTypes(fetchedData.prepType)
     } catch (error) {
       console.error('Error fetching preparation types:', error)
     }
   }
-
+  
   useEffect(() => {
     fetchExperimentalApproaches()
     fetchPreparationTypes()
@@ -83,47 +76,22 @@ export default function Experiments({ form, onChange, data }) {
     setAddPreparation(updated)
     onChange({ experimental_approach: { ...data.experimental_approach, addPreparation: updated } })
   }
-
-  // ── study target handlers ─────────────────────────────────────────────────
-  const handleTargetTypeChange = (type) => {
-    // when user picks a new category, clear the instance selection
-    setSelectedTargetType(type)
-    setSelectedStudyTargets([])
-    onChange({
-      experimental_approach: {
-        ...data.experimental_approach,
-        studyTargetType: type,
-        studyTargets: []
-      }
-    })
-  }
-
+ // ── study targets handlers ────────────────────────────────────────────
   const handleStudyTargetChange = (values) => {
-    setSelectedStudyTargets(values)
-    onChange({
-      experimental_approach: {
-        ...data.experimental_approach,
-        studyTargets: values
-      }
-    })
+      setSelectedStudyTargets(values)
+      onChange({ experimental_approach: { ...data.experimental_approach, studyTargets: values } })
   }
-
   const handleValuesChange = (changedValues) => {
     onChange({ experimental_approach: { ...data.experimental_approach, ...changedValues.experimental_approach } })
   }
 
-  // ── derive the sorted list of available type categories ──────────────────
-  const availableTypes = [...new Set(studyTargets.map(t => t.type))].sort()
-
-  // ── filter instances to only the selected type ───────────────────────────
-  const instancesForSelectedType = selectedTargetType
-    ? studyTargets.filter(t => t.type === selectedTargetType)
-    : []
-
   return (
     <div>
       <p className="step-title">Experimental metadata</p>
-      <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
+      <Form
+        form={form}
+        layout="vertical"
+        onValuesChange={handleValuesChange}>
 
         {/* ── yes/no subject choice ── */}
         <Form.Item
@@ -195,59 +163,37 @@ export default function Experiments({ form, onChange, data }) {
           </div>
         ))}
 
-        {/* ── study targets: two-step selection ── */}
-        <p className="step-title">Study target</p>
-        <p className="step-description">
-          Specify all interesting targets you had for producing this dataset.
-          First select a category, then choose one or more instances from that category.
-        </p>
-
-        {/* Step 1 — pick a category */}
-        <Form.Item label="Step 1 — select a target category">
-          <Select
-            showSearch
-            style={{ width: '100%' }}
-            value={selectedTargetType}
-            onChange={handleTargetTypeChange}
-            placeholder="Select a category (e.g. CellType, Organ, Species...)"
-            allowClear
-            filterOption={(input, option) => {
-              if (!option) return false
-              return option.children.toLowerCase().includes(input.toLowerCase())
-            }}>
-            {availableTypes.map(type => (
-              <Option key={type} value={type}>{type}</Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {/* Step 2 — pick instances within that category */}
         <Form.Item
-          label={`Step 2 — select instance(s)${selectedTargetType ? ` from ${selectedTargetType}` : ''}`}
-          extra={!selectedTargetType ? 'Please select a category first.' : undefined}>
-          <Select
-            mode="multiple"
-            showSearch
-            style={{ width: '100%' }}
-            value={selectedStudyTargets}
-            onChange={handleStudyTargetChange}
-            placeholder={selectedTargetType
-              ? `Select ${selectedTargetType} instance(s)`
-              : 'Select a category first'}
-            disabled={!selectedTargetType}
-            filterOption={(input, option) => {
-              if (!option) return false
-              return option.children.toLowerCase().includes(input.toLowerCase())
-            }}>
-            {instancesForSelectedType.map(option => (
-              <Option key={option.identifier} value={option.identifier}>
-                {option.name}
-              </Option>
-            ))}
-          </Select>
+            label="Study target"
+            extra="Specify all interesting targets you had for producing this dataset. 
+            Please select first among the categories, and then choose an instance for that category.">
+            <Select
+                mode="multiple"
+                showSearch
+                style={{ width: '100%' }}
+                value={selectedStudyTargets}
+                onChange={handleStudyTargetChange}
+                placeholder="Select study target(s)"
+                filterOption={(input, option) => {
+                    if (!option) return false
+                    return option.children.toLowerCase().includes(input.toLowerCase())
+                }}>
+                {/* Group options by type for easier navigation */}
+                {[...new Set(studyTargets.map(t => t.type))].map(type => (
+                    <Select.OptGroup key={type} label={type}>
+                        {studyTargets
+                            .filter(t => t.type === type)
+                            .map(option => (
+                                <Option key={option.identifier} value={option.identifier}>
+                                    {option.name}
+                                </Option>
+                            ))
+                        }
+                    </Select.OptGroup>
+                ))}
+            </Select>
         </Form.Item>
 
-        {/* ── keywords ── */}
         <Form.Item
           label="Keywords"
           name={['experiments', 'keywords']}
