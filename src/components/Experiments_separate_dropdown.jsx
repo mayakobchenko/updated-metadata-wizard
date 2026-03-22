@@ -1,29 +1,29 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Radio } from 'antd'
+import { Form, Input, Select, Radio, Button } from 'antd'
 
 const { Option } = Select
 
-export default function Experiments({ form, onChange, data }) {
-  
-  const [experim_appr, setExperim_appr]     = useState([])
-  const [prepTypes, setPrepTypes]             = useState([])
-  const [addExperiment, setAddExperiment]     = useState([{ id: Date.now(), selectedExpAppr: [] }])
-  const [addPreparation, setAddPreparation]   = useState([{ id: Date.now(), selectedPrepType: [] }])
-  const [studyTargets, setStudyTargets]       = useState([])
-  const [selectedStudyTargets, setSelectedStudyTargets] = useState([])
+// ── helper to create a new empty study target entry ──────────────────────────
+const newStudyTargetEntry = () => ({ id: Date.now() + Math.random(), type: null, instances: [] })
 
-  // ── new: which type category the user has picked ─────────────────────────
-  const [selectedTargetType, setSelectedTargetType] = useState(null)
+export default function Experiments({ form, onChange, data }) {
+
+  const [experim_appr, setExperim_appr]   = useState([])
+  const [prepTypes, setPrepTypes]           = useState([])
+  const [addExperiment, setAddExperiment]   = useState([{ id: Date.now(), selectedExpAppr: [] }])
+  const [addPreparation, setAddPreparation] = useState([{ id: Date.now(), selectedPrepType: [] }])
+  const [studyTargets, setStudyTargets]     = useState([])
+
+  // ── each entry has { id, type, instances[] } ────────────────────────────
+  const [studyTargetEntries, setStudyTargetEntries] = useState(
+    [newStudyTargetEntry()]
+  )
 
   useEffect(() => {
     setAddExperiment(data.experimental_approach?.addExperiment || [{ id: Date.now(), selectedExpAppr: [] }])
     setAddPreparation(data.experimental_approach?.addPreparation || [{ id: Date.now(), selectedPrepType: [] }])
-    // restore saved study targets and type from parent data
-    if (data.experimental_approach?.studyTargets) {
-      setSelectedStudyTargets(data.experimental_approach.studyTargets)
-    }
-    if (data.experimental_approach?.studyTargetType) {
-      setSelectedTargetType(data.experimental_approach.studyTargetType)
+    if (data.experimental_approach?.studyTargetEntries) {
+      setStudyTargetEntries(data.experimental_approach.studyTargetEntries)
     }
   }, [data])
 
@@ -84,41 +84,39 @@ export default function Experiments({ form, onChange, data }) {
     onChange({ experimental_approach: { ...data.experimental_approach, addPreparation: updated } })
   }
 
-  // ── study target handlers ─────────────────────────────────────────────────
-  const handleTargetTypeChange = (type) => {
-    // when user picks a new category, clear the instance selection
-    setSelectedTargetType(type)
-    setSelectedStudyTargets([])
-    onChange({
-      experimental_approach: {
-        ...data.experimental_approach,
-        studyTargetType: type,
-        studyTargets: []
-      }
-    })
+  // ── study target handlers ────────────────────────────────────────────────
+  const emitStudyTargets = (updated) => {
+    setStudyTargetEntries(updated)
+    onChange({ experimental_approach: { ...data.experimental_approach, studyTargetEntries: updated } })
   }
 
-  const handleStudyTargetChange = (values) => {
-    setSelectedStudyTargets(values)
-    onChange({
-      experimental_approach: {
-        ...data.experimental_approach,
-        studyTargets: values
-      }
-    })
+  const addStudyTargetEntry = () => {
+    emitStudyTargets([...studyTargetEntries, newStudyTargetEntry()])
+  }
+
+  const removeStudyTargetEntry = (id) => {
+    emitStudyTargets(studyTargetEntries.filter(e => e.id !== id))
+  }
+
+  const handleTargetTypeChange = (id, type) => {
+    // clear instances when type changes
+    emitStudyTargets(studyTargetEntries.map(e =>
+      e.id === id ? { ...e, type, instances: [] } : e
+    ))
+  }
+
+  const handleTargetInstanceChange = (id, instances) => {
+    emitStudyTargets(studyTargetEntries.map(e =>
+      e.id === id ? { ...e, instances } : e
+    ))
   }
 
   const handleValuesChange = (changedValues) => {
     onChange({ experimental_approach: { ...data.experimental_approach, ...changedValues.experimental_approach } })
   }
 
-  // ── derive the sorted list of available type categories ──────────────────
+  // ── derive sorted list of available type categories ──────────────────────
   const availableTypes = [...new Set(studyTargets.map(t => t.type))].sort()
-
-  // ── filter instances to only the selected type ───────────────────────────
-  const instancesForSelectedType = selectedTargetType
-    ? studyTargets.filter(t => t.type === selectedTargetType)
-    : []
 
   return (
     <div>
@@ -195,57 +193,95 @@ export default function Experiments({ form, onChange, data }) {
           </div>
         ))}
 
-        {/* ── study targets: two-step selection ── */}
+        {/* ── study targets ── */}
         <p className="step-title">Study target</p>
         <p className="step-description">
           Specify all interesting targets you had for producing this dataset.
-          First select a category, then choose one or more instances from that category.
+          For each entry, first select a category then choose one or more instances.
         </p>
 
-        {/* Step 1 — pick a category */}
-        <Form.Item label="Step 1 — select a target category">
-          <Select
-            showSearch
-            style={{ width: '100%' }}
-            value={selectedTargetType}
-            onChange={handleTargetTypeChange}
-            placeholder="Select a category (e.g. CellType, Organ, Species...)"
-            allowClear
-            filterOption={(input, option) => {
-              if (!option) return false
-              return option.children.toLowerCase().includes(input.toLowerCase())
-            }}>
-            {availableTypes.map(type => (
-              <Option key={type} value={type}>{type}</Option>
-            ))}
-          </Select>
-        </Form.Item>
+        {studyTargetEntries.map((entry, index) => (
+          <div
+            key={entry.id}
+            style={{
+              border: '1px solid #d9d9d9',
+              borderRadius: 8,
+              padding: '16px 20px',
+              marginBottom: 16,
+              background: '#fafafa'
+            }}
+          >
+            {/* entry header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span className="step-subtitle">Study target {index + 1}</span>
+              <Button
+                type="text"
+                danger
+                disabled={studyTargetEntries.length === 1}
+                onClick={() => removeStudyTargetEntry(entry.id)}
+                className="remove-text-btn">
+                Remove
+              </Button>
+            </div>
 
-        {/* Step 2 — pick instances within that category */}
-        <Form.Item
-          label={`Step 2 — select instance(s)${selectedTargetType ? ` from ${selectedTargetType}` : ''}`}
-          extra={!selectedTargetType ? 'Please select a category first.' : undefined}>
-          <Select
-            mode="multiple"
-            showSearch
-            style={{ width: '100%' }}
-            value={selectedStudyTargets}
-            onChange={handleStudyTargetChange}
-            placeholder={selectedTargetType
-              ? `Select ${selectedTargetType} instance(s)`
-              : 'Select a category first'}
-            disabled={!selectedTargetType}
-            filterOption={(input, option) => {
-              if (!option) return false
-              return option.children.toLowerCase().includes(input.toLowerCase())
-            }}>
-            {instancesForSelectedType.map(option => (
-              <Option key={option.identifier} value={option.identifier}>
-                {option.name}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+            {/* Step 1 — category */}
+            <Form.Item label="Step 1 — select a target category" style={{ marginBottom: 12 }}>
+              <Select
+                showSearch
+                style={{ width: '100%' }}
+                value={entry.type}
+                onChange={(type) => handleTargetTypeChange(entry.id, type)}
+                placeholder="Select a category (e.g. CellType, Organ, Species...)"
+                allowClear
+                filterOption={(input, option) => {
+                  if (!option) return false
+                  return option.children.toLowerCase().includes(input.toLowerCase())
+                }}>
+                {availableTypes.map(type => (
+                  <Option key={type} value={type}>{type}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            {/* Step 2 — instances */}
+            <Form.Item
+              label={`Step 2 — select instance(s)${entry.type ? ` from ${entry.type}` : ''}`}
+              extra={!entry.type ? 'Please select a category first.' : undefined}
+              style={{ marginBottom: 0 }}>
+              <Select
+                mode="multiple"
+                showSearch
+                style={{ width: '100%' }}
+                value={entry.instances}
+                onChange={(instances) => handleTargetInstanceChange(entry.id, instances)}
+                placeholder={entry.type ? `Select ${entry.type} instance(s)` : 'Select a category first'}
+                disabled={!entry.type}
+                filterOption={(input, option) => {
+                  if (!option) return false
+                  return option.children.toLowerCase().includes(input.toLowerCase())
+                }}>
+                {studyTargets
+                  .filter(t => t.type === entry.type)
+                  .map(option => (
+                    <Option key={option.identifier} value={option.identifier}>
+                      {option.name}
+                    </Option>
+                  ))
+                }
+              </Select>
+            </Form.Item>
+          </div>
+        ))}
+
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          <Button
+            type="dashed"
+            onClick={addStudyTargetEntry}
+            style={{ width: '30%' }}
+            className="add-contributor-button">
+            Add study target
+          </Button>
+        </div>
 
         {/* ── keywords ── */}
         <Form.Item
