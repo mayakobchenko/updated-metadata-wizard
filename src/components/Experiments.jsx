@@ -117,7 +117,7 @@ export default function Experiments({ form, onChange, data }) {
                 style={{ minWidth: 240 }}
                 value={field.selectedExpAppr}
                 onChange={(value) => handleFieldChange(index, value)}
-                placeholder="Select experimental approach(es)"
+                placeholder="Type to search ..."
                 filterOption={(input, option) => {
                   if (!option) return false
                   return option.children.toLowerCase().includes(input.toLowerCase())
@@ -140,15 +140,14 @@ export default function Experiments({ form, onChange, data }) {
               label="Select preparation type"
               required
               style={{ flex: 1 }}
-              extra="Please specify whether your data were acquired in vivo, in vitro etc.
-              Remember to consider each of your methods and add all preparation types that apply.">
+              extra="Please consider each of your methods and add all preparation types that apply.">
               <Select
                 mode="multiple"
                 showSearch
                 style={{ minWidth: 240 }}
                 value={field.selectedPrepType}
                 onChange={(value) => handlePreparationChange(index, value)}
-                placeholder="Select preparation type(s)"
+                placeholder="Type to search ..."
                 filterOption={(input, option) => {
                   if (!option) return false
                   return option.children.toLowerCase().includes(input.toLowerCase())
@@ -164,7 +163,7 @@ export default function Experiments({ form, onChange, data }) {
         ))}
 
         <Form.Item
-            label="Study target"
+            label="Study targets"
             extra="Specify all interesting targets you had for producing this dataset.
             Please select first among the categories, and then choose an instance for that category.">
             <Select

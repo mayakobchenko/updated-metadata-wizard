@@ -15,7 +15,7 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 //import { saveAs } from 'file-saver'
 //npm install file-saver
 
-const StepsWizard = ({ externalFormData, onFormDataChange }) => {
+const StepsWizard = () => {
   const skjemaInfo = useAuthContext()
   const initialValues = {
     //ticketNumber: skjemaInfo?.ticketNumber || '',
@@ -46,21 +46,16 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 
   }
   
-  const formDataRef = useRef({})  
+  const formDataRef = useRef({})  //added from Claude
   const [formData, setFormData] = useState({}) 
   const [form] = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [isModalVisible, setIsModalVisible] = useState(false)
+  const [downloadStatus, setDownloadStatus] = useState(null) // null | 'success' | 'error'
 
-  useEffect(() => {
-    if (externalFormData && Object.keys(externalFormData).length > 0) {
-      formDataRef.current = externalFormData
-      setFormData(externalFormData)
-      // also update the Ant Design form fields
-      form.setFieldsValue(externalFormData)
-    }
-  }, [externalFormData])
-    
+
+  //useEffect(() => {setFormData(initialValues)}, [skjemaInfo])
+  //--------------------------------------added from Claude
   useEffect(() => {
     formDataRef.current = initialValues
     setFormData(initialValues)
@@ -69,12 +64,11 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const handleInputChange = (data) => {
     setFormData((prev) => {
       const next = { ...prev, ...data }
-      formDataRef.current = next
-      onFormDataChange?.(next)   // notify App
+      formDataRef.current = next   // keep ref in sync
       return next
     })
   }
-
+  //--------------------------------
   const steps = [
     { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
@@ -83,6 +77,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     { id: 4, component: Contributors },
     { id: 5, component: Experiments },
     { id: 6, component: Subjects }]
+
+  //const handleInputChange = (data) => {setFormData((prev) => ({ ...prev, ...data }))}
 
   const nextStep = () => {
     form.validateFields()
@@ -154,11 +150,55 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }
+/*
+  const downloadJson = () => {
+    const json = JSON.stringify(formDataRef.current, null, 2)
+    //const json = JSON.stringify(formData, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'metadata_wizard.json'
+    document.body.appendChild(a) // to work in Firefox
+    a.click()
+    document.body.removeChild(a)  
+    URL.revokeObjectURL(url)
+  }
+*/
+const downloadJson = () => {
+  try {
+    const snapshot = formDataRef.current
+    // Warn if data looks empty
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      setDownloadStatus('error')
+      setTimeout(() => setDownloadStatus(null), 4000)
+      console.warn('downloadJson: formData is empty', snapshot)
+      return}
+    const json = JSON.stringify(snapshot, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'metadata_wizard.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
 
+    setDownloadStatus('success')
+    setTimeout(() => setDownloadStatus(null), 3000)
+    console.log('downloadJson: downloaded successfully', snapshot)
+
+  } catch (err) {
+    setDownloadStatus('error')
+    setTimeout(() => setDownloadStatus(null), 4000)
+    console.error('downloadJson failed:', err)
+  }
+}
   const saveToJson = () => {
-      const json = JSON.stringify(formData, null, 2)
-      const blob = new Blob([json], { type: 'application/json' })
-    saveAs(blob, 'formData.json') // Use 'file-saver' to save the JSON file
+    const json = JSON.stringify(formData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    saveAs(blob, 'formData.json'); // Use 'file-saver' to save the JSON file
   }
 
   return (

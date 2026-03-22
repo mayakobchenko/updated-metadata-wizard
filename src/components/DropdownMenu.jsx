@@ -1,4 +1,4 @@
-import { DownloadOutlined, UploadOutlined, DeleteOutlined, MenuOutlined } from '@ant-design/icons'
+import { DownloadOutlined, UploadOutlined, MenuOutlined } from '@ant-design/icons'
 import { Dropdown, Space } from 'antd'
 import ConfigProvider from './ConfigProvider'
 
@@ -12,11 +12,6 @@ const items = [
     label: 'Download form data as...',
     key: '2',
     icon: <DownloadOutlined />,
-  },
-  {
-    label: 'Reset form',
-    key: '3',
-    icon: <DeleteOutlined />,
   },
 ]
 
