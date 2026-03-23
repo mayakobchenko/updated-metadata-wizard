@@ -52,8 +52,12 @@ def KG_patch(entry_id, attr, space_id):
         content = json.dumps(attr, indent=4)
         url = f'https://core.kg.ebrains.eu/v3/instances/{entry_id.split("/")[-1]}?space=collab-d-{space_id}'
         resp = rq.patch(url=url, headers=headers, data=content)
-        print(resp)
-        return ({"metadata saved in the KG": "success"})
+        # print(resp)
+        if resp.ok:
+            return {"metadata saved in the KG": "success", "status": resp.status_code}
+        else:
+            return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
+        # return ({"metadata saved in the KG": "success"})
     except Exception as e:
         return ({"error": e})
 
