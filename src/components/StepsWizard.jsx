@@ -64,6 +64,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   useEffect(() => {
     formDataRef.current = initialValues
     setFormData(initialValues)
+    onFormDataChange?.(initialValues)
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {

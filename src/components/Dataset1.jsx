@@ -97,7 +97,7 @@ export default function Dataset1({ form, onChange, data }) {
           label="Brief Summary"
           name={['dataset1', 'briefSummary']} 
           rules={[{ required: false, message: 'Please enter a brief summary describing your data' }]}
-          extra="Provide a brief description of the data you wish to share.">
+          extra="This is the data description that you provided earlier.">
         <TextArea
             autoSize={{ minRows: 3, maxRows: 10 }} 
             style={{ resize: 'none' }}
