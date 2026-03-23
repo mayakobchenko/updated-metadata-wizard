@@ -5,6 +5,10 @@ from uuid import uuid4
 
 if len(sys.argv) > 1:
     personal_token = sys.argv[1]
+    if personal_token == "null" or personal_token == "undefined" or not personal_token.strip():
+        print(json.dumps(
+            {"error": "Session expired. Please reload the page and log in again."}))
+        sys.exit(1)
 else:
     print(json.dumps({"error": "No working token provided."}))
     sys.exit(1)

@@ -94,14 +94,15 @@ export default function Dataset1({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Brief Sumary"
+          label="Brief Summary"
           name={['dataset1', 'briefSummary']} 
           rules={[{ required: false, message: 'Please enter a brief summary describing your data' }]}
           extra="Provide a brief description of the data you wish to share.">
         <TextArea
             autoSize={{ minRows: 3, maxRows: 10 }} 
             style={{ resize: 'none' }}
-            placeholder="Please enter a brief summary..."/>
+            placeholder="Please enter a brief summary..."
+            readOnly/>
         </AntForm.Item >
         <AntForm.Item
           name={['dataset1', 'optionsData']}

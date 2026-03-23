@@ -37,6 +37,12 @@ async function runPythonScript(req, res) {
         
         const kg_token = await tokenFunctions.getWorkingToken()
 
+        if (!kg_token) {
+            return res.status(401).json({
+                error: 'Your session has expired. Please reload the page and log in again before uploading to the Knowledge Graph.'
+            })
+        }
+
         exec(`python "${scriptPath}" "${kg_token}" "${jsonFilePath}"`, (error, stdout, stderr) => {
             if (error) {
                 console.error(`exec error: ${error}`)
