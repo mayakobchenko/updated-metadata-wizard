@@ -56,7 +56,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     if (externalFormData && Object.keys(externalFormData).length > 0) {
       formDataRef.current = externalFormData
       setFormData(externalFormData)
-      // also update the Ant Design form fields
       form.setFieldsValue(externalFormData)
     }
   }, [externalFormData])
@@ -65,6 +64,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     formDataRef.current = initialValues
     setFormData(initialValues)
     onFormDataChange?.(initialValues)
+    console.log('use effect steps wizard initial values', initialValues)
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {

@@ -99,6 +99,7 @@ export default function Introduction({ form, onChange, data }) {
           to publish their names along with the associated dataset on the platform.
           The research Group Leader or Principal Investigator is usually assigned
           as the data custodian to ensure long term function.</p>
+        <p>  </p>
         <AntForm.Item
           label="Data custodian's family name"
           name={['custodian', 'familyName']} 

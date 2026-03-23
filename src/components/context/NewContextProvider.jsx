@@ -111,7 +111,7 @@ export default function NewContextProvider({ children }) {
         if (!mountedRef.current) return
         const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
         const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-        //console.log(nettskjemaInfo)
+        console.log('context cosloe log dataset version id', datasetVersionId)
         const skjemaInfo = {
             datasetVersionId: datasetVersionId,
             contactFirstName: nettskjemaInfo.ContactInfo[0],
