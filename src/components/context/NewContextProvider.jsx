@@ -109,10 +109,11 @@ export default function NewContextProvider({ children }) {
         if (!ticketNumber) return
         //const ticketNumber = await authFunctions.getTicket({ signal })
         if (!mountedRef.current) return
-        const [nettskjemaId] = await authFunctions.zammad(ticketNumber)
+        const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
         const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-        console.log(nettskjemaInfo)
+        //console.log(nettskjemaInfo)
         const skjemaInfo = {
+            datasetVersionId: datasetVersionId,
             contactFirstName: nettskjemaInfo.ContactInfo[0],
             contactSurname: nettskjemaInfo.ContactInfo[1],
             contactEmail: nettskjemaInfo.ContactInfo[2],
