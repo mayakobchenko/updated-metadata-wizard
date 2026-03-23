@@ -10,7 +10,7 @@ export default function PopoverSave({ downloadJson, uploadpythonKG, saveJsonToDr
   const handleAction = (action) => {
     setVisible(false)
     if (action === "download") downloadJson() //console.log('downloaded')
-    else if (action === "upload") console.log('uploaded') //uploadpythonKG()
+    else if (action === "upload") uploadpythonKG()//console.log('uploaded') //uploadpythonKG()
     else if (action === "share") saveJsonToDrive() //console.log("Shared with collaborators") //upload to the drive
   }
 

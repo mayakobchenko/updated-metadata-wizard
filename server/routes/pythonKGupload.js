@@ -29,6 +29,8 @@ async function runPythonScript(req, res) {
     try {
         //save first metadata file locally
         await writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2))
+
+        //give here a script for uploading
         const scriptPath = path.join(__dirname, './python_scripts/python_upload_json.py')
 
         //get the dataset verison id/collab id for space
