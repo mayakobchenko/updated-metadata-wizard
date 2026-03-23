@@ -153,13 +153,26 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       console.log('response from drive',data_response)
 
     } catch (error) { console.error('Error calling python endpoint:', error) }
-  }
-
+    }
+    
+    const downloadJson = () => {
+        const json = JSON.stringify(formDataRef.current, null, 2)
+        const blob = new Blob([json], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'metadata_wizard.json'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+    }
+    /*
   const saveToJson = () => {
       const json = JSON.stringify(formData, null, 2)
       const blob = new Blob([json], { type: 'application/json' })
     saveAs(blob, 'formData.json') // Use 'file-saver' to save the JSON file
-  }
+  }*/
 
   return (
     <ConfigProvider>     
