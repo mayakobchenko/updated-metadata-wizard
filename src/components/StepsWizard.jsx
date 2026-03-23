@@ -19,7 +19,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const skjemaInfo = useAuthContext()
   const initialValues = {
     //ticketNumber: skjemaInfo?.ticketNumber || '',
-    //datasetVersionId: skjemaInfo?.datasetVersionId || '',
+    datasetVersionId: skjemaInfo?.datasetVersionId || '',  //needed for uploading to kg
     contactperson: {
       firstName: skjemaInfo?.nettskjemaInfo?.contactFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.contactSurname || '',

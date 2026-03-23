@@ -51,8 +51,18 @@ def KG_patch(entry_id, attr, space_id):
         }
         content = json.dumps(attr, indent=4)
         url = f'https://core.kg.ebrains.eu/v3/instances/{entry_id.split("/")[-1]}?space=collab-d-{space_id}'
+
+        print(f"DEBUG entry_id: {entry_id}", file=sys.stderr)
+        print(f"DEBUG space_id: {space_id}", file=sys.stderr)
+        print(f"DEBUG url: {url}", file=sys.stderr)
+        print(
+            f"DEBUG token (first 10 chars): {personal_token[:10]}...", file=sys.stderr)
+
         resp = rq.patch(url=url, headers=headers, data=content)
-        # print(resp)
+
+        print(f"DEBUG response status: {resp.status_code}", file=sys.stderr)
+        print(f"DEBUG response body: {resp.text[:500]}", file=sys.stderr)
+
         if resp.ok:
             return {"metadata saved in the KG": "success", "status": resp.status_code}
         else:
@@ -65,10 +75,10 @@ def KG_patch(entry_id, attr, space_id):
 # expappr_uuid = [exp['selectedExpAppr'] for exp in data['experimental_approach']['addExperiment']]
 
 attributes = {
-    "https://openminds.ebrains.eu/vocab/fullName": dsv_title,
-    "https://openminds.ebrains.eu/vocab/shortName": dsv_short_title,
-    "https://openminds.ebrains.eu/vocab/license":  license_dsv,
-    "https://openminds.ebrains.eu/vocab/experimentalApproach": [{"@id": url} for url in expappr_uuid],
+    "https://openminds.om-i.org/props/fullName": dsv_title,
+    "https://openminds.om-i.org/props/shortName": dsv_short_title,
+    "https://openminds.om-i.org/props/license":  license_dsv,
+    "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
 }
 
 data_info = KG_patch(dsv_id, attributes, dsv_id)
