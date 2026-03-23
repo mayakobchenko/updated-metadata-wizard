@@ -9,7 +9,8 @@ const initialState = {
   isAuthenticating: true,
   showLoginDialog: false,
   nettskjemaInfo: null,
-  reloadWizard: false
+  reloadWizard: false,
+  datasetVersionId: null
 }
 export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
@@ -86,8 +87,6 @@ export default function NewContextProvider({ children }) {
                 console.log(resp_data.message)
                 dispatch({ type: "RELOAD_WIZARD" })
                 }
-              //dispatch({ type: "SET_USER", text: json_user.user })
-              //hasAuthenticatedRef.current = true
               hasTicket.current = resp_data.ticket
               console.log('Authentication complete!')
             return true
@@ -105,15 +104,13 @@ export default function NewContextProvider({ children }) {
     if (authenticated) {
       await (async function fetchTicket() {
         const ticketNumber = hasTicket.current
-        //const urlContainsTicket = url.searchParams.has('TicketNumber')
         if (!ticketNumber) return
-        //const ticketNumber = await authFunctions.getTicket({ signal })
         if (!mountedRef.current) return
         const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
         const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-        console.log('context cosloe log dataset version id', datasetVersionId)
+        //console.log('context cosloe log dataset version id', datasetVersionId)
+        dispatch({ type: 'dsvId', text: datasetVersionId })
         const skjemaInfo = {
-            datasetVersionId: datasetVersionId,
             contactFirstName: nettskjemaInfo.ContactInfo[0],
             contactSurname: nettskjemaInfo.ContactInfo[1],
             contactEmail: nettskjemaInfo.ContactInfo[2],
@@ -147,7 +144,7 @@ export default function NewContextProvider({ children }) {
         mountedRef.current = false
         controller.abort()
         }
-    }, [removeUrlParams])  //needed dispatch here? 
+    }, [removeUrlParams])  
   
   
   return (
@@ -194,7 +191,9 @@ export function authReducer(state, action) {
     case 'LOGIN':
       return {...state, showLoginDialog: true, reloadWizard: false} 
     case 'nettskjemaInfo':
-      return {...state, nettskjemaInfo: action.text}  
+      return { ...state, nettskjemaInfo: action.text }  
+    case 'dsvId':
+      return {...state, datasetVersionId: action.text} 
     default:
       return state
   }
