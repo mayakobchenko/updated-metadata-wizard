@@ -15,10 +15,10 @@ export default function Introduction({ form, onChange, data }) {
       email: data.custodian?.email || '',
       orcid: data.custodian?.orcid || '',
       institution: data.custodian?.institution || ''},
-    groupLeader: {
+    /*groupLeader: {
       name: data.groupLeader?.name || '',
       orcid: data.groupLeader?.orcid || ''
-    }
+    }*/
   } 
   
   useEffect(() => {
@@ -26,12 +26,7 @@ export default function Introduction({ form, onChange, data }) {
     form.setFieldsValue(initialValues)
   }, [form, initialValues])
 
-  const handleValuesChange = (changedValues, allValues) => {
-    //console.log('Changed Values:', changedValues)
-    //console.log('All Values:', allValues)
-    /*if (changedValues.isConfirmed !== undefined) {
-      allValues.isConfirmed = changedValues.isConfirmed}*/
-   onChange(allValues)}
+  const handleValuesChange = (changedValues, allValues) => {onChange(allValues)}
 
   const checkEmail = (rule, value, callback) => {
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -126,6 +121,7 @@ export default function Introduction({ form, onChange, data }) {
             { validator: checkOrcid }]}>
           <Input/>
         </AntForm.Item>
+{/* 
         <AntForm.Item
           label="Group Leader / Principal Investigator"
           name={['groupLeader', 'name']} 
@@ -138,6 +134,7 @@ export default function Introduction({ form, onChange, data }) {
           rules={[{ required: false}]}>
           <Input />
         </AntForm.Item>
+*/}
       </AntForm>
     </div>
   )
