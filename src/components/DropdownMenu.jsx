@@ -39,7 +39,7 @@ const DropdownMenu = ({ handleMenuSelection }) => {
               menu={menuProps}
               onClick={() => handleMenuSelection('Download form data')}
               icon={<MenuOutlined />}
-              title={'Download form data'}
+              title={'Download metadata JSON'}
           >
               Download form data
           </Dropdown.Button>
