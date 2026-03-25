@@ -18,6 +18,8 @@ router.get('/preparationtypes', getPreparationTypes)
 router.get('/license', getLicense)
 router.get('/typecontribution', getTypeContribution) 
 router.get('/studytargets', getStudyTargets)
+router.get('/datatypes', getSemanticDataTypes)
+
 
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
@@ -29,7 +31,7 @@ async function getContributors(req, res) {
     const TYPE_NAME = "Person"
     const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
     const properties = ["familyName", "givenName", "digitalIdentifier"]
-    console.log('get contributors function is running')
+    //console.log('get contributors function is running')
     try {
         let personKG =[]
         const requestOptions = await getRequestOptions()
@@ -51,12 +53,12 @@ async function getContributors(req, res) {
                     typeInstanceList.push(newInstance)}
             }
             personKG.push(typeInstanceList)
-        } else { throw new Error('Error fetching instances for contributors. Status code: ' + response.status)}
+        } else { throw new Error('Error fetching contributors. Status code: ' + response.status)}
       console.log(personKG)
       res.json({personKG})
     } catch (error) {
-      console.error('Error fetching contributors from KG', error.message)
-      res.status(500).send('Internal server error')
+      console.error('Error fetching contributors from backend', error.message)
+      res.status(500).send('Error fetching contributors from backend')
     }
   }
 
@@ -71,8 +73,8 @@ async function getTypeContribution(req, res) {
             typecontribution = []} 
         res.status(200).json({ typecontribution })
     } catch (error) {
-        console.error('Error fetching file with kg info from the server', error.message)
-        res.status(500).send('Internal server error')}
+        console.error('Error fetching contribution types from backend', error.message)
+        res.status(500).send('Error fetching contribution types from backend')}
 }
 async function getConsortium(req, res) {
     //const TYPE_NAME = "consortium"
@@ -88,8 +90,8 @@ async function getConsortium(req, res) {
             consortium = []} 
         res.status(200).json({ consortium })
     } catch (error) {
-        console.error('Error fetching file with kg info from the server', error.message)
-        res.status(500).send('Internal server error')}
+        console.error('Error fetching consortium from backend', error.message)
+        res.status(500).send('Error fetching consortium from backend')}
 }  
 
 async function getContributorsfile(req, res) {
@@ -103,8 +105,8 @@ async function getContributorsfile(req, res) {
           person = []} 
       res.status(200).json({ person })
     } catch (error) {
-      console.error('Error fetching file with kg info from the server', error.message)
-      res.status(500).send('Internal server error')}
+      console.error('Error fetching contributors from backend', error.message)
+      res.status(500).send('Error fetching contributors from backend')}
   }  
 
 async function getExperimentalApproaches(req, res) {
@@ -118,8 +120,8 @@ async function getExperimentalApproaches(req, res) {
         expApproach = []} 
     res.status(200).json({ expApproach })
   } catch (error) {
-    console.error('Error fetching file with kg info from the server', error.message)
-    res.status(500).send('Internal server error')}
+    console.error('Error fetching experimental approaches from backend', error.message)
+    res.status(500).send('Error fetching experimental approaches from backend')}
 }
 
 async function getPreparationTypes(req, res) {
@@ -133,8 +135,8 @@ async function getPreparationTypes(req, res) {
         prepType = []} 
     res.status(200).json({ prepType })
   } catch (error) {
-    console.error('Error fetching file with kg info from the server', error.message)
-    res.status(500).send('Internal server error')}
+    console.error('Error fetching preparation types', error.message)
+    res.status(500).send('Error fetching preparation types from backend')}
 }  
 
 async function getLicense (req, res) {
@@ -146,8 +148,8 @@ async function getLicense (req, res) {
       license = JSON.parse(data)} catch (err) {license = []} 
     res.status(200).json({ license })
     } catch (error) {
-      console.error('Error fetching file with kg info from the server', error.message)
-      res.status(500).send('Internal server error')}
+      console.error('Error fetching license file from the backend', error.message)
+      res.status(500).send('Error fetching license file from the backend')}
 }
  
 async function getStudyTargets(req, res) {
@@ -164,4 +166,18 @@ async function getStudyTargets(req, res) {
     console.error('Error reading studyTargets.json:', error.message)
     res.status(500).send('Failed to load study targets')}
 }  
+
+async function getSemanticDataTypes (req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/SemanticDataType.json')
+  try {
+    let datatype
+    try {
+      const data = await readFile(filePath, 'utf-8')
+      datatype = JSON.parse(data)} catch (err) {datatype = []} 
+    res.status(200).json({ datatype })
+    } catch (error) {
+      console.error('Error fetching semantic data types from the backend', error.message)
+      res.status(500).send('Error fetching semantic data types from the backend')}
+}
+
 export default router
