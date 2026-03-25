@@ -103,7 +103,7 @@ export default function Dataset2({ form, onChange, data = {}}) {
           <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
               <Form.Item label={<span className="step-subtitle">Support channel {index + 1}</span>}>
-                <Input value={field.newChannel} onChange={(e) => handleSupportChannelChange(index, 'newChannel', e.target.value)} placeholder="Enter support channle" />
+                <Input value={field.newChannel} onChange={(e) => handleSupportChannelChange(index, 'newChannel', e.target.value)} placeholder="Enter support channel" />
               </Form.Item>
             </div>
             <Button type="danger" size="small" onClick={() => removeSupportChannel(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>

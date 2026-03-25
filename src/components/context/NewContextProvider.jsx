@@ -78,7 +78,7 @@ export default function NewContextProvider({ children }) {
             //console.log('user info', json_user.user)
             //console.log('ticket:', json_user.ticket)
             console.log('response from user fetch:', user_response)
-            console.log('response parsed:', JSON.parse(user_response))
+            //console.log('response parsed:', JSON.parse(user_response))
             const resp_data = JSON.parse(user_response)
               if (resp_data.success) {
                 dispatch({ type: "SET_USER", text: resp_data.user })
@@ -108,7 +108,6 @@ export default function NewContextProvider({ children }) {
         if (!mountedRef.current) return
         const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
         const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-        //console.log('context cosloe log dataset version id', datasetVersionId)
         dispatch({ type: 'dsvId', text: datasetVersionId })
         const skjemaInfo = {
             contactFirstName: nettskjemaInfo.ContactInfo[0],

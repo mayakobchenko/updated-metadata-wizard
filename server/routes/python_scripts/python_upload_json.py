@@ -3,6 +3,40 @@ import json
 import requests as rq
 from uuid import uuid4
 
+
+def as_id_list(values):
+    """Convert a value to a list of @id objects, handling all input formats."""
+    if not values:
+        return []
+    # if it is already a list of strings
+    if isinstance(values, list):
+        flat = []
+        for v in values:
+            if isinstance(v, list):
+                flat.extend(v)  # flatten nested lists
+            elif isinstance(v, str) and v:
+                flat.append(v)
+        return [{"@id": v} for v in flat if v]
+    # single string
+    if isinstance(values, str) and values:
+        return [{"@id": values}]
+    return []
+
+
+def as_single_id(values):
+    """
+    Return a single @id object.
+    If multiple values, return a list.
+    If one value, return a single object (matches KG behaviour).
+    """
+    items = as_id_list(values)
+    if not items:
+        return None
+    if len(items) == 1:
+        return items[0]
+    return items
+
+
 if len(sys.argv) > 1:
     personal_token = sys.argv[1]
     if personal_token == "null" or personal_token == "undefined" or not personal_token.strip():
@@ -73,7 +107,7 @@ def KG_patch(entry_id, attr, space_id):
             return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
         # return ({"metadata saved in the KG": "success"})
     except Exception as e:
-        return ({"error": e})
+        return {"error": str(e)}
 
 
 # expappr_uuid = [exp['selectedExpAppr'] for exp in data['experimental_approach']['addExperiment']]

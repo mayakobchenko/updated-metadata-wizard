@@ -121,6 +121,16 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     setCurrentStepIndex(nextWizardStep)}
 
   const savePythonKG = async () => {
+  const pythonurl = 'api/python/runpython'
+  const response = await fetch(pythonurl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formDataRef.current, null, 2)
+  })
+  return response  // ← return it so FinalChoice can handle the status
+}
+ /* 
+  const savePythonKG = async () => {
     try {
       //downloadJson()
       const pythonurl = 'api/python/runpython'
@@ -129,15 +139,15 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       const response = await fetch(pythonurl, {
         method: 'POST',  
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(formData, null, 2)})
-      
+        body: JSON.stringify(formData, null, 2)})     
       if (!response.ok) {
         throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
       const data = await response.json()
       console.log(data)
-
     } catch (error) { console.error('Error calling python endpoint:', error) }
   }
+*/
+
   //try to use token from the context and post to backend for uploading to the drive
  //check if the token expired already 
   const saveJsonToDrive = async () => {
