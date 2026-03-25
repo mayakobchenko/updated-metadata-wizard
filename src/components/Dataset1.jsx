@@ -9,13 +9,15 @@ const { Option } = Select
 export default function Dataset1({ form, onChange, data }) {
   const [license, setLicense] = useState([])
   const [embargo, setEmbargo] = useState(data.dataset1?.embargo || false)
-  const [copyright, setCopyright] = useState(data.dataset1?.copyright || '')
+  const [copyright, setCopyright] = useState(
+    data.dataset1?.copyright || ''
+  )
   const [copyrightHolder, setCopyrightHolder] = useState(
     data.dataset1?.copyrightHolder || 'Person'
   )
   const currentYear = dayjs().year()
 
-  // fetched semantic data types
+  // fetched semantic data types: [{ identifier, name }, ...]
   const [datatype, setDatatype] = useState([])
 
   const initialValues = {
@@ -23,6 +25,7 @@ export default function Dataset1({ form, onChange, data }) {
       dataTitle: data.dataset1?.dataTitle || '',
       briefSummary: data.dataset1?.briefSummary || '',
       shortTitle: data.dataset1?.shortTitle || '',
+      // may contain names (old data) or identifiers (new data)
       optionsData: data.dataset1?.optionsData || [],
       embargo: data.dataset1?.embargo || false,
       embargoDate: data.dataset1?.embargoDate || null,
@@ -55,7 +58,9 @@ export default function Dataset1({ form, onChange, data }) {
   const fetchSemanticDataType = async () => {
     try {
       const response = await fetch('api/kginfo/datatypes')
-      if (!response.ok) throw new Error(`Error fetching study targets: ${response.status}`)
+      if (!response.ok) {
+        throw new Error(`Error fetching study targets: ${response.status}`)
+      }
       const fetchedData = await response.json()
 
       // Support both:
@@ -83,7 +88,9 @@ export default function Dataset1({ form, onChange, data }) {
       const url = 'api/kginfo/license'
       const response = await fetch(url)
       if (!response.ok) {
-        throw new Error(`There is a problem fetching licenses from backend: ${response.status}`)
+        throw new Error(
+          `There is a problem fetching licenses from backend: ${response.status}`
+        )
       }
       const data = await response.json()
       const list = Array.isArray(data?.license) ? data.license : []
@@ -95,7 +102,9 @@ export default function Dataset1({ form, onChange, data }) {
     }
   }
 
-  // Guard: only map if datatype is an array
+  // Map backend data types to Checkbox.Group options:
+  // - label: human-readable name
+  // - value: identifier (for later upload to KG)
   const optionsData = Array.isArray(datatype)
     ? datatype.map(dt => ({
         label: dt.name,
@@ -107,6 +116,7 @@ export default function Dataset1({ form, onChange, data }) {
     { label: 'Yes', value: 'Yes' },
     { label: 'No', value: 'No' },
   ]
+
   const optionsCopyright = [
     { label: 'Person', value: 'Person' },
     { label: 'Organization', value: 'Organization' },
@@ -276,9 +286,72 @@ export default function Dataset1({ form, onChange, data }) {
           </Radio.Group>
         </AntForm.Item>
 
-        {/* ...rest of component (copyright / license / dataStandart)
-            can stay the same as in the previous version; key change
-            was only around datatype / license fetching and mapping... */}
+        {copyright === 'Yes' && (
+          <>
+            <AntForm.Item
+              label="Copyright Holder"
+              name={['dataset1', 'copyrightHolder']}
+              rules={[{ required: true, message: 'Please select legal entity!' }]}
+              extra="Select the type of legal entity in possession of the copyright."
+            >
+              <Select
+                style={{ minWidth: 240 }}
+                onChange={value => setCopyrightHolder(value)}
+              >
+                {optionsCopyright.map(option => (
+                  <Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Option>
+                ))}
+              </Select>
+            </AntForm.Item>
+
+            {copyrightHolder === 'Person' && (
+              <>
+                <AntForm.Item
+                  label="First Name"
+                  name={['dataset1', 'copyrightFirstName']}
+                  rules={[{ required: true, message: 'Please enter the first name!' }]}
+                >
+                  <Input placeholder="First Name..." />
+                </AntForm.Item>
+                <AntForm.Item
+                  label="Last Name"
+                  name={['dataset1', 'copyrightLastName']}
+                  rules={[{ required: true, message: 'Please enter the last name!' }]}
+                >
+                  <Input placeholder="Last Name..." />
+                </AntForm.Item>
+              </>
+            )}
+
+            {copyrightHolder === 'Organization' && (
+              <AntForm.Item
+                label="Organization Name"
+                name={['dataset1', 'copyrightOrganization']}
+                rules={[{ required: true, message: 'Please enter the organization name!' }]}
+              >
+                <Input placeholder="Organization Name..." />
+              </AntForm.Item>
+            )}
+
+            <AntForm.Item
+              label="Copyright Year"
+              name={['dataset1', 'copyrightYear']}
+              rules={[{ required: true, message: 'Please select a copyright date!' }]}
+            >
+              <DatePicker
+                picker="year"
+                style={{ width: '10%' }}
+                placeholder="Select copyright year"
+                disabledDate={date => {
+                  if (!date) return false
+                  return date.year() > currentYear
+                }}
+              />
+            </AntForm.Item>
+          </>
+        )}
 
         <AntForm.Item
           label="License"
@@ -289,7 +362,10 @@ export default function Dataset1({ form, onChange, data }) {
             style={{ minWidth: 240 }}
             showSearch
             filterOption={(input, option) =>
-              option?.props?.children?.toString().toLowerCase().includes(input.toLowerCase())
+              option?.props?.children
+                ?.toString()
+                .toLowerCase()
+                .includes(input.toLowerCase())
             }
           >
             {(Array.isArray(license) ? license : [])
@@ -329,7 +405,10 @@ export default function Dataset1({ form, onChange, data }) {
           label="Data organization"
           name={['dataset1', 'dataStandart']}
           rules={[
-            { required: false, message: 'Please indicate if your data follows any standart' },
+            {
+              required: false,
+              message: 'Please indicate if your data follows any standart',
+            },
           ]}
           extra="Do your data organization follows any community standards such as BIDS or NWB?"
         >
