@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Modal, Result, Spin, Alert } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined, 
-         LoadingOutlined, CloudUploadOutlined } from '@ant-design/icons'
+         LoadingOutlined, CloudUploadOutlined, DownloadOutlined } from '@ant-design/icons'
 
 export default function PopoverSave({ downloadJson, uploadpythonKG, saveJsonToDrive }) {
 
