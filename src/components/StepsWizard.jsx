@@ -64,7 +64,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     formDataRef.current = initialValues
     setFormData(initialValues)
     onFormDataChange?.(initialValues)
-    //console.log('use effect steps wizard initial values', initialValues)
+    console.log('use effect steps wizard initial values', initialValues.dataset1)
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {
