@@ -118,7 +118,7 @@ export default function Dataset1({ form, onChange, data }) {
             placeholder="Please enter a brief summary..."
             readOnly/>
         </AntForm.Item >
-        {/*
+
         <AntForm.Item
           name={['dataset1', 'optionsData']}
           label="What type of data would you like to share (You can select multiple values)?"
@@ -127,7 +127,7 @@ export default function Dataset1({ form, onChange, data }) {
           Derived data refers to data which has been processed or analysed.">
           <Checkbox.Group options={optionsData} style={{ padding: '20px' }}/>
         </AntForm.Item>
-        */ }
+
         <AntForm.Item
           name={['dataset1', 'embargo']}
           label="Embargo status:"
