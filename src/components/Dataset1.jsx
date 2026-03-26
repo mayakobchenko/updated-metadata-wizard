@@ -7,41 +7,35 @@ const { TextArea } = Input
 const { Option } = Select
 
 export default function Dataset1({ form, onChange, data }) {
-  const [license, setLicense] = useState([])
-  const [embargo, setEmbargo] = useState(data.dataset1?.embargo || false)
-  const [copyright, setCopyright] = useState(
-    data.dataset1?.copyright || ''
-  )
-  const [copyrightHolder, setCopyrightHolder] = useState(
-    data.dataset1?.copyrightHolder || 'Person'
-  )
+  const [license, setLicense]               = useState([])
+  const [datatype, setDatatype]             = useState([])
+  const [embargo, setEmbargo]               = useState(data.dataset1?.embargo || false)
+  const [copyright, setCopyright]           = useState(data.dataset1?.copyright || '')
+  const [copyrightHolder, setCopyrightHolder] = useState(data.dataset1?.copyrightHolder || 'Person')
   const currentYear = dayjs().year()
-
-  // fetched semantic data types: [{ identifier, name }, ...]
-  const [datatype, setDatatype] = useState([])
 
   const initialValues = {
     dataset1: {
-      dataTitle: data.dataset1?.dataTitle || '',
-      briefSummary: data.dataset1?.briefSummary || '',
-      shortTitle: data.dataset1?.shortTitle || '',
-      // may contain names (old data) or identifiers (new data)
-      optionsData: data.dataset1?.optionsData || [],
-      embargo: data.dataset1?.embargo || false,
-      embargoDate: data.dataset1?.embargoDate || null,
-      embargoReview: data.dataset1?.embargoReview || false,
-      submitJournalName: data.dataset1?.submitJournalName || '',
-      copyright: data.dataset1?.copyright || '',
-      copyrightHolder: data.dataset1?.copyrightHolder || 'Person',
-      copyrightFirstName: data.dataset1?.copyrightFirstName || '',
-      copyrightLastName: data.dataset1?.copyrightLastName || '',
+      dataTitle:             data.dataset1?.dataTitle             || '',
+      briefSummary:          data.dataset1?.briefSummary          || '',
+      shortTitle:            data.dataset1?.shortTitle            || '',
+      optionsData:           data.dataset1?.optionsData           || [],
+      embargo:               data.dataset1?.embargo               || false,
+      embargoDate:           data.dataset1?.embargoDate           || null,
+      embargoReview:         data.dataset1?.embargoReview         || false,
+      submitJournalName:     data.dataset1?.submitJournalName     || '',
+      copyright:             data.dataset1?.copyright             || '',
+      copyrightHolder:       data.dataset1?.copyrightHolder       || 'Person',
+      copyrightFirstName:    data.dataset1?.copyrightFirstName    || '',
+      copyrightLastName:     data.dataset1?.copyrightLastName     || '',
       copyrightOrganization: data.dataset1?.copyrightOrganization || '',
-      copyrightYear: data.dataset1?.copyrightYear || '',
-      license: data.dataset1?.license || '',
-      dataStandart: data.dataset1?.dataStandart || '',
+      copyrightYear:         data.dataset1?.copyrightYear         || '',
+      license:               data.dataset1?.license               || '',
+      dataStandart:          data.dataset1?.dataStandart          || '',
     },
   }
 
+  // ── form value change handler ─────────────────────────────────────────────
   const handleValuesChange = (changedValues, allValues) => {
     if (changedValues['dataset1']?.embargo !== undefined) {
       setEmbargo(changedValues['dataset1'].embargo)
@@ -55,17 +49,15 @@ export default function Dataset1({ form, onChange, data }) {
     onChange(allValues)
   }
 
+  // ── fetch semantic data types ─────────────────────────────────────────────
   const fetchSemanticDataType = async () => {
     try {
       const response = await fetch('api/kginfo/datatypes')
       if (!response.ok) {
-        throw new Error(`Error fetching study targets: ${response.status}`)
+        throw new Error(`Error fetching data types: ${response.status}`)
       }
       const fetchedData = await response.json()
 
-      // Support both:
-      // 1) direct array: [ { identifier, name }, ... ]
-      // 2) wrapped: { dataTypes: [ ... ] }
       let list
       if (Array.isArray(fetchedData)) {
         list = fetchedData
@@ -78,39 +70,70 @@ export default function Dataset1({ form, onChange, data }) {
       console.log('Fetched datatype from backend:', fetchedData, 'using list:', list)
       setDatatype(list)
     } catch (error) {
-      console.error('Error fetching study targets:', error)
-      setDatatype([]) // fail-safe
+      console.error('Error fetching data types:', error)
+      setDatatype([])
     }
   }
 
+  // ── fetch licenses ────────────────────────────────────────────────────────
   const fetchLicenses = async () => {
     try {
-      const url = 'api/kginfo/license'
-      const response = await fetch(url)
+      const response = await fetch('api/kginfo/license')
       if (!response.ok) {
-        throw new Error(
-          `There is a problem fetching licenses from backend: ${response.status}`
-        )
+        throw new Error(`Error fetching licenses: ${response.status}`)
       }
-      const data = await response.json()
-      const list = Array.isArray(data?.license) ? data.license : []
-      console.log('Fetched license from backend:', data, 'using list:', list)
+      const fetchedData = await response.json()
+      const list = Array.isArray(fetchedData?.license) ? fetchedData.license : []
+      console.log('Fetched license from backend:', fetchedData, 'using list:', list)
       setLicense(list)
     } catch (error) {
-      console.error('Error fetching licence from backend:', error)
-      setLicense([]) // fail-safe
+      console.error('Error fetching licenses:', error)
+      setLicense([])
     }
   }
 
-  // Map backend data types to Checkbox.Group options:
-  // - label: human-readable name
-  // - value: identifier (for later upload to KG)
-  const optionsData = Array.isArray(datatype)
-    ? datatype.map(dt => ({
-        label: dt.name,
-        value: dt.identifier,
-      }))
-    : []
+  // ── fetch on mount ────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchSemanticDataType()
+    fetchLicenses()
+  }, [])
+
+  // ── auto-migrate old label values → KG identifiers ────────────────────────
+  // runs once after datatype list is loaded
+  // if optionsData contains plain names ("Raw data") instead of URLs,
+  // maps them to the correct KG identifiers
+  useEffect(() => {
+    if (!Array.isArray(datatype) || !datatype.length) return
+
+    const current = form.getFieldValue(['dataset1', 'optionsData'])
+    if (!Array.isArray(current) || !current.length) return
+
+    const first = current[0]
+    const looksLikeIdentifier =
+      typeof first === 'string' && first.startsWith('http')
+
+    if (looksLikeIdentifier) return  // already correct — nothing to do
+
+    // map display labels → identifiers
+    const mapped = current
+      .map(name =>
+        datatype.find(
+          d => d.name?.toLowerCase() === String(name).toLowerCase()
+        )
+      )
+      .filter(Boolean)
+      .map(d => d.identifier)
+
+    if (mapped.length) {
+      form.setFieldsValue({
+        dataset1: {
+          ...form.getFieldValue('dataset1'),
+          optionsData: mapped,
+        },
+      })
+      onChange(form.getFieldsValue())
+    }
+  }, [datatype])  // intentionally omit form and onChange — they never change
 
   const optionsYesNo = [
     { label: 'Yes', value: 'Yes' },
@@ -121,43 +144,6 @@ export default function Dataset1({ form, onChange, data }) {
     { label: 'Person', value: 'Person' },
     { label: 'Organization', value: 'Organization' },
   ]
-
-  useEffect(() => {
-    fetchSemanticDataType()
-    fetchLicenses()
-  }, [])
-
-  // Auto‑migrate names → identifiers once datatypes are loaded.
-  useEffect(() => {
-    if (!Array.isArray(datatype) || !datatype.length) return
-
-    const current = form.getFieldValue(['dataset1', 'optionsData'])
-    if (!current || !current.length) return
-
-    const first = current[0]
-    const looksLikeIdentifier =
-      typeof first === 'string' && first.startsWith('http')
-
-    if (!looksLikeIdentifier) {
-      const mapped = current
-        .map(name =>
-          datatype.find(
-            d => d.name?.toLowerCase() === String(name).toLowerCase()
-          )
-        )
-        .filter(Boolean)
-        .map(d => d.identifier)
-
-      if (mapped.length) {
-        form.setFieldsValue({
-          dataset1: {
-            ...form.getFieldValue('dataset1'),
-            optionsData: mapped,
-          },
-        })
-      }
-    }
-  }, [datatype, form])
 
   return (
     <div>
@@ -170,6 +156,8 @@ export default function Dataset1({ form, onChange, data }) {
         initialValues={initialValues}
         onValuesChange={handleValuesChange}
       >
+
+        {/* ── dataset title ── */}
         <AntForm.Item
           label="Dataset title"
           name={['dataset1', 'dataTitle']}
@@ -180,6 +168,7 @@ export default function Dataset1({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
 
+        {/* ── short title ── */}
         <AntForm.Item
           label="Short title"
           name={['dataset1', 'shortTitle']}
@@ -190,6 +179,7 @@ export default function Dataset1({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
 
+        {/* ── brief summary ── */}
         <AntForm.Item
           label="Brief Summary"
           name={['dataset1', 'briefSummary']}
@@ -204,6 +194,7 @@ export default function Dataset1({ form, onChange, data }) {
           />
         </AntForm.Item>
 
+        {/* ── data type checkboxes — options built inline to avoid stale array ── */}
         <AntForm.Item
           name={['dataset1', 'optionsData']}
           label="What type of data would you like to share (You can select multiple values)?"
@@ -212,11 +203,19 @@ export default function Dataset1({ form, onChange, data }) {
           Derived data refers to data which has been processed or analysed."
         >
           <Checkbox.Group
-            options={optionsData}
+            options={
+              Array.isArray(datatype)
+                ? datatype.map(dt => ({
+                    label: dt.name,
+                    value: dt.identifier,
+                  }))
+                : []
+            }
             style={{ padding: '20px' }}
           />
         </AntForm.Item>
 
+        {/* ── embargo ── */}
         <AntForm.Item
           name={['dataset1', 'embargo']}
           label="Embargo status:"
@@ -246,6 +245,7 @@ export default function Dataset1({ form, onChange, data }) {
           </div>
         </AntForm.Item>
 
+        {/* ── embargo date ── */}
         {embargo && (
           <AntForm.Item
             label="Intended release date"
@@ -257,6 +257,7 @@ export default function Dataset1({ form, onChange, data }) {
           </AntForm.Item>
         )}
 
+        {/* ── journal name if under review ── */}
         {initialValues.dataset1.embargoReview && (
           <AntForm.Item
             label="You are planning to submit your manuscript to this peer-reviewed journal:"
@@ -272,6 +273,7 @@ export default function Dataset1({ form, onChange, data }) {
           </AntForm.Item>
         )}
 
+        {/* ── copyright yes/no ── */}
         <AntForm.Item
           name={['dataset1', 'copyright']}
           label="Is this version of the dataset copyrighted?"
@@ -286,6 +288,7 @@ export default function Dataset1({ form, onChange, data }) {
           </Radio.Group>
         </AntForm.Item>
 
+        {/* ── copyright details ── */}
         {copyright === 'Yes' && (
           <>
             <AntForm.Item
@@ -353,6 +356,7 @@ export default function Dataset1({ form, onChange, data }) {
           </>
         )}
 
+        {/* ── license ── */}
         <AntForm.Item
           label="License"
           name={['dataset1', 'license']}
@@ -385,7 +389,7 @@ export default function Dataset1({ form, onChange, data }) {
                     {firstWebpage && (
                       <>
                         {' '}
-                        <a
+                        
                           href={firstWebpage}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -401,19 +405,21 @@ export default function Dataset1({ form, onChange, data }) {
           </Select>
         </AntForm.Item>
 
+        {/* ── data organisation standard ── */}
         <AntForm.Item
           label="Data organization"
           name={['dataset1', 'dataStandart']}
           rules={[
             {
               required: false,
-              message: 'Please indicate if your data follows any standart',
+              message: 'Please indicate if your data follows any standard',
             },
           ]}
           extra="Do your data organization follows any community standards such as BIDS or NWB?"
         >
           <Input />
         </AntForm.Item>
+
       </AntForm>
     </div>
   )
