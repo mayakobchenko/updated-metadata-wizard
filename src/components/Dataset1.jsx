@@ -145,7 +145,39 @@ export default function Dataset1({ form, onChange, data }) {
     onChange(form.getFieldsValue())
   }
 }, [datatype]) 
+useEffect(() => {
+  if (!data?.dataset1) return
 
+  const d = data.dataset1
+
+  form.setFieldsValue({
+    dataset1: {
+      dataTitle:             d.dataTitle             || '',
+      briefSummary:          d.briefSummary          || '',
+      shortTitle:            d.shortTitle            || '',
+      optionsData:           d.optionsData           || [],
+      embargo:               d.embargo               ?? false,
+      embargoDate:           d.embargoDate           || null,
+      embargoReview:         d.embargoReview         ?? false,
+      submitJournalName:     d.submitJournalName     || '',
+      copyright:             d.copyright             || '',
+      copyrightHolder:       d.copyrightHolder       || 'Person',
+      copyrightFirstName:    d.copyrightFirstName    || '',
+      copyrightLastName:     d.copyrightLastName     || '',
+      copyrightOrganization: d.copyrightOrganization || '',
+      copyrightYear:         d.copyrightYear         || '',
+      license:               d.license               || '',
+      dataStandart:          d.dataStandart          || '',
+    }
+  })
+
+  // sync local controlled state
+  if (d.embargo     !== undefined) setEmbargo(d.embargo)
+  if (d.copyright)                 setCopyright(d.copyright)
+  if (d.copyrightHolder)           setCopyrightHolder(d.copyrightHolder)
+
+}, [data])
+  
   return (
     <div>
       <div>

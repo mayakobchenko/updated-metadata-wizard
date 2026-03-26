@@ -127,7 +127,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formDataRef.current, null, 2)
   })
-  return response  // ← return it so FinalChoice can handle the status
+  return response  
 }
  /* 
   const savePythonKG = async () => {
@@ -149,7 +149,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 */
 
   //try to use token from the context and post to backend for uploading to the drive
- //check if the token expired already 
+  //check if the token expired already 
+  /*
   const saveJsonToDrive = async () => {
     try {
       const pythonurl = 'api/drive/driveupload'
@@ -164,8 +165,18 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       console.log('response from drive',data_response)
 
     } catch (error) { console.error('Error calling python endpoint:', error) }
-    }
-    
+  }
+  */
+    const saveJsonToDrive = async () => {
+      const pythonurl = 'api/drive/driveupload'
+      const response = await fetch(pythonurl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formDataRef.current, null, 2)
+      })
+      return response  // ← add this
+  }
+  
     const downloadJson = () => {
         const json = JSON.stringify(formDataRef.current, null, 2)
         const blob = new Blob([json], { type: 'application/json' })

@@ -93,13 +93,12 @@ export default function Introduction({ form, onChange, data }) {
           rules={[{ required: true, message: "Please enter custodian's first name!" }]}>
           <Input />
         </AntForm.Item>
-        <p>The Data Custodian is responsible for the content and quality of the data and metadata,
+        <p style={{ marginTop: '16px', marginBottom: '16px' }}>The Data Custodian is responsible for the content and quality of the data and metadata,
           and is the contact person in case of any misconduct related to the data.
           The Custodian is responsible for acquiring informed consent from the contributors
           to publish their names along with the associated dataset on the platform.
           The research Group Leader or Principal Investigator is usually assigned
           as the data custodian to ensure long term function.</p>
-        <p>  </p>
         <AntForm.Item
           label="Data custodian's family name"
           name={['custodian', 'familyName']} 
