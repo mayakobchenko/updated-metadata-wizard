@@ -72,6 +72,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       const next = { ...prev, ...data }
       formDataRef.current = next
       onFormDataChange?.(next)   
+      return next
     })
   }
 
