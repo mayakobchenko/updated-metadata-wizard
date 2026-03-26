@@ -69,8 +69,8 @@ export default function Dataset1({ form, onChange, data }) {
       let list
       if (Array.isArray(fetchedData)) {
         list = fetchedData
-      } else if (Array.isArray(fetchedData?.dataTypes)) {
-        list = fetchedData.dataTypes
+      } else if (Array.isArray(fetchedData?.datatype)) {
+        list = fetchedData.datatype
       } else {
         list = []
       }
