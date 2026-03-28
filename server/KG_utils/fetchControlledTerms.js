@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { writeFile } from 'fs/promises'
 import { getRequestOptions } from './kgAuthentication.js'
 import { subjectProperties } from './constants.js'
+import { Techniques } from './constants.js'
 
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT = "v3/instances"
@@ -27,9 +28,11 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
 
 export default async function fetchControlledTerms() {
     const requestOptions = await getRequestOptions()
-    const MAIN_TERMS = ["PreparationType", "Technique", "ContributionType",
+    //const MAIN_TERMS = ["PreparationType", "Technique", "ContributionType", "SemanticDataType", "ExperimentalApproach"]
+    const MAIN_TERMS = ["PreparationType", "ContributionType",
         "SemanticDataType", "ExperimentalApproach"]
-    const CONTROLLED_TERMS = MAIN_TERMS.concat(subjectProperties)
+    const CONTROLLED_TERMS = [...MAIN_TERMS, ...subjectProperties, ...Techniques,]
+    //const CONTROLLED_TERMS = MAIN_TERMS.concat(subjectProperties).concat(Techniques)
 
     // ── Species must complete before Strain runs ──────────────────────────
     const speciesUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}Species`

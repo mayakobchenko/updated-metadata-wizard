@@ -49,6 +49,15 @@ export const subjectProperties = [
   "TissueSampleType",
   "PreparationType",
 ]
+
+export const Techniques = [
+  "AnalysisTechnique",
+  "MRIPulseSequence",
+  "MRIWeighting",
+  "StimulationApproach",
+  "StimulationTechnique",
+  "Technique"
+]
   //"Technique",
 export const keywordSet = [
         "ActionStatusType",
