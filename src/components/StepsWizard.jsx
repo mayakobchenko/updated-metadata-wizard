@@ -147,6 +147,62 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     setCurrentStepIndex(nextWizardStep)
   }
 
+  const mapDataset1OptionsToIds = async (formData) => {
+  try {
+    const res = await fetch('api/kginfo/datatypes')
+    if (!res.ok) throw new Error(`Error fetching data types: ${res.status}`)
+    const json = await res.json()
+    const types = json.dataTypes || []
+    const labelToId = new Map(types.map((t) => [t.name, t.identifier]))
+    const labels = formData.dataset1?.optionsData || []
+    const mapped = labels.map((val) => labelToId.get(val) || val)
+    return {
+      ...formData,bdataset1: {...(formData.dataset1 || {}), boptionsData: mapped },
+    }
+  } catch (e) {
+    console.error('Error mapping dataset1.optionsData to KG ids:', e)
+    // fall back to original data on error
+    return formData
+  }
+}
+
+const savePythonKG = async () => {
+  const pythonurl = 'api/python/runpython'
+  const payload = await mapDataset1OptionsToIds(formDataRef.current)
+  const response = await fetch(pythonurl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload, null, 2),
+  })
+  return response
+}
+
+const saveJsonToDrive = async () => {
+  const pythonurl = 'api/drive/driveupload'
+  const payload = await mapDataset1OptionsToIds(formDataRef.current)
+  const response = await fetch(pythonurl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload, null, 2),
+  })
+  return response
+}
+
+const downloadJson = async () => {
+  const payload = await mapDataset1OptionsToIds(formDataRef.current)
+  const json = JSON.stringify(payload, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'metadata_wizard.json'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+/*
   const savePythonKG = async () => {
     const pythonurl = 'api/python/runpython'
     const response = await fetch(pythonurl, {
@@ -179,7 +235,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
-
+*/
   const isLastLogicalStep = currentStepIndex === lastLogicalStepIndex
 
   return (

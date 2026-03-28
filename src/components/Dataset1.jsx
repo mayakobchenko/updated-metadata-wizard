@@ -12,7 +12,6 @@ export default function Dataset1({ form, onChange, data }) {
   const [copyright, setCopyright] = useState(data.dataset1?.copyright || '')
   const [copyrightHolder, setCopyrightHolder] = useState(data.dataset1?.copyrightHolder || 'Person')
   const currentYear = dayjs().year()
-  //const [datatype, setDatatype] = useState([])
 
   const initialValues = {
     dataset1: {
@@ -43,7 +42,7 @@ export default function Dataset1({ form, onChange, data }) {
     setCopyrightHolder(changedValues['dataset1'].copyrightHolder)}
     onChange(allValues)
   }
-
+/*
   const fetchSemanticDataType = async () => {
     try {
         const response = await fetch('api/kginfo/datatypes')
@@ -51,7 +50,7 @@ export default function Dataset1({ form, onChange, data }) {
         const fetchedData = await response.json()
         setDatatype(fetchedData.dataTypes)
     } catch (error) {console.error('Error fetching study targets:', error)}} 
-  
+  */
   const fetchLicenses = async () => {
     try {
       const url = 'api/kginfo/license'
@@ -63,19 +62,13 @@ export default function Dataset1({ form, onChange, data }) {
     } catch (error) {console.error('Error fetching licence from backend:', error)}}
   
   //semantic data types:
-  /*
   const optionsData = [
     { label: 'Experimental data', value: 'Experimental data' },
     { label: 'Simulated data', value: 'Simulated data' },
     { label: 'Raw data', value: 'Raw data' },
     { label: 'Derived data', value: 'Derived data' },
-  ]*/
-    const optionsData = [
-    { label: 'Experimental data', value: 'https://kg.ebrains.eu/api/instances/2a07e0f3-f48a-48f9-9fe3-9164909a8408' },
-    { label: 'Simulated data', value: 'Simulated data' },
-    { label: 'Raw data', value: 'Raw data' },
-    { label: 'Derived data', value: 'Derived data' },
   ]
+
   const optionsYesNo = [
     { label: 'Yes', value: 'Yes' },
     { label: 'No', value: 'No' },

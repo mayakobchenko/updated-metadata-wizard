@@ -5,10 +5,8 @@ from uuid import uuid4
 
 
 def as_id_list(values):
-    """Convert a value to a list of @id objects, handling all input formats."""
     if not values:
         return []
-    # if it is already a list of strings
     if isinstance(values, list):
         flat = []
         for v in values:
@@ -67,8 +65,9 @@ try:
         else:
             embargo_release_date = None
         # dsv_brief_summary = data.get("dataset1", {}).get("briefSummary", "")
-        expappr_uuid = [exp.get('selectedExpAppr', '') for exp in data.get(
-            'experimental_approach', {}).get('addExperiment', [])]
+        expappr_uuid = data.get('experiments', {}).get(
+            'experimentalApproach', [])
+        # expappr_uuid = [exp.get('selectedExpAppr', '') for exp in data.get('experiments', {}).get('experimentalApproach', [])]
 
         data_type_list = data['dataset1']['optionsData']
 
