@@ -71,6 +71,7 @@ try:
 
         # data_type_options = data['dataset1']['optionsData']
         data_type_options = data.get('dataset1', {}).get('optionsData', [])
+        techniques = data.get('experiments', {}).get('techniques', [])
 
 
 except Exception as e:
@@ -118,7 +119,9 @@ attributes = {
     "https://openminds.om-i.org/props/license":  license_dsv,
     # "https://openminds.om-i.org/props/accessibility": embargo,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
-    "https://openminds.om-i.org/props/semanticDataType": [{"@id": url} for url in data_type_options],
+    "https://openminds.om-i.org/props/dataType": [{"@id": url} for url in data_type_options],
+    "https://openminds.om-i.org/props/technique": [{"@id": url} for url in techniques],
+    # "https://openminds.om-i.org/props/funding": funding,
 }
 
 data_info = KG_patch(dsv_id, attributes, dsv_id)
