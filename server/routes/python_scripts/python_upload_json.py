@@ -116,6 +116,7 @@ attributes = {
     "https://openminds.om-i.org/props/fullName": dsv_title,
     "https://openminds.om-i.org/props/shortName": dsv_short_title,
     "https://openminds.om-i.org/props/license":  license_dsv,
+    # "https://openminds.om-i.org/props/accessibility": embargo,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
     "https://openminds.om-i.org/props/semanticDataType": [{"@id": url} for url in data_type_options],
 }
