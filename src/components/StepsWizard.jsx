@@ -154,7 +154,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     const json = await res.json()
     const types = json.dataTypes || []
     console.log('transformed data types options:', types)
-    const labelToId = new Map(types.map((t) => [t.name, t.identifier]))
+    const labelToId = new Map(types.map((t) => [t.name.toLowerCase(), t.identifier]))
     const labels = formData.dataset1?.optionsData || []
     const mapped = labels.map((val) => labelToId.get(val) || val)
     return {
