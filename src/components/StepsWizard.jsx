@@ -15,22 +15,25 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const skjemaInfo = useAuthContext()
+
   const initialValues = {
-    //ticketNumber: skjemaInfo?.ticketNumber || '',
-    datasetVersionId: skjemaInfo?.datasetVersionId || '',  //needed for uploading to kg
+    datasetVersionId: skjemaInfo?.datasetVersionId || '',
     contactperson: {
       firstName: skjemaInfo?.nettskjemaInfo?.contactFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.contactSurname || '',
-      email: skjemaInfo?.nettskjemaInfo?.contactEmail || ''},
+      email: skjemaInfo?.nettskjemaInfo?.contactEmail || '',
+    },
     custodian: {
       firstName: skjemaInfo?.nettskjemaInfo?.custodionaFirstName || '',
       familyName: skjemaInfo?.nettskjemaInfo?.custodianSurname || '',
       email: skjemaInfo?.nettskjemaInfo?.custodianEmail || '',
       orcid: skjemaInfo?.nettskjemaInfo?.custodianORCID || '',
-      institution: skjemaInfo?.nettskjemaInfo?.custodianInstitution || ''},
+      institution: skjemaInfo?.nettskjemaInfo?.custodianInstitution || '',
+    },
     groupLeader: {
       name: skjemaInfo?.nettskjemaInfo?.GroupLeaderName || '',
-      orcid: skjemaInfo?.nettskjemaInfo?.GroupLeaderOrcid || ''},
+      orcid: skjemaInfo?.nettskjemaInfo?.GroupLeaderOrcid || '',
+    },
     dataset1: {
       dataTitle: skjemaInfo?.nettskjemaInfo?.dataTitle || '',
       briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || '',
@@ -41,11 +44,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     },
     dataset2: {
       Data2UrlDoiRepo: skjemaInfo?.nettskjemaInfo?.Data2UrlDoiRepo || '',
-      Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || ''} 
+      Data2DoiJournal: skjemaInfo?.nettskjemaInfo?.Data2DoiJournal || '',
+    },
   }
-  
-  const formDataRef = useRef({})  
-  const [formData, setFormData] = useState({}) 
+
+  const formDataRef = useRef({})
+  const [formData, setFormData] = useState({})
   const [form] = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [isModalVisible, setIsModalVisible] = useState(false)
@@ -57,25 +61,29 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       form.setFieldsValue(externalFormData)
     }
   }, [externalFormData])
-    
+
   useEffect(() => {
     formDataRef.current = initialValues
     setFormData(initialValues)
     onFormDataChange?.(initialValues)
-    console.log('use effect steps wizard initial values', initialValues.dataset1)
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {
     setFormData((prev) => {
       const next = { ...prev, ...data }
       formDataRef.current = next
-      onFormDataChange?.(next)   
+      onFormDataChange?.(next)
       return next
     })
   }
 
+  // ── subject step logic ────────────────────────────────────────────────
+  // Enabled: user explicitly selected "Yes"
   const subjectStepEnabled = formData?.experiments?.subjectschoice === 'Yes'
-  
+  // Visible in UI: at mount (undefined) or "Yes"; hidden only for explicit "No"
+  const subjectStepVisible = formData?.experiments?.subjectschoice !== 'No'
+
+  // All steps are defined; Subjects is always index 6
   const steps = [
     { id: 0, component: Intro },
     { id: 1, component: Dataset1 },
@@ -83,169 +91,182 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     { id: 3, component: Funding },
     { id: 4, component: Contributors },
     { id: 5, component: Experiments },
-    // only add Subjects step if answer was "Yes"
-    ...(subjectStepEnabled ? [{ id: 6, component: Subjects }] : []),
-    //{ id: 6, component: Subjects }
+    { id: 6, component: Subjects },
   ]
-  
+
+  // Last logical step depends on whether Subjects is enabled
+  const lastLogicalStepIndex = subjectStepEnabled ? 6 : 5
+
+  // If Subjects becomes disabled while we are on it, jump back to Experiments
   useEffect(() => {
-    // if currentStepIndex is outside the new steps array, move it to last step
-    if (currentStepIndex >= steps.length) {
-      setCurrentStepIndex(steps.length - 1)
+    if (!subjectStepEnabled && currentStepIndex > lastLogicalStepIndex) {
+      setCurrentStepIndex(lastLogicalStepIndex)
     }
-  }, [steps.length, currentStepIndex])
-  
+  }, [subjectStepEnabled, currentStepIndex, lastLogicalStepIndex])
+
   const nextStep = () => {
-    form.validateFields()
-        .then(() => {
-            completeCurrentStep()  
-            setCurrentStepIndex(prev => (prev + 1 < steps.length ? prev + 1 : prev))
-        }).catch(() => {setIsModalVisible(true)})}
+    form
+      .validateFields()
+      .then(() => {
+        completeCurrentStep()
+        setCurrentStepIndex((prev) =>
+          prev < lastLogicalStepIndex ? prev + 1 : prev
+        )
+      })
+      .catch(() => {
+        setIsModalVisible(true)
+      })
+  }
 
-  const handleCancel = () => {setIsModalVisible(false)}
-
-  const handleOk = () => {setIsModalVisible(false)}      
+  const handleCancel = () => setIsModalVisible(false)
+  const handleOk = () => setIsModalVisible(false)
 
   const prevStep = () => {
     if (currentStepIndex > 0) {
-      setCurrentStepIndex((prev) => prev - 1)}}
+      setCurrentStepIndex((prev) => prev - 1)
+    }
+  }
 
   const CurrentStep = steps[currentStepIndex].component
-      
-  const initializeValidSteps = () => {
-    return Array(steps.length).fill(false)}
 
-  const validSteps = initializeValidSteps()
-  const [statuses, setStatuses] = useState(validSteps)
+  // ── statuses for progress display ─────────────────────────────────────
+  const initializeValidSteps = () => Array(steps.length).fill(false)
+  const [statuses, setStatuses] = useState(initializeValidSteps)
 
   const completeCurrentStep = () => {
-    setStatuses(prev => {
-        const newStatuses = [...prev]
-        newStatuses[currentStepIndex] = true
-        return newStatuses
-    })}
+    setStatuses((prev) => {
+      const newStatuses = [...prev]
+      newStatuses[currentStepIndex] = true
+      return newStatuses
+    })
+  }
 
   const goToWizardStep = (nextWizardStep) => {
-    if (typeof nextWizardStep === "number") {
-      nextWizardStep = steps[nextWizardStep].id}
-    setCurrentStepIndex(nextWizardStep)}
+    // nextWizardStep is the index in the visible Steps items, which is
+    // the same as our step indices 0–5; index 6 only exists when visible+enabled
+    setCurrentStepIndex(nextWizardStep)
+  }
 
   const savePythonKG = async () => {
-  const pythonurl = 'api/python/runpython'
-  const response = await fetch(pythonurl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(formDataRef.current, null, 2)
-  })
+    const pythonurl = 'api/python/runpython'
+    const response = await fetch(pythonurl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formDataRef.current, null, 2),
+    })
     return response
   }
-  
- /* 
-  const savePythonKG = async () => {
-    try {
-      //downloadJson()
-      const pythonurl = 'api/python/runpython'
-      //const hello_url = 'api/python/hello'  //test endpoint
-      //const response = await fetch(pythonurl)  //get request
-      const response = await fetch(pythonurl, {
-        method: 'POST',  
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(formData, null, 2)})     
-      if (!response.ok) {
-        throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
-      const data = await response.json()
-      console.log(data)
-    } catch (error) { console.error('Error calling python endpoint:', error) }
-  }
-*/
 
-  //try to use token from the context and post to backend for uploading to the drive
-  //check if the token expired already 
-  /*
   const saveJsonToDrive = async () => {
-    try {
-      const pythonurl = 'api/drive/driveupload'
-      const response = await fetch(pythonurl, {
-        method: 'POST',  
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(formData, null, 2)})
-      
-      if (!response.ok) {
-        throw new Error(`There is a problem uploading to kg with python script: ${response.status}`)}
-      const data_response = await response.json()
-      console.log('response from drive',data_response)
+    const pythonurl = 'api/drive/driveupload'
+    const response = await fetch(pythonurl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formDataRef.current, null, 2),
+    })
+    return response
+  }
 
-    } catch (error) { console.error('Error calling python endpoint:', error) }
+  const downloadJson = () => {
+    const json = JSON.stringify(formDataRef.current, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'metadata_wizard.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
-  */
-    const saveJsonToDrive = async () => {
-      const pythonurl = 'api/drive/driveupload'
-      const response = await fetch(pythonurl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formDataRef.current, null, 2)
-      })
-      return response  // ← add this
-  }
-  
-    const downloadJson = () => {
-        const json = JSON.stringify(formDataRef.current, null, 2)
-        const blob = new Blob([json], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'metadata_wizard.json'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-    }
-    
+
+  const isLastLogicalStep = currentStepIndex === lastLogicalStepIndex
+
   return (
-    <ConfigProvider>     
-      <ProgressBar step={currentStepIndex} status={statuses} onChanged={goToWizardStep} />
-      <CurrentStep form={form} onChange={handleInputChange}  data={formData}/>
+    <ConfigProvider>
+      <ProgressBar
+        step={currentStepIndex}
+        status={statuses}
+        onChanged={goToWizardStep}
+        subjectStepVisible={subjectStepVisible}
+      />
+
+      <CurrentStep form={form} onChange={handleInputChange} data={formData} />
+
       <div className="buttons-save-next-back">
         {currentStepIndex > 0 && (
-            <Button onClick={prevStep} className="next-back-button">Back</Button>)}
-        <div className="spacer"></div> {/* Spacer for alignment */}
-        {currentStepIndex < steps.length - 1 && (
-            <Button onClick={nextStep} className="next-back-button">Next</Button>)}
-        {currentStepIndex === steps.length - 1 && (
-          //change here the onClick function to uploadpythonKG
-          //<Button onClick={downloadJson} className="next-back-button">Save</Button>
-          <PopoverSave downloadJson={downloadJson} uploadpythonKG={savePythonKG} saveJsonToDrive={saveJsonToDrive} />
+          <Button onClick={prevStep} className="next-back-button">
+            Back
+          </Button>
+        )}
+        <div className="spacer"></div>
+
+        {/* Next only visible before the last logical step */}
+        {currentStepIndex < lastLogicalStepIndex && (
+          <Button onClick={nextStep} className="next-back-button">
+            Next
+          </Button>
+        )}
+
+        {/* Save only on the last logical step
+            - If Subjects enabled: on Subjects
+            - If Subjects disabled or "No": on Experiments */}
+        {isLastLogicalStep && (
+          <PopoverSave
+            downloadJson={downloadJson}
+            uploadpythonKG={savePythonKG}
+            saveJsonToDrive={saveJsonToDrive}
+          />
         )}
       </div>
+
       <Modal
-          title="Warning"
-          open={isModalVisible}
-          onOk={handleOk}
-          onCancel={handleCancel}
-          okText="OK"
-          cancelText="Cancel">
-          <p>Please fill in the required fields before proceeding.</p>
+        title="Warning"
+        open={isModalVisible}
+        onOk={handleOk}
+        onCancel={handleCancel}
+        okText="OK"
+        cancelText="Cancel"
+      >
+        <p>Please fill in the required fields before proceeding.</p>
       </Modal>
     </ConfigProvider>
-  )}
+  )
+}
 
-function Intro ({ form, onChange, data }) {
+function Intro({ form, onChange, data }) {
   const userInfo = useAuthContext()
   if (userInfo?.user) {
     return (
       <div>
         <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
-        <p>Thank you for choosing EBRAINS to share your research data. 
-          In this form, you can describe key aspects of your dataset so that other researchers will be able to find,
-          reuse and cite your work. While filling out this form, please remember to consider all data related 
-          to the dataset that you wish to publish on EBRAINS. Some fields might be pre-filled from the curation request
-          form that you had submitted ealier. You can edit the fields or leave them unchanged and once you complete the form, metadata describing your dataset will be curated according to the   
-          <a href="https://openminds-documentation.readthedocs.io/en/latest/" target="_blank" rel="noopener noreferrer"
-          style={{ margin: '0 5px' }}>
+        <p>
+          Thank you for choosing EBRAINS to share your research data. In this
+          form, you can describe key aspects of your dataset so that other
+          researchers will be able to find, reuse and cite your work. While
+          filling out this form, please remember to consider all data related to
+          the dataset that you wish to publish on EBRAINS. Some fields might be
+          pre-filled from the curation request form that you had submitted
+          earlier. You can edit the fields or leave them unchanged and once you
+          complete the form, metadata describing your dataset will be curated
+          according to the{' '}
+          <a
+            href="https://openminds-documentation.readthedocs.io/en/latest/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ margin: '0 5px' }}
+          >
             openMINDS standard.
-          </a></p>
-        <Introduction form={form} onChange={onChange} data={data}/>
-      </div>)}
-  if (!userInfo.reloadWizard) { return (<LoadingSpinner />) } }
+          </a>
+        </p>
+        <Introduction form={form} onChange={onChange} data={data} />
+      </div>
+    )
+  }
+  if (!userInfo.reloadWizard) {
+    return <LoadingSpinner />
+  }
+  return null
+}
 
 export default StepsWizard
