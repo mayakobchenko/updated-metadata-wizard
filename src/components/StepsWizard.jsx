@@ -12,8 +12,6 @@ import Funding from './Funding.jsx'
 import Experiments from './Experiments.jsx'
 import PopoverSave from './FinalChoice.jsx'
 import LoadingSpinner from './LoadingSpinner.jsx'
-//import { saveAs } from 'file-saver'
-//npm install file-saver
 
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const skjemaInfo = useAuthContext()
@@ -127,8 +125,9 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formDataRef.current, null, 2)
   })
-  return response  
-}
+    return response
+  }
+  
  /* 
   const savePythonKG = async () => {
     try {
@@ -189,12 +188,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
     }
-    /*
-  const saveToJson = () => {
-      const json = JSON.stringify(formData, null, 2)
-      const blob = new Blob([json], { type: 'application/json' })
-    saveAs(blob, 'formData.json') // Use 'file-saver' to save the JSON file
-  }*/
 
   return (
     <ConfigProvider>     

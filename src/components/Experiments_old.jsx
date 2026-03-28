@@ -6,9 +6,7 @@ const { Option } = Select
 export default function Experiments({ form, onChange, data }) {
   
   const [experim_appr, setExperim_appr] = useState([])
-    const [prepTypes, setPrepTypes] = useState([])
-    const [selectedExpAppr, setSelectedExpAppr] = useState([])
-    const [selectedPrepTypes, setSelectedPrepTypes] = useState([])
+  const [prepTypes, setPrepTypes] = useState([])
   //const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: [] }])
   //const [addPreparation, setAddPreparation] = useState([{ id: Date.now(), selectedPrepType: [] }])
   const [studyTargets, setStudyTargets] = useState([])
@@ -52,16 +50,24 @@ export default function Experiments({ form, onChange, data }) {
     fetchStudyTargets()
   }, [])
 
-  const handleFieldChange = (values) => {
-    setSelectedExpAppr(values)
-    onChange({ experiments: { ...data.experiments, experimentalApproach: values } })
+  // ── experimental approach handlers ──────────────────────────────────────
+  const handleFieldChange = (index, value) => {
+    const updated = addExperiment.map((field, i) =>
+      i === index ? { ...field, selectedExpAppr: value } : field
+    )
+    setAddExperiment(updated)
+    onChange({ experiments: { ...data.experiments, addExperiment: updated } })
   }
 
-  const handlePreparationChange = (values) => {
-    setSelectedPrepTypes(values)
-    onChange({ experiments: { ...data.experiments, preparationTypes: values } })
-    }
-    
+  // ── preparation type handlers ────────────────────────────────────────────
+  const handlePreparationChange = (index, value) => {
+    const updated = addPreparation.map((field, i) =>
+      i === index ? { ...field, selectedPrepType: value } : field
+    )
+    setAddPreparation(updated)
+    onChange({ experiments: { ...data.experiments, addPreparation: updated } })
+  }
+ // ── study targets handlers ────────────────────────────────────────────
   const handleStudyTargetChange = (values) => {
       setSelectedStudyTargets(values)
       onChange({ experimens: { ...data.experiments, studyTargets: values } })
@@ -93,14 +99,15 @@ export default function Experiments({ form, onChange, data }) {
 
         {/* ── experimental approaches ── */}
         <p className="step-title">Please indicate which experimental approaches best describe your data</p>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+        {addExperiment.map((field, index) => (
+          <div key={field.id} style={{ display: 'flex', alignItems: 'center' }}>
             <Form.Item label="Select experimental approach" required style={{ flex: 1 }}>
               <Select
                 mode="multiple"
                 showSearch
                 style={{ minWidth: 240 }}
-                value={selectedExpAppr}
-                onChange={handleFieldChange}
+                value={field.selectedExpAppr}
+                onChange={(value) => handleFieldChange(index, value)}
                 placeholder="Type to search ..."
                 filterOption={(input, option) => {
                   if (!option) return false
@@ -114,10 +121,12 @@ export default function Experiments({ form, onChange, data }) {
               </Select>
             </Form.Item>
           </div>
+        ))}
 
         {/* ── preparation types ── */}
         <p className="step-title">Please indicate the preparation type(s) for your data</p>
-          <div>
+        {addPreparation.map((field, index) => (
+          <div key={field.id}>
             <Form.Item
               label="Select preparation type"
               required
@@ -126,11 +135,10 @@ export default function Experiments({ form, onChange, data }) {
               <Select
                 mode="multiple"
                 showSearch
-                style={{ width: '100%' }}
-                value={selectedPrepTypes}
-                onChange={handlePreparationChange}
+                style={{ minWidth: 240 }}
+                value={field.selectedPrepType}
+                onChange={(value) => handlePreparationChange(index, value)}
                 placeholder="Type to search ..."
-                //optionFilterProp="label"
                 filterOption={(input, option) => {
                   if (!option) return false
                   return option.children.toLowerCase().includes(input.toLowerCase())
@@ -143,6 +151,7 @@ export default function Experiments({ form, onChange, data }) {
               </Select>
             </Form.Item>
           </div>
+        ))}
 
         <Form.Item
             label="Study targets"

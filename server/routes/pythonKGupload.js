@@ -25,7 +25,7 @@ async function sayHello(req, res) {
 // Endpoint to save metadata JSON locally inside container and run Python script for KG upload
 async function runPythonScript(req, res) {
     const jsonData = req.body
-    console.log('body received by backend:',jsonData)
+    //console.log('body received by backend:', jsonData)
     const jsonFilePath = path.join(__dirname, 'data.json')
     try {
         //save first metadata file locally
