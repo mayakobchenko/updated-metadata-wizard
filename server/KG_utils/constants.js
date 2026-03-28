@@ -25,7 +25,7 @@ export const studyTargetTerms = [
     "Species",
     "SubcellularEntity",
     "TactileStimulusType",
-    //"TermSuggestion",    //do we need this? 
+    "TermSuggestion",    //do we need this? 
     "UBERONParcellation",
     "VisualStimulusType",
 ]
@@ -59,7 +59,7 @@ export const keywordSet = [
         "AnatomicalPlane",
         "AnnotationCriteriaType",
         "AnnotationType",
-        "AtlasType",
+        "AtlasType",//
         "AuditoryStimulusType",
         "BiologicalOrder",
         "BiologicalProcess",

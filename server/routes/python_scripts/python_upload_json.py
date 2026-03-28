@@ -61,8 +61,10 @@ try:
         license_dsv = data.get("dataset1", {}).get("license", "")
         embargo = data.get("dataset1", {}).get("embargo", False)
         if embargo:
+            embargo = "https://kg.ebrains.eu/api/instances/897dc2af-405d-4df3-9152-6d9e5cae55d8"
             embargo_release_date = data['dataset1']['embargoDate']
         else:
+            embargo = None
             embargo_release_date = None
         # dsv_brief_summary = data.get("dataset1", {}).get("briefSummary", "")
         expappr_uuid = data.get('experiments', {}).get(
@@ -117,7 +119,7 @@ attributes = {
     "https://openminds.om-i.org/props/fullName": dsv_title,
     "https://openminds.om-i.org/props/shortName": dsv_short_title,
     "https://openminds.om-i.org/props/license":  license_dsv,
-    # "https://openminds.om-i.org/props/accessibility": embargo,
+    "https://openminds.om-i.org/props/accessibility": embargo,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
     "https://openminds.om-i.org/props/dataType": [{"@id": url} for url in data_type_options],
     "https://openminds.om-i.org/props/technique": [{"@id": url} for url in techniques],
