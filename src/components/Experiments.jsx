@@ -1,23 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Radio, Button } from 'antd'
+import { Form, Input, Select, Radio } from 'antd'
 
 const { Option } = Select
 
 export default function Experiments({ form, onChange, data }) {
   
   const [experim_appr, setExperim_appr] = useState([])
-    const [prepTypes, setPrepTypes] = useState([])
-    const [selectedExpAppr, setSelectedExpAppr] = useState([])
-    const [selectedPrepTypes, setSelectedPrepTypes] = useState([])
-  //const [addExperiment, setAddExperiment] = useState([{ id: Date.now(), selectedExpAppr: [] }])
-  //const [addPreparation, setAddPreparation] = useState([{ id: Date.now(), selectedPrepType: [] }])
+  const [prepTypes, setPrepTypes] = useState([])
+  const [selectedExpAppr, setSelectedExpAppr] = useState([])
+  const [selectedPrepTypes, setSelectedPrepTypes] = useState([])
   const [studyTargets, setStudyTargets] = useState([])
   const [selectedStudyTargets, setSelectedStudyTargets] = useState([])
-/*
-  useEffect(() => {
-    setAddExperiment(data.experiments?.addExperiment || [{ id: Date.now(), selectedExpAppr: [] }])
-    setAddPreparation(data.experiments?.addPreparation || [{ id: Date.now(), selectedPrepType: [] }])
-  }, [data])*/
+  const [techniques, setTechniques] = useState([])              
+  const [selectedTechniques, setSelectedTechniques] = useState([])
   
   const fetchStudyTargets = async () => {
     try {
@@ -44,12 +39,22 @@ export default function Experiments({ form, onChange, data }) {
       const fetchedData = await response.json()
       setPrepTypes(fetchedData.prepType)
     } catch (error) {console.error('Error fetching preparation types:', error)}
-  }
-  
+    }
+    
+  const fetchTechniques = async () => {
+    try {
+      const response = await fetch('api/kginfo/techniques')
+      if (!response.ok) {throw new Error(`Error fetching techniques: ${response.status}`)}
+      const fetchedData = await response.json()
+      setTechniques(fetchedData.techniques)
+    } catch (error) {console.error('Error fetching techniques:', error)}
+    }
+    
   useEffect(() => {
     fetchExperimentalApproaches()
     fetchPreparationTypes()
     fetchStudyTargets()
+    fetchTechniques()
   }, [])
 
   const handleFieldChange = (values) => {
@@ -64,7 +69,13 @@ export default function Experiments({ form, onChange, data }) {
     
   const handleStudyTargetChange = (values) => {
       setSelectedStudyTargets(values)
-      onChange({ experimens: { ...data.experiments, studyTargets: values } })
+      onChange({ experiments: { ...data.experiments, studyTargets: values } })
+    }
+
+  const handleTechniqueChange = (values) => {                
+    setSelectedTechniques(values)
+    onChange({experiments: {...data.experiments, techniques: values,},
+    })
   }
   const handleValuesChange = (changedValues) => {
     onChange({ experiments: { ...data.experiments, ...changedValues.experiments } })
@@ -113,8 +124,38 @@ export default function Experiments({ form, onChange, data }) {
                 ))}
               </Select>
             </Form.Item>
-          </div>
-
+              </div>
+              
+        {/* ── techniques ── */}
+        {/*<p className="step-title">Please indicate the techniques used</p> */}
+        <div> 
+          <Form.Item
+            label="Select experimental techniques"
+            required={false}
+            style={{ flex: 1 }}
+            extra="Please add all techniques that apply to the generation of this dataset."
+          >
+            <Select
+              mode="multiple"
+              showSearch
+              style={{ width: '100%' }}
+              value={selectedTechniques}
+              onChange={handleTechniqueChange}
+              placeholder="Type to search ..."
+              filterOption={(input, option) => {
+                if (!option || typeof option.children !== 'string') return false
+                return option.children.toLowerCase().includes(input.toLowerCase())
+              }}
+            >
+              {techniques.map((option) => (
+                <Option key={option.identifier} value={option.identifier}>
+                  {option.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </div>
+              
         {/* ── preparation types ── */}
         <p className="step-title">Please indicate the preparation type(s) for your data</p>
           <div>
