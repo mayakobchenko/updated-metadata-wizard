@@ -157,7 +157,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     const labels = formData.dataset1?.optionsData || []
     const mapped = labels.map((val) => labelToId.get(val) || val)
     return {
-      ...formData,bdataset1: {...(formData.dataset1 || {}), boptionsData: mapped },
+      ...formData, dataset1: {...(formData.dataset1 || {}), optionsData: mapped },
     }
   } catch (e) {
     console.error('Error mapping dataset1.optionsData to KG ids:', e)

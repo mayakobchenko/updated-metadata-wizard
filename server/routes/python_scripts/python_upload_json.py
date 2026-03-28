@@ -69,7 +69,9 @@ try:
             'experimentalApproach', [])
         # expappr_uuid = [exp.get('selectedExpAppr', '') for exp in data.get('experiments', {}).get('experimentalApproach', [])]
 
-        data_type_list = data['dataset1']['optionsData']
+        # data_type_options = data['dataset1']['optionsData']
+        data_type_options = data.get('dataset1', {}).get('optionsData', [])
+
 
 except Exception as e:
     print(json.dumps({"error": str(e)}))
@@ -116,6 +118,7 @@ attributes = {
     "https://openminds.om-i.org/props/shortName": dsv_short_title,
     "https://openminds.om-i.org/props/license":  license_dsv,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
+    "https://openminds.om-i.org/props/semanticDataType": [{"@id": url} for url in data_type_options],
 }
 
 data_info = KG_patch(dsv_id, attributes, dsv_id)
