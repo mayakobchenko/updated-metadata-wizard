@@ -200,7 +200,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
     }
-    
+
   return (
     <ConfigProvider>     
       <ProgressBar step={currentStepIndex} status={statuses} onChanged={goToWizardStep} />
