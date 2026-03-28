@@ -186,11 +186,11 @@ async function getStudyTargets(req, res) {
 async function getSemanticDataTypes (req, res) {
   const filePath = path.join(__dirname, '../data/controlledTerms/SemanticDataType.json')
   try {
-    let datatype
+    let dataTypes
     try {
       const data = await readFile(filePath, 'utf-8')
-      datatype = JSON.parse(data)} catch (err) {datatype = []} 
-    res.status(200).json({ datatype })
+      dataTypes = JSON.parse(data)} catch (err) {dataTypes = []} 
+    res.status(200).json({ dataTypes })
     } catch (error) {
       console.error('Error fetching semantic data types from the backend', error.message)
       res.status(500).send('Error fetching semantic data types from the backend')}

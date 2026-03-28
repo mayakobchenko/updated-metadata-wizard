@@ -91,11 +91,10 @@ def KG_patch(entry_id, attr, space_id):
         content = json.dumps(attr, indent=4)
         url = f'https://core.kg.ebrains.eu/v3/instances/{entry_id.split("/")[-1]}?space=collab-d-{space_id}'
 
-        print(f"DEBUG entry_id: {entry_id}", file=sys.stderr)
-        print(f"DEBUG space_id: {space_id}", file=sys.stderr)
-        print(f"DEBUG url: {url}", file=sys.stderr)
-        print(
-            f"DEBUG token (first 10 chars): {personal_token[:10]}...", file=sys.stderr)
+        # print(f"DEBUG entry_id: {entry_id}", file=sys.stderr)
+        # print(f"DEBUG space_id: {space_id}", file=sys.stderr)
+        # print(f"DEBUG url: {url}", file=sys.stderr)
+        # print(f"DEBUG token (first 10 chars): {personal_token[:10]}...", file=sys.stderr)
 
         resp = rq.patch(url=url, headers=headers, data=content)
 

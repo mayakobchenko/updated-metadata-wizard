@@ -161,7 +161,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     }
   } catch (e) {
     console.error('Error mapping dataset1.optionsData to KG ids:', e)
-    // fall back to original data on error
     return formData
   }
 }
