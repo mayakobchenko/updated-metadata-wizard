@@ -12,7 +12,7 @@ import Greetings from './components/Greetings'
 
 function App() {
   const [formData, setFormData] = useState({})
-
+/*
   const downloadJson = () => {
     const json = JSON.stringify(formData, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
@@ -24,8 +24,45 @@ function App() {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }
+  }*/
 
+  const downloadJson = async () => {
+    const payload = await mapDataset1OptionsToIds(formData)
+    const json = JSON.stringify(payload, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'metadata_wizard.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  
+  const mapDataset1OptionsToIds = async (formData) => {
+    try {
+      const res = await fetch('api/kginfo/datatypes')
+      if (!res.ok) throw new Error(`Error fetching data types: ${res.status}`)
+      const json = await res.json()
+      const types = json.dataTypes || []
+      const labelToId = new Map(types.map((t) => [t.name.toLowerCase(), t.identifier]))
+      const labels = formData.dataset1?.optionsData || []
+      console.log(labels)
+      const mapped = labels.map((val) => {
+          if (typeof val !== 'string') return val
+          const id = labelToId.get(val.toLowerCase())
+          return id || val 
+        })
+      return {
+        ...formData, dataset1: {...(formData.dataset1 || {}), optionsData: mapped },
+      }
+    } catch (e) {
+      console.error('Error mapping dataset1.optionsData to KG ids:', e)
+      return formData
+    }
+    }
+  
   return (
     <div className="body-wrapper">
       <Header/>

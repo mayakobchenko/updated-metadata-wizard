@@ -59,6 +59,9 @@ try:
         dsv_short_title = data.get("dataset1", {}).get("shortTitle", "")
         dsv_title = data.get("dataset1", {}).get("dataTitle", "")
         license_dsv = data.get("dataset1", {}).get("license", "")
+        support_channels = [chan.get('newChannel', '') for chan in data.get(
+            'dataset2', {}).get('supportChannels', [])]
+
         embargo = data.get("dataset1", {}).get("embargo", False)
         if embargo:
             embargo = "https://kg.ebrains.eu/api/instances/897dc2af-405d-4df3-9152-6d9e5cae55d8"
@@ -120,6 +123,7 @@ attributes = {
     "https://openminds.om-i.org/props/shortName": dsv_short_title,
     "https://openminds.om-i.org/props/license":  license_dsv,
     "https://openminds.om-i.org/props/accessibility": embargo,
+    "https://openminds.om-i.org/props/supportChannel": support_channels,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
     "https://openminds.om-i.org/props/dataType": [{"@id": url} for url in data_type_options],
     "https://openminds.om-i.org/props/technique": [{"@id": url} for url in techniques],

@@ -1,3 +1,4 @@
+//this component is not in use, kept for futher development of upload button
 import { DownloadOutlined, UploadOutlined, MenuOutlined } from '@ant-design/icons'
 import { Dropdown, Space } from 'antd'
 import ConfigProvider from './ConfigProvider'
@@ -41,7 +42,7 @@ const DropdownMenu = ({ handleMenuSelection }) => {
               icon={<MenuOutlined />}
               title={'Download metadata JSON'}
           >
-              Download form data
+              Download metadata JSON
           </Dropdown.Button>
       </Space>
     </ConfigProvider>  
