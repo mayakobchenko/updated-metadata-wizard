@@ -61,7 +61,7 @@ try:
         license_dsv = data.get("dataset1", {}).get("license", "")
         support_channels = [chan.get('newChannel', '') for chan in data.get(
             'dataset2', {}).get('supportChannels', [])]
-
+        # funding = [fund.get('funderName', '') for fund in data.get('funding', {}).get('funders', [])]
         embargo = data.get("dataset1", {}).get("embargo", False)
         if embargo:
             embargo = "https://kg.ebrains.eu/api/instances/897dc2af-405d-4df3-9152-6d9e5cae55d8"
@@ -77,6 +77,9 @@ try:
         # data_type_options = data['dataset1']['optionsData']
         data_type_options = data.get('dataset1', {}).get('optionsData', [])
         techniques = data.get('experiments', {}).get('techniques', [])
+        study_targets = data.get('experiments', {}).get('studyTargets', [])
+        preparation_types = data.get(
+            'experiments', {}).get('preparationTypes', [])
 
 
 except Exception as e:
@@ -127,7 +130,9 @@ attributes = {
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
     "https://openminds.om-i.org/props/dataType": [{"@id": url} for url in data_type_options],
     "https://openminds.om-i.org/props/technique": [{"@id": url} for url in techniques],
-    # "https://openminds.om-i.org/props/funding": funding,
+    # "https://openminds.om-i.org/props/funding": funding,  # to fix, dropdown in the kg editor
+    "https://openminds.om-i.org/props/studyTarget": [{"@id": url} for url in study_targets],
+    "https://openminds.om-i.org/props/preparationDesign": [{"@id": url} for url in preparation_types],
 }
 
 data_info = KG_patch(dsv_id, attributes, dsv_id)

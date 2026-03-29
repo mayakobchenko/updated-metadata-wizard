@@ -137,7 +137,7 @@ export default function Experiments({ form, onChange, data }) {
           <Form.Item
             label="Select experimental techniques"
             name={['experiments', 'techniques']}
-            required={false}
+            required={true}
             style={{ flex: 1 }}
             extra="Please add all techniques that apply to the generation of this dataset."
           >
@@ -168,7 +168,6 @@ export default function Experiments({ form, onChange, data }) {
           <Form.Item
             label="Select preparation type"
             name={['experiments', 'preparationTypes']}
-            required
             style={{ flex: 1 }}
             extra="Please consider each of your methods and add all preparation types that apply."
           >

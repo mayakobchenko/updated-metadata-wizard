@@ -224,7 +224,7 @@ const fetchContributors = async () => {
               )}
             </div>
 
-            <Button type="danger" size="small" onClick={() => removeAuthor(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
+            <Button type="danger" size="small" className="remove-text-btn" onClick={() => removeAuthor(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
               Remove
             </Button>
           </div>
@@ -306,6 +306,7 @@ const fetchContributors = async () => {
                   <Form.Item label="Type of contribution">
                     <Select
                         showSearch
+                        mode="multiple"
                         style={{ minWidth: 240 }}
                         value={field.selectedTypeContr} 
                         onChange={(value) => handleContrChange(index, 'selectedTypeContr', value)} 
@@ -325,7 +326,7 @@ const fetchContributors = async () => {
               )}
             </div>
 
-            <Button type="danger" size="small" onClick={() => removeOtherContr(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
+            <Button type="danger" size="small" className="remove-text-btn" onClick={() => removeOtherContr(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
               Remove
             </Button>
           </div>

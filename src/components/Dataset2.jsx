@@ -106,7 +106,7 @@ export default function Dataset2({ form, onChange, data = {}}) {
                 <Input value={field.newChannel} onChange={(e) => handleSupportChannelChange(index, 'newChannel', e.target.value)} placeholder="Enter support channel" />
               </Form.Item>
             </div>
-            <Button type="danger" size="small" onClick={() => removeSupportChannel(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
+            <Button type="danger" size="small" className="remove-text-btn" onClick={() => removeSupportChannel(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
               Remove
             </Button>
           </div>
@@ -144,7 +144,7 @@ export default function Dataset2({ form, onChange, data = {}}) {
                 <Input value={field.newPublication} onChange={(e) => handleRelatedPublicationChange(index, 'newPublication', e.target.value)} placeholder="Enter related publications" />
               </Form.Item>
             </div>
-            <Button type="danger" size="small" onClick={() => removeRelatedPublication(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
+            <Button type="danger" size="small" className="remove-text-btn" onClick={() => removeRelatedPublication(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
               Remove
             </Button>
           </div>
