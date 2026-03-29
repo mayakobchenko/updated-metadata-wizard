@@ -79,7 +79,7 @@ try:
         study_targets = data.get('experiments', {}).get('studyTargets', [])
         preparation_types = data.get(
             'experiments', {}).get('preparationTypes', [])
-
+        print('embargo: ', embargo)
 
 except Exception as e:
     print(json.dumps({"error": str(e)}))
@@ -124,7 +124,7 @@ attributes = {
     "https://openminds.om-i.org/props/fullName": dsv_title,
     "https://openminds.om-i.org/props/shortName": dsv_short_title,
     "https://openminds.om-i.org/props/license":  license_dsv,
-    "https://openminds.om-i.org/props/accessibility": embargo,
+    # "https://openminds.om-i.org/props/accessibility": embargo,
     "https://openminds.om-i.org/props/supportChannel": support_channels,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
     "https://openminds.om-i.org/props/dataType": [{"@id": url} for url in data_type_options],

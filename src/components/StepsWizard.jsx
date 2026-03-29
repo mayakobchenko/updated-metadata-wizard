@@ -38,7 +38,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       dataTitle: skjemaInfo?.nettskjemaInfo?.dataTitle || '',
       briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || '',
       embargo: skjemaInfo?.nettskjemaInfo?.embargo || false,
-      optionsData: skjemaInfo?.nettskjemaInfo?.optionsData || '',
+      optionsData: skjemaInfo?.nettskjemaInfo?.optionsData || [],
       embargoReview: skjemaInfo?.nettskjemaInfo?.embargoReview || false,
       submitJournalName: skjemaInfo?.nettskjemaInfo?.submitJournalName || '',
     },
