@@ -62,12 +62,11 @@ try:
         support_channels = [chan.get('newChannel', '') for chan in data.get(
             'dataset2', {}).get('supportChannels', [])]
         # funding = [fund.get('funderName', '') for fund in data.get('funding', {}).get('funders', [])]
-        embargo = data.get("dataset1", {}).get("embargo", False)
+        embargo = data.get("dataset1", {}).get("embargo", None)
         if embargo:
             embargo = "https://kg.ebrains.eu/api/instances/897dc2af-405d-4df3-9152-6d9e5cae55d8"
             embargo_release_date = data['dataset1']['embargoDate']
         else:
-            embargo = None
             embargo_release_date = None
         # dsv_brief_summary = data.get("dataset1", {}).get("briefSummary", "")
         expappr_uuid = data.get('experiments', {}).get(
@@ -135,6 +134,7 @@ attributes = {
     "https://openminds.om-i.org/props/preparationDesign": [{"@id": url} for url in preparation_types],
 }
 
+print(attributes)
 data_info = KG_patch(dsv_id, attributes, dsv_id)
 
 print(json.dumps(data_info))
