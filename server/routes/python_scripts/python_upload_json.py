@@ -15,7 +15,6 @@ def as_id_list(values):
             elif isinstance(v, str) and v:
                 flat.append(v)
         return [{"@id": v} for v in flat if v]
-    # single string
     if isinstance(values, str) and values:
         return [{"@id": values}]
     return []
@@ -134,7 +133,8 @@ attributes = {
     "https://openminds.om-i.org/props/studyTarget": [{"@id": url} for url in study_targets],
     "https://openminds.om-i.org/props/preparationDesign": [{"@id": url} for url in preparation_types],
     # "https://openminds.om-i.org/props/custodian": [],
-    "https://openminds.om-i.org/props/author": [{"@id": url} for url in authors],
+    # "https://openminds.om-i.org/props/author": [{"@id": url} for url in authors],
+    "https://openminds.om-i.org/props/author": as_id_list(authors),
 }
 
 print(attributes)
