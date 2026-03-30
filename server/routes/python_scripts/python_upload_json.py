@@ -61,7 +61,7 @@ try:
         support_channels = [chan.get('newChannel', '') for chan in data.get(
             'dataset2', {}).get('supportChannels', [])]
         # funding = [fund.get('funderName', '') for fund in data.get('funding', {}).get('funders', [])]
-        embargo = data.get("dataset1", {}).get("embargo", None)
+        embargo = data.get("dataset1", {}).get("embargo", "")
         if embargo:
             embargo = "https://kg.ebrains.eu/api/instances/897dc2af-405d-4df3-9152-6d9e5cae55d8"
             embargo_release_date = data['dataset1']['embargoDate']
@@ -143,7 +143,7 @@ attributes = {
     # "https://openminds.om-i.org/props/author": as_id_list(authors),
     "https://openminds.om-i.org/props/otherContribution": [{"@id": url} for url in contributors],
     "https://openminds.om-i.org/props/homepage": homepage,
-    "https://openminds.om-i.org/props/relatedPublication": relatedPublication,
+    # "https://openminds.om-i.org/props/relatedPublication": relatedPublication,
 }
 
 print(attributes)
