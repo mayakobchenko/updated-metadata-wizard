@@ -78,8 +78,9 @@ try:
         study_targets = data.get('experiments', {}).get('studyTargets', [])
         preparation_types = data.get(
             'experiments', {}).get('preparationTypes', [])
-        authors = [exp.get('selectedAuthor', '')
-                   for exp in data.get('contribution', {}).get('authors', [])]
+        # authors = [exp.get('selectedAuthor', '') for exp in data.get('contribution', {}).get('authors', [])]
+        authors = [exp.get('selectedAuthor', '') for exp in data.get(
+            'contribution', {}).get('authors', []) if exp.get('selectedAuthor', '').strip()]
 
 except Exception as e:
     print(json.dumps({"error": str(e)}))
@@ -133,8 +134,8 @@ attributes = {
     "https://openminds.om-i.org/props/studyTarget": [{"@id": url} for url in study_targets],
     "https://openminds.om-i.org/props/preparationDesign": [{"@id": url} for url in preparation_types],
     # "https://openminds.om-i.org/props/custodian": [],
-    # "https://openminds.om-i.org/props/author": [{"@id": url} for url in authors],
-    "https://openminds.om-i.org/props/author": as_id_list(authors),
+    "https://openminds.om-i.org/props/author": [{"@id": url} for url in authors],
+    # "https://openminds.om-i.org/props/author": as_id_list(authors),
 }
 
 print(attributes)
