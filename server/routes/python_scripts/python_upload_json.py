@@ -81,6 +81,11 @@ try:
         # authors = [exp.get('selectedAuthor', '') for exp in data.get('contribution', {}).get('authors', [])]
         authors = [exp.get('selectedAuthor', '') for exp in data.get(
             'contribution', {}).get('authors', []) if exp.get('selectedAuthor', '').strip()]
+        contributors = [exp.get('selectedOtherContr', '') for exp in data.get(
+            '"contributor"', {}).get('othercontr', []) if exp.get('selectedOtherContr', '').strip()]
+        homepage = data.get("dataset2", {}).get("homePage", "")
+        relatedPublication = [pub.get('newPublication', '') for pub in data.get(
+            'dataset2', {}).get('relatedPublications', [])]
 
 except Exception as e:
     print(json.dumps({"error": str(e)}))
@@ -136,6 +141,9 @@ attributes = {
     # "https://openminds.om-i.org/props/custodian": [],
     "https://openminds.om-i.org/props/author": [{"@id": url} for url in authors],
     # "https://openminds.om-i.org/props/author": as_id_list(authors),
+    "https://openminds.om-i.org/props/otherContribution": [{"@id": url} for url in contributors],
+    "https://openminds.om-i.org/props/homepage": homepage,
+    "https://openminds.om-i.org/props/relatedPublication": relatedPublication,
 }
 
 print(attributes)
