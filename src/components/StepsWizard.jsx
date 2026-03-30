@@ -16,6 +16,13 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const skjemaInfo = useAuthContext()
 
+//to do: test if multiple options coma as an array from nettskjema
+  const normalizeOptionsData = (val) => {
+  if (Array.isArray(val)) return val
+  if (!val) return []
+    return [val]
+  }
+  
   const initialValues = {
     datasetVersionId: skjemaInfo?.datasetVersionId || '',
     contactperson: {
@@ -39,6 +46,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       briefSummary: skjemaInfo?.nettskjemaInfo?.briefSummary || '',
       embargo: skjemaInfo?.nettskjemaInfo?.embargo || false,
       //optionsData: skjemaInfo?.nettskjemaInfo?.optionsData || '',
+      optionsData: normalizeOptionsData(skjemaInfo?.nettskjemaInfo?.optionsData),
       embargoReview: skjemaInfo?.nettskjemaInfo?.embargoReview || false,
       submitJournalName: skjemaInfo?.nettskjemaInfo?.submitJournalName || '',
     },
