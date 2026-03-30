@@ -79,7 +79,8 @@ try:
         study_targets = data.get('experiments', {}).get('studyTargets', [])
         preparation_types = data.get(
             'experiments', {}).get('preparationTypes', [])
-        print('embargo: ', embargo)
+        authors = [exp.get('selectedAuthor', '')
+                   for exp in data.get('contribution', {}).get('authors', [])]
 
 except Exception as e:
     print(json.dumps({"error": str(e)}))
@@ -124,7 +125,7 @@ attributes = {
     "https://openminds.om-i.org/props/fullName": dsv_title,
     "https://openminds.om-i.org/props/shortName": dsv_short_title,
     "https://openminds.om-i.org/props/license":  license_dsv,
-    # "https://openminds.om-i.org/props/accessibility": embargo,
+    "https://openminds.om-i.org/props/accessibility": [{"@id": embargo}],
     "https://openminds.om-i.org/props/supportChannel": support_channels,
     "https://openminds.om-i.org/props/experimentalApproach": [{"@id": url} for url in expappr_uuid],
     "https://openminds.om-i.org/props/dataType": [{"@id": url} for url in data_type_options],
@@ -132,6 +133,8 @@ attributes = {
     # "https://openminds.om-i.org/props/funding": funding,  # to fix, dropdown in the kg editor
     "https://openminds.om-i.org/props/studyTarget": [{"@id": url} for url in study_targets],
     "https://openminds.om-i.org/props/preparationDesign": [{"@id": url} for url in preparation_types],
+    # "https://openminds.om-i.org/props/custodian": [],
+    "https://openminds.om-i.org/props/author": [{"@id": url} for url in authors],
 }
 
 print(attributes)
