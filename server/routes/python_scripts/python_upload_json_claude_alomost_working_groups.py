@@ -278,29 +278,35 @@ if contribution_ids:
 dsv_result = KG_patch(dsv_id, dsv_attributes)
 results.append({"datasetVersion": dsv_result})
 
-# ── 3. create subjects, subject states and subject groups ─────────────────────
+# ── 3. create subjects and subject states ─────────────────────────────────────
+
+# ── subject group builder ─────────────────────────────────────────────────────
 
 
-def build_subject_group(group, subject_uuids, state_uuids, subjects):
+def build_subject_group(group, specimen_list):
     """
-    Build a SubjectGroup node.
-    References all subject states, collects unique species/strain/biosex.
+    Build a SubjectGroup node from a group dict.
+    Collects unique species, strains, biological sexes and subject states
+    from all subjects in the group.
+    Returns (group_uuid, group_node).
     """
     group_uuid = str(uuid4())
     group_name = group.get("name", group_uuid)
+    subjects = group.get("subjects", [])
+    num_subjects = len(subjects)
 
     # collect unique values across all subjects in the group
     all_species = list({s["species"] for s in subjects if s.get("species")})
     all_strains = list({s["strain"] for s in subjects if s.get("strain")})
     all_bio_sex = list({s["bioSex"] for s in subjects if s.get("bioSex")})
+    all_states = [KG_PREFIX + s["_state_uuid"]
+                  for s in subjects if s.get("_state_uuid")]
 
     group_node = {
         "@type":              [f"{T}SubjectGroup"],
         "lookupLabel":        group_name,
         "internalIdentifier": group_name,
-        "quantity":           len(subjects),
-        # link to all subject states in this group
-        "studiedState":       [{"@id": KG_PREFIX + su} for su in state_uuids],
+        "quantity":           num_subjects,
     }
 
     if all_species:
@@ -309,6 +315,8 @@ def build_subject_group(group, subject_uuids, state_uuids, subjects):
         group_node["strain"] = [{"@id": s} for s in all_strains]
     if all_bio_sex:
         group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
+    if all_states:
+        group_node["studiedState"] = [{"@id": s} for s in all_states]
     if group.get("additionalRemarks"):
         group_node["additionalRemarks"] = group["additionalRemarks"]
 
@@ -318,11 +326,14 @@ def build_subject_group(group, subject_uuids, state_uuids, subjects):
 def build_subject_instance(subject):
     """
     Build Subject and SubjectState nodes.
-    Upload strain only if present, otherwise species only.
+    Attaches strain only if present, otherwise only species.
     """
     subject_uuid = str(uuid4())
     state_uuid = str(uuid4())
     subject_id_str = subject.get("subjectID", subject_uuid)
+
+    # store state_uuid on the subject dict so the group builder can reference it
+    subject["_state_uuid"] = state_uuid
 
     subject_node = {
         "@type":              [f"{T}Subject"],
@@ -334,7 +345,8 @@ def build_subject_instance(subject):
     if subject.get("bioSex"):
         subject_node["biologicalSex"] = {"@id": subject["bioSex"]}
 
-    # upload strain only if present — strain implies species in KG
+    # ── species and strain logic ──────────────────────────────────────────────
+    # upload only strain if present (strain implies species in KG)
     # if no strain, upload species only
     if subject.get("strain"):
         subject_node["strain"] = {"@id": subject["strain"]}
@@ -373,53 +385,39 @@ def build_subject_instance(subject):
     return (subject_uuid, subject_node), (state_uuid, state_node)
 
 
+# ── replace the subjects upload section (step 3) with this ───────────────────
+
 subject_metadata = data.get("subjectMetadata", {})
-specimen_list = []   # what we attach to DatasetVersion.studiedSpecimen
+specimen_list = []
 
 if subject_metadata.get("subjectGroups"):
-    # ── GROUPED MODE ──────────────────────────────────────────────────────────
+    # ── GROUPED MODE ─────────────────────────────────────────────────────────
     for group in subject_metadata["subjectGroups"]:
         subjects = group.get("subjects", [])
-        group_subj_uuids = []   # Subject UUIDs for this group
-        group_state_uuids = []   # SubjectState UUIDs for this group
 
-        # step 1 — post all SubjectStates and Subjects for this group
+        # first pass — post all states and subjects, collect state UUIDs
         for subject in subjects:
             (subj_uuid, subj_node), (state_uuid,
                                      state_node) = build_subject_instance(subject)
 
-            # post state first — subject references it
             state_result = KG_post(state_uuid, state_node)
             results.append({"subjectState": state_result})
 
             subj_result = KG_post(subj_uuid, subj_node)
             results.append({"subject": subj_result})
 
-            group_subj_uuids.append(subj_uuid)
-            group_state_uuids.append(state_uuid)
+            specimen_list.append({"@id": KG_PREFIX + subj_uuid})
 
-        # step 2 — build and post the SubjectGroup
-        # now we have all state UUIDs so the group can reference them
-        group_uuid, group_node = build_subject_group(
-            group,
-            group_subj_uuids,
-            group_state_uuids,
-            subjects
-        )
+        # second pass — build and post the group node
+        # (subjects now have _state_uuid set from build_subject_instance)
+        group_uuid, group_node = build_subject_group(group, specimen_list)
         group_result = KG_post(group_uuid, group_node)
         results.append({"subjectGroup": group_result})
         print(
-            f"DEBUG posted SubjectGroup {group_uuid} "
-            f"'{group.get('name')}' with {len(subjects)} subjects",
-            file=sys.stderr
-        )
-
-        # step 3 — add SubjectGroup @id to specimen list
-        # DatasetVersion.studiedSpecimen should reference the GROUP not individual subjects
-        specimen_list.append({"@id": KG_PREFIX + group_uuid})
+            f"DEBUG posted SubjectGroup {group_uuid} with {len(subjects)} subjects", file=sys.stderr)
 
 elif subject_metadata.get("subjects"):
-    # ── FLAT MODE — no groups ─────────────────────────────────────────────────
+    # ── FLAT MODE ─────────────────────────────────────────────────────────────
     for subject in subject_metadata["subjects"]:
         (subj_uuid, subj_node), (state_uuid,
                                  state_node) = build_subject_instance(subject)
@@ -430,20 +428,12 @@ elif subject_metadata.get("subjects"):
         subj_result = KG_post(subj_uuid, subj_node)
         results.append({"subject": subj_result})
 
-        # flat mode — attach individual subjects to DatasetVersion
         specimen_list.append({"@id": KG_PREFIX + subj_uuid})
 
-# ── 4. attach specimen to DatasetVersion ──────────────────────────────────────
-# in grouped mode: specimen_list contains SubjectGroup @ids
-# in flat mode:    specimen_list contains Subject @ids
-
+# ── attach all subjects/groups to dataset version ─────────────────────────────
 if specimen_list:
     attach_result = KG_patch(dsv_id, {"studiedSpecimen": specimen_list})
     results.append({"attachSpecimen": attach_result})
-    print(
-        f"DEBUG attached {len(specimen_list)} specimen to DatasetVersion",
-        file=sys.stderr
-    )
 
 # ── done ──────────────────────────────────────────────────────────────────────
 
