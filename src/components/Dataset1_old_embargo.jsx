@@ -19,7 +19,7 @@ export default function Dataset1({ form, onChange, data }) {
       briefSummary: data.dataset1?.briefSummary || '',
       shortTitle: data.dataset1?.shortTitle || '',
       optionsData: data.dataset1?.optionsData || '',
-      embargo: data.dataset1?.embargo ?? false,
+      embargo: data.dataset1?.embargo || false,
       embargoDate: data.dataset1?.embargoDate || null,
       embargoReview: data.dataset1?.embargoReview || false,
       submitJournalName: data.dataset1?.submitJournalName || '',
@@ -33,18 +33,15 @@ export default function Dataset1({ form, onChange, data }) {
       dataStandart: data.dataset1?.dataStandart || '',
     }}
 
-    const handleValuesChange = (changedValues, allValues) => {
+  const handleValuesChange = (changedValues, allValues) => {
     if (changedValues['dataset1']?.embargo !== undefined) {
-        setEmbargo(changedValues['dataset1'].embargo)
-    }
+    setEmbargo(changedValues['dataset1'].embargo)}
     if (changedValues['dataset1']?.copyright) {
-        setCopyright(changedValues['dataset1'].copyright)
-    }
+    setCopyright(changedValues['dataset1'].copyright)}
     if (changedValues['dataset1']?.copyrightHolder) {
-        setCopyrightHolder(changedValues['dataset1'].copyrightHolder)
-    }
+    setCopyrightHolder(changedValues['dataset1'].copyrightHolder)}
     onChange(allValues)
-    }
+  }
 /*
   const fetchSemanticDataType = async () => {
     try {
@@ -132,31 +129,24 @@ export default function Dataset1({ form, onChange, data }) {
         </AntForm.Item>
 
         <AntForm.Item
-        name={['dataset1', 'embargo']}
-        label="Embargo status:"
-        extra="In case you wish to publish a scientific article before sharing
-        the associated data through EBRAINS, you have the possibility to embargo
-        your data for a certain period of time. Under the embargo period,
-        only some of the metadata (e.g. information about subjects, aims etc.)
-        will be published through EBRAINS, but the original data itself will not be shared.
-        Note that you can request the embargo period for maximum 6 month."
-        >
-        <Radio.Group
-            onChange={e => {
-            const val = e.target.value
-            setEmbargo(val)
-            form.setFieldsValue({ dataset1: { ...form.getFieldValue('dataset1'), embargo: val } })
-            }}
-        >
-            <Radio style={{ padding: '20px' }} value={true}>
-            Yes, embargo dataset
-            </Radio>
-            <Radio style={{ padding: '20px' }} value={false}>
-            No, data can be freely available
-            </Radio>
-        </Radio.Group>
+          name={['dataset1', 'embargo']}
+          label="Embargo status:"
+          valuePropName="checked"
+          extra="In case you wish to publish a scientific article before sharing
+          the associated data through EBRAINS, you have the possibility to embargo
+          your data for a certain period of time. Under the embargo period,
+          only some of the metadata (e.g. information about subjects, aims etc.)
+          will be published through EBRAINS, but the original data itself will not be shared.
+          Note that you can request the embargo period for maximum 6 month.">
+          <div>
+            <Checkbox style={{ padding: '20px' }} checked={embargo} onChange={(e) => setEmbargo(e.target.checked)}>
+              Yes, embargo dataset
+            </Checkbox>
+            <Checkbox style={{ padding: '20px' }} checked={!embargo} onChange={(e) => setEmbargo(!e.target.checked)}>
+              No, data can be freely available
+            </Checkbox>
+          </div>  
         </AntForm.Item>
-              
         {embargo && (
           <AntForm.Item
             label="Intended release date"
@@ -171,8 +161,7 @@ export default function Dataset1({ form, onChange, data }) {
             name={['dataset1', 'submitJournalName']}
             rules={[{ required: initialValues.dataset1.embargoReview, message: 'Please confirm the journal name!' }]}>
             <Input />
-        </AntForm.Item>)}
-              
+          </AntForm.Item>)}
         <AntForm.Item
           name={['dataset1', 'copyright']}
           label="Is this version of the dataset copyrighted?"
