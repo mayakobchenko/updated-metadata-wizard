@@ -13,6 +13,18 @@ router.get('/handedness', getHandedness)
 router.get('/species', getSpecies)
 router.get('/strain', getStrain)
 router.get('/disease', getDisease)
+router.get('/units', getUnits)
+
+async function getUnits(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/UnitOfMeasurement.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ units: JSON.parse(data) })
+  } catch (err) {
+    console.error('Error reading UnitOfMeasurement.json:', err.message)
+    res.status(500).send('Error fetching units')
+  }
+}
 
 async function getDisease(req, res) {
     const filePath = path.join(__dirname, '../data/controlledTerms/Disease.json');

@@ -206,7 +206,6 @@ def build_contribution_nodes(data):
 EMBARGO_ACCESS_ID = KG_PREFIX + "897dc2af-405d-4df3-9152-6d9e5cae55d8"
 FREE_ACCESS_ID = KG_PREFIX + "b2ff7a47-b349-48d7-8ce4-cf51868675f1"
 
-# handle all falsy values: False, None, "", "false", 0
 if embargo is True or embargo == "true":
     accessibility_id = EMBARGO_ACCESS_ID
 else:
@@ -376,13 +375,16 @@ def build_subject_instance(subject, group_uuid=None):
     if subject.get("age"):
         state_node["age"] = {
             "@type": f"{T}QuantitativeValue",
-            "unit":  {"@id": KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
+            "unit":  {"@id": subject.get("ageUnit") or
+                      KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},  # default: year
             "value": subject["age"]
         }
+
     if subject.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
-            "unit":  {"@id": KG_PREFIX + "6e5f9e60-a0d0-4e37-9501-2e8d79fce1e3"},
+            "unit":  {"@id": subject.get("weightUnit") or
+                      KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},  # default: gram
             "value": subject["weight"]
         }
 
