@@ -49,6 +49,7 @@ print(f"DEBUG dsv_id: {dsv_id}", file=sys.stderr)
 
 
 def KG_patch(entry_id, attr):
+    """Patch an existing KG instance."""
     try:
         payload = {**VOCAB, **attr}
         headers = {
@@ -69,6 +70,7 @@ def KG_patch(entry_id, attr):
 
 
 def KG_post(instance_id, attr):
+    """Create a new KG instance. If already exists (409) patch instead."""
     try:
         payload = {**VOCAB, **attr}
         headers = {
@@ -94,7 +96,8 @@ def KG_post(instance_id, attr):
 
 
 def as_id_list(values):
-    """Convert any input to a flat list of @id objects."""
+    """Convert any input to a flat list of @id objects.
+    Handles: string, list of strings, list of lists (from multi-select)."""
     if not values:
         return []
     if isinstance(values, str):
@@ -111,6 +114,7 @@ def as_id_list(values):
 
 
 def as_single_or_list(values):
+    """Return single @id object if one value, list if multiple."""
     items = as_id_list(values)
     if not items:
         return None
@@ -118,99 +122,101 @@ def as_single_or_list(values):
         return items[0]
     return items
 
-# ── extract dataset1 fields ───────────────────────────────────────────────────
+# ── extract fields from form data ─────────────────────────────────────────────
 
 
 dsv_title = data.get("dataset1", {}).get("dataTitle",    "")
 dsv_short_title = data.get("dataset1", {}).get("shortTitle",   "")
 brief_summary = data.get("dataset1", {}).get("briefSummary", "")
-license_id = data.get("dataset1", {}).get("license",      "")
-embargo = data.get("dataset1", {}).get("embargo",      False)
+homepage = data.get("dataset2", {}).get("homePage",     "")
+
+# ── license ───────────────────────────────────────────────────────────────────
+# stored as a KG URL from the license dropdown
+license_id = data.get("dataset1", {}).get("license", "")
+
+# ── embargo ───────────────────────────────────────────────────────────────────
+# embargo is a boolean in the form — map to KG accessibility instance
+embargo = data.get("dataset1", {}).get("embargo", False)
 embargo_date = data.get("dataset1", {}).get("embargoDate") if embargo else None
 
-data_type_list = data.get("dataset1", {}).get("optionsData",  [])
+# KG identifier for "embargoed" accessibility
+EMBARGO_ID = KG_PREFIX + "897dc2af-405d-4df3-9152-6d9e5cae55d8"
+# KG identifier for "free access" accessibility
+FREE_ACCESS_ID = KG_PREFIX + "4fea1c87-1e23-4ffa-8b04-adff47398bb8"
+
+accessibility_id = EMBARGO_ID if embargo else FREE_ACCESS_ID
+
+# ── data types ────────────────────────────────────────────────────────────────
+# optionsData now stores KG URLs (identifiers) fetched from KG
+data_type_list = data.get("dataset1", {}).get("optionsData", [])
 if isinstance(data_type_list, str):
     data_type_list = [data_type_list]
 
-# ── extract dataset2 fields ───────────────────────────────────────────────────
-
-homepage = data.get("dataset2", {}).get("homePage", "")
-
+# ── support channels ──────────────────────────────────────────────────────────
 support_channels = [
     chan.get("newChannel", "")
     for chan in data.get("dataset2", {}).get("supportChannels", [])
     if chan.get("newChannel", "").strip()
 ]
 
-# ── FIXED: experiments are stored under "experiments" key ────────────────────
-experiments = data.get("experiments", {})
-
-experimental_approach = experiments.get("experimentalApproach", [])
-techniques = experiments.get("techniques",            [])
-preparation_types = experiments.get("preparationTypes",      [])
-study_targets = experiments.get("studyTargets",          [])
-
-print(f"DEBUG experimental_approach: {experimental_approach}", file=sys.stderr)
-print(f"DEBUG techniques:            {techniques}",            file=sys.stderr)
-print(f"DEBUG preparation_types:     {preparation_types}",     file=sys.stderr)
-print(f"DEBUG study_targets:         {study_targets}",         file=sys.stderr)
+# ── related publications ──────────────────────────────────────────────────────
+related_publications = [
+    pub.get("newPublication", "")
+    for pub in data.get("dataset2", {}).get("relatedPublications", [])
+    if pub.get("newPublication", "").strip()
+]
 
 # ── authors ───────────────────────────────────────────────────────────────────
-
 authors = [
     exp.get("selectedAuthor", "")
     for exp in data.get("contribution", {}).get("authors", [])
     if exp.get("selectedAuthor", "").strip()
 ]
 
-# ── FIXED: other contributors — build Contribution nodes with @type ───────────
-# otherContribution in openMINDS is NOT a list of @id Person links
-# it is a list of Contribution instances with contributor + contributionType
+# ── other contributors ────────────────────────────────────────────────────────
+contributors = [
+    exp.get("selectedOtherContr", "")
+    for exp in data.get("contribution", {}).get("contributor", {}).get("othercontr", [])
+    if exp.get("selectedOtherContr", "").strip()
+]
 
+# ── experimental approaches ───────────────────────────────────────────────────
+# stored in experimental_approach.addExperiment[].selectedExpAppr (list from multi-select)
+expappr_values = []
+for exp in data.get("experimental_approach", {}).get("addExperiment", []):
+    val = exp.get("selectedExpAppr", [])
+    if isinstance(val, list):
+        expappr_values.extend(val)
+    elif isinstance(val, str) and val:
+        expappr_values.append(val)
 
-def build_contribution_nodes(data):
-    """
-    Build Contribution instances for other contributors.
-    Each contributor entry has selectedOtherContr (Person @id)
-    and contributionTypes (list of ContributionType @ids).
-    Returns list of (uuid, contribution_node) tuples.
-    """
-    contributions = []
-    othercontr_list = data.get("contribution", {}) \
-                          .get("contributor", {}) \
-                          .get("othercontr", [])
+# ── preparation types ─────────────────────────────────────────────────────────
+prep_values = [
+    p
+    for entry in data.get("experimental_approach", {}).get("addPreparation", [])
+    for p in (entry.get("selectedPrepType") or [])
+    if p
+]
 
-    for entry in othercontr_list:
-        person_id = entry.get("selectedOtherContr", "").strip()
-        if not person_id:
-            continue
-        contribution_types = entry.get("contributionTypes", [])
+# ── study targets ─────────────────────────────────────────────────────────────
+# support both new studyTargetEntries and old flat studyTargets list
+study_target_values = []
+for entry in data.get("experimental_approach", {}).get("studyTargetEntries", []):
+    study_target_values.extend(entry.get("instances") or [])
+if not study_target_values:
+    study_target_values = data.get(
+        "experimental_approach", {}).get("studyTargets", [])
 
-        contrib_uuid = str(uuid4())
-        contrib_node = {
-            "@type":             [f"{T}Contribution"],
-            "contributor":       {"@id": person_id},
-            "contributionType":  [{"@id": ct} for ct in contribution_types if ct],
-        }
-        contributions.append((contrib_uuid, contrib_node))
-
-    return contributions
-
-
-# ── accessibility ─────────────────────────────────────────────────────────────
-# controlled term UUIDs from the KG
-EMBARGO_ACCESS_ID = KG_PREFIX + "897dc2af-405d-4df3-9152-6d9e5cae55d8"  # embargoed
-FREE_ACCESS_ID = KG_PREFIX + "1a940e61-4388-4e2e-8e7e-7e35b7fbd88a"  # free access
-
-accessibility_id = EMBARGO_ACCESS_ID if embargo else FREE_ACCESS_ID
-
+print(f"DEBUG expappr_values:      {expappr_values}",      file=sys.stderr)
+print(f"DEBUG prep_values:         {prep_values}",         file=sys.stderr)
+print(f"DEBUG study_target_values: {study_target_values}", file=sys.stderr)
 print(f"DEBUG data_type_list:      {data_type_list}",      file=sys.stderr)
 print(f"DEBUG authors:             {authors}",             file=sys.stderr)
 print(f"DEBUG embargo:             {embargo}",             file=sys.stderr)
-print(f"DEBUG accessibility_id:    {accessibility_id}",   file=sys.stderr)
-print(f"DEBUG license_id:          {license_id}",         file=sys.stderr)
+print(f"DEBUG license_id:          {license_id}",          file=sys.stderr)
 
 # ── build dataset version attributes ─────────────────────────────────────────
+# property names are SHORT because @vocab resolves them via @context
 
 dsv_attributes = {
     "@type": [f"{T}DatasetVersion"]
@@ -226,62 +232,59 @@ if homepage:
     dsv_attributes["homepage"] = homepage
 if support_channels:
     dsv_attributes["supportChannel"] = support_channels
+if related_publications:
+    dsv_attributes["relatedPublication"] = related_publications
+
+# ── license — stored as KG URL, wrap in @id ──────────────────────────────────
 if license_id:
     dsv_attributes["license"] = {"@id": license_id}
 
-# accessibility — always set
+# ── accessibility — always set (embargoed or free) ────────────────────────────
 dsv_attributes["accessibility"] = {"@id": accessibility_id}
 
+# ── embargo release date ──────────────────────────────────────────────────────
 if embargo_date:
     dsv_attributes["releaseDate"] = embargo_date
+
+# ── data types — already KG URLs from SemanticDataType fetch ─────────────────
 if data_type_list:
     dsv_attributes["dataType"] = [{"@id": u} for u in data_type_list]
+
+# ── experimental approach ─────────────────────────────────────────────────────
+exp_appr = as_single_or_list(expappr_values)
+if exp_appr:
+    dsv_attributes["experimentalApproach"] = exp_appr
+
+# ── preparation design ────────────────────────────────────────────────────────
+if prep_values:
+    dsv_attributes["preparationDesign"] = as_id_list(prep_values)
+
+# ── study targets ─────────────────────────────────────────────────────────────
+if study_target_values:
+    dsv_attributes["studyTarget"] = as_id_list(study_target_values)
+
+# ── authors ───────────────────────────────────────────────────────────────────
 if authors:
     dsv_attributes["author"] = as_id_list(authors)
 
-# experimental fields — now reading from correct "experiments" key
-if experimental_approach:
-    exp_appr = as_single_or_list(experimental_approach)
-    if exp_appr:
-        dsv_attributes["experimentalApproach"] = exp_appr
-if techniques:
-    dsv_attributes["technique"] = as_id_list(techniques)
-if preparation_types:
-    dsv_attributes["preparationDesign"] = as_id_list(preparation_types)
-if study_targets:
-    dsv_attributes["studyTarget"] = as_id_list(study_targets)
+# ── other contributors ────────────────────────────────────────────────────────
+if contributors:
+    dsv_attributes["otherContribution"] = as_id_list(contributors)
 
 print(
     f"DEBUG dsv_attributes:\n{json.dumps(dsv_attributes, indent=2)}", file=sys.stderr)
 
-# ── results collector ─────────────────────────────────────────────────────────
+# ── 1. patch dataset version ──────────────────────────────────────────────────
 
 results = []
-
-# ── 1. post Contribution instances first ─────────────────────────────────────
-# they need to exist before we can reference them in DatasetVersion
-contribution_nodes = build_contribution_nodes(data)
-contribution_ids = []
-
-for contrib_uuid, contrib_node in contribution_nodes:
-    contrib_result = KG_post(contrib_uuid, contrib_node)
-    results.append({"contribution": contrib_result})
-    contribution_ids.append({"@id": KG_PREFIX + contrib_uuid})
-    print(f"DEBUG posted Contribution {contrib_uuid}", file=sys.stderr)
-
-# add contribution references to DatasetVersion
-if contribution_ids:
-    dsv_attributes["otherContribution"] = contribution_ids
-
-# ── 2. patch dataset version ──────────────────────────────────────────────────
-
 dsv_result = KG_patch(dsv_id, dsv_attributes)
 results.append({"datasetVersion": dsv_result})
 
-# ── 3. create subjects and subject states ─────────────────────────────────────
+# ── 2. create subjects and subject states ─────────────────────────────────────
 
 
 def collect_all_subjects(data):
+    """Extract all subjects from flat or grouped mode of Subjects.jsx."""
     subject_metadata = data.get("subjectMetadata", {})
     if subject_metadata.get("subjects"):
         return subject_metadata["subjects"]
@@ -294,10 +297,12 @@ def collect_all_subjects(data):
 
 
 def build_subject_instance(subject):
+    """Build Subject and SubjectState nodes using om-i.org types."""
     subject_uuid = str(uuid4())
     state_uuid = str(uuid4())
     subject_id_str = subject.get("subjectID", subject_uuid)
 
+    # ── Subject ───────────────────────────────────────────────────────────────
     subject_node = {
         "@type":              [f"{T}Subject"],
         "lookupLabel":        subject_id_str,
@@ -311,6 +316,7 @@ def build_subject_instance(subject):
     if subject.get("strain"):
         subject_node["strain"] = {"@id": subject["strain"]}
 
+    # ── SubjectState ──────────────────────────────────────────────────────────
     state_node = {
         "@type":              [f"{T}SubjectState"],
         "lookupLabel":        subject_id_str + "_state",
@@ -325,12 +331,14 @@ def build_subject_instance(subject):
     if subject.get("age"):
         state_node["age"] = {
             "@type": f"{T}QuantitativeValue",
+            # year UUID
             "unit":  {"@id": KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
             "value": subject["age"]
         }
     if subject.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
+            # kg UUID
             "unit":  {"@id": KG_PREFIX + "6e5f9e60-a0d0-4e37-9501-2e8d79fce1e3"},
             "value": subject["weight"]
         }
@@ -345,6 +353,7 @@ for subject in subjects:
     (subj_uuid, subj_node), (state_uuid,
                              state_node) = build_subject_instance(subject)
 
+    # post state first — subject node references it by @id
     state_result = KG_post(state_uuid, state_node)
     results.append({"subjectState": state_result})
 
@@ -353,7 +362,7 @@ for subject in subjects:
 
     specimen_list.append({"@id": KG_PREFIX + subj_uuid})
 
-# ── 4. attach subjects to dataset version ─────────────────────────────────────
+# ── 3. attach subjects to dataset version ─────────────────────────────────────
 
 if specimen_list:
     attach_result = KG_patch(dsv_id, {"studiedSpecimen": specimen_list})
