@@ -26,140 +26,110 @@ const newGroup = (index) => ({
 const SubjectRow = ({
   field, index, onRemove, onDuplicate, onChange: onRowChange, label,
   biosex, agecategory, species, strainData, diseaseData, handedness,
+  selectBaseProps, subjectIdWidth, selectPercent, percentAge, smallInputPercent
 }) => {
   // filter strain by selected species
   const filteredStrain = field.species
     ? strainData.filter(s => s.species === field.species)
     : []
 
-  // shared select props — no getPopupContainer to avoid dropdown blocking
-  const sel = {
-    showSearch:           true,
-    optionFilterProp:     'children',
-    popupMatchSelectWidth: false,
-    style:                { width: '100%' },
-  }
-
   return (
-    <div style={{ marginBottom: 24, paddingBottom: 12, borderBottom: '1px solid #f0f0f0' }}>
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: `0 0 ${subjectIdWidth}`, minWidth: 0 }}>
+          <span className="subject-subtitle" style={{ whiteSpace: 'nowrap', marginRight: 8 }}>
+            {label ?? `Subject ${index + 1}`}, id:
+          </span>
+          <div style={{ flex: '1 0 auto', minWidth: 0 }}>
+            <Form.Item noStyle>
+              <Input
+                value={field.subjectID}
+                onChange={(e) => onRowChange(index, 'subjectID', e.target.value)}
+                placeholder="Generic id"
+              />
+            </Form.Item>
+          </div>
+          <div style={{ flex: '0 0 auto', marginLeft: 8, display: 'flex', gap: 6 }}>
+            <Button type="text" onClick={() => onRemove(index)} className="remove-text-btn">
+              Remove
+            </Button>
+            <Button type="text" onClick={() => onDuplicate(index)} className="duplicate-text-btn">
+              Duplicate
+            </Button>
+          </div>
+        </div>
 
-      {/* ── subject ID + action buttons ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span className="subject-subtitle" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {label ?? `Subject ${index + 1}`}, id:
-        </span>
-        <Input
-          value={field.subjectID}
-          onChange={(e) => onRowChange(index, 'subjectID', e.target.value)}
-          placeholder="Generic id"
-          style={{ flex: '1 1 200px', maxWidth: 300 }}
-        />
-        <Button type="text" onClick={() => onRemove(index)} className="remove-text-btn">
-          Remove
-        </Button>
-        <Button type="text" onClick={() => onDuplicate(index)} className="duplicate-text-btn">
-          Duplicate
-        </Button>
-      </div>
+        <div style={{ display: 'flex', gap: 6, flex: '1 1 auto', minWidth: 0, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <Form.Item label="Sex" required style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+            <Select {...selectBaseProps} value={field.bioSex} onChange={(v) => onRowChange(index, 'bioSex', v)} placeholder="bio sex" style={{ width: '100%' }}>
+              {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-      {/* ── attribute row ── */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <Form.Item label="Age category" required style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+            <Select {...selectBaseProps} value={field.ageCategory} onChange={(v) => onRowChange(index, 'ageCategory', v)} placeholder="age category" style={{ width: '100%' }}>
+              {agecategory.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-        <Form.Item label="Sex" required style={{ flex: '0 0 100px', marginBottom: 0 }}>
-          <Select
-            {...sel}
-            value={field.bioSex || undefined}
-            onChange={(v) => onRowChange(index, 'bioSex', v)}
-            placeholder="sex"
-          >
-            {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
+          <Form.Item label="Species" required style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
+            <Select
+              {...selectBaseProps}
+              value={field.species}
+              onChange={(v) => {
+                // clear strain when species changes
+                onRowChange(index, 'species', v)
+                onRowChange(index, 'strain', '')
+              }}
+              placeholder="species"
+              style={{ width: '100%' }}
+            >
+              {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-        <Form.Item label="Age category" required style={{ flex: '0 0 160px', marginBottom: 0 }}>
-          <Select
-            {...sel}
-            value={field.ageCategory || undefined}
-            onChange={(v) => onRowChange(index, 'ageCategory', v)}
-            placeholder="age category"
-          >
-            {agecategory.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
+          <Form.Item label="Strain" style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+            <Select
+              {...selectBaseProps}
+              value={field.strain || undefined}
+              onChange={(v) => onRowChange(index, 'strain', v)}
+              placeholder={field.species ? 'select strain' : 'select species first'}
+              disabled={!field.species || filteredStrain.length === 0}
+              style={{ width: '100%' }}
+            >
+              {filteredStrain.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-        <Form.Item label="Species" required style={{ flex: '0 0 160px', marginBottom: 0 }}>
-          <Select
-            {...sel}
-            value={field.species || undefined}
-            onChange={(v) => {
-              onRowChange(index, 'species', v)
-              onRowChange(index, 'strain', '')
-            }}
-            placeholder="species"
-          >
-            {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
+          <Form.Item label="Age" style={{ flex: `0 0 ${smallInputPercent}`, minWidth: 0, marginBottom: 0 }}>
+            <Input value={field.age} onChange={(e) => onRowChange(index, 'age', e.target.value)} placeholder="age" />
+          </Form.Item>
 
-        <Form.Item label="Strain" style={{ flex: '0 0 160px', marginBottom: 0 }}>
-          <Select
-            {...sel}
-            value={field.strain || undefined}
-            onChange={(v) => onRowChange(index, 'strain', v)}
-            placeholder={field.species ? (filteredStrain.length ? 'strain' : 'none available') : 'select species first'}
-            disabled={!field.species || filteredStrain.length === 0}
-          >
-            {filteredStrain.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
+          <Form.Item label="Weight" style={{ flex: `0 0 ${smallInputPercent}`, minWidth: 0, marginBottom: 0 }}>
+            <Input value={field.weight} onChange={(e) => onRowChange(index, 'weight', e.target.value)} placeholder="weight" />
+          </Form.Item>
 
-        <Form.Item label="Age" style={{ flex: '0 0 70px', marginBottom: 0 }}>
-          <Input
-            value={field.age}
-            onChange={(e) => onRowChange(index, 'age', e.target.value)}
-            placeholder="age"
-          />
-        </Form.Item>
+          <Form.Item label="Pathology" style={{ flex: `0 0 ${selectPercent}`, minWidth: 0, marginBottom: 0 }}>
+            <Select {...selectBaseProps} value={field.disease} onChange={(v) => onRowChange(index, 'disease', v)} style={{ width: '100%' }}>
+              {diseaseData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-        <Form.Item label="Weight" style={{ flex: '0 0 70px', marginBottom: 0 }}>
-          <Input
-            value={field.weight}
-            onChange={(e) => onRowChange(index, 'weight', e.target.value)}
-            placeholder="weight"
-          />
-        </Form.Item>
+          <Form.Item label="Handedness" style={{ flex: `0 0 ${percentAge}`, minWidth: 0, marginBottom: 0 }}>
+            <Select {...selectBaseProps} value={field.handedness} onChange={(v) => onRowChange(index, 'handedness', v)} placeholder="handedness" style={{ width: '100%' }}>
+              {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-        <Form.Item label="Pathology" style={{ flex: '0 0 140px', marginBottom: 0 }}>
-          <Select
-            {...sel}
-            value={field.disease || undefined}
-            onChange={(v) => onRowChange(index, 'disease', v)}
-            placeholder="pathology"
-          >
-            {diseaseData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
-
-        <Form.Item label="Handedness" style={{ flex: '0 0 120px', marginBottom: 0 }}>
-          <Select
-            {...sel}
-            value={field.handedness || undefined}
-            onChange={(v) => onRowChange(index, 'handedness', v)}
-            placeholder="handedness"
-          >
-            {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
-
-        {/* ── additional remarks — inline, short ── */}
-        <Form.Item label="Remarks" style={{ flex: '1 1 200px', marginBottom: 0 }}>
-          <Input
-            value={field.additionalRemarks || ''}
-            onChange={(e) => onRowChange(index, 'additionalRemarks', e.target.value)}
-            placeholder="additional remarks..."
-          />
-        </Form.Item>
-
+          <Form.Item label="Additional remarks" style={{ flex: '1 0 100%', minWidth: 0, marginBottom: 0 }}>
+            <TextArea
+              value={field.additionalRemarks || ''}
+              onChange={(e) => onRowChange(index, 'additionalRemarks', e.target.value)}
+              placeholder="Any additional remarks about this subject..."
+              autoSize={{ minRows: 1, maxRows: 3 }}
+            />
+          </Form.Item>
+        </div>
       </div>
     </div>
   )
@@ -212,11 +182,23 @@ export default function Subjects({ form, onChange, data = {} }) {
   const emit = (patch) =>
     onChange({ subjectMetadata: { ...data.subjectMetadata, ...patch } })
 
-  const rowProps = {
-    biosex, agecategory, species, strainData, diseaseData, handedness,
+  const subjectIdWidth    = '36%'
+  const selectPercent     = '14%'
+  const percentAge        = '10%'
+  const smallInputPercent = '6%'
+  const dropdownStyle     = { minWidth: 'max-content', whiteSpace: 'nowrap' }
+  const selectBaseProps   = {
+    showSearch: true,
+    popupMatchSelectWidth: false,
+    dropdownStyle,
+    getPopupContainer: (t) => t?.parentElement || document.body
   }
 
-  // ── mode switch ───────────────────────────────────────────────────────────
+  const rowProps = {
+    biosex, agecategory, species, strainData, diseaseData, handedness,
+    selectBaseProps, subjectIdWidth, selectPercent, percentAge, smallInputPercent
+  }
+
   const handleModeChange = (e) => {
     const next = e.target.value
     setMode(next)
@@ -255,9 +237,7 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   const handleSubjectChange = (i, field, value) => {
-    const updated = subjectsData.map((s, idx) =>
-      idx === i ? { ...s, [field]: value } : s
-    )
+    const updated = subjectsData.map((s, idx) => idx === i ? { ...s, [field]: value } : s)
     setSubjectData(updated)
     emit({ subjects: updated })
   }
@@ -298,7 +278,7 @@ export default function Subjects({ form, onChange, data = {} }) {
   const duplicateSubjectInGroup = (gi, si) =>
     updateGroups(groups.map((g, i) => {
       if (i !== gi) return g
-      const copy     = { ...g.subjects[si], id: Date.now() + Math.random() }
+      const copy = { ...g.subjects[si], id: Date.now() + Math.random() }
       const subjects = [...g.subjects.slice(0, si + 1), copy, ...g.subjects.slice(si + 1)]
       return { ...g, subjects }
     }))
@@ -308,13 +288,13 @@ export default function Subjects({ form, onChange, data = {} }) {
       if (i !== gi) return g
       const subjects = g.subjects.map((s, j) => {
         if (j !== si) return s
+        // clear strain when species changes within a group subject
         if (field === 'species') return { ...s, species: value, strain: '' }
         return { ...s, [field]: value }
       })
       return { ...g, subjects }
     }))
 
-  // ── render ────────────────────────────────────────────────────────────────
   return (
     <div>
       <p className="step-title">Subjects</p>
@@ -343,12 +323,7 @@ export default function Subjects({ form, onChange, data = {} }) {
               />
             ))}
             <div style={{ textAlign: 'center', margin: '20px 0' }}>
-              <Button
-                type="dashed"
-                onClick={addNewSubject}
-                style={{ width: '30%' }}
-                className="add-contributor-button"
-              >
+              <Button type="dashed" onClick={addNewSubject} style={{ width: '30%' }} className="add-contributor-button">
                 Add new subject
               </Button>
             </div>
@@ -362,11 +337,11 @@ export default function Subjects({ form, onChange, data = {} }) {
               <div
                 key={group.id}
                 style={{
-                  border:       '1px solid #d9d9d9',
+                  border: '1px solid #d9d9d9',
                   borderRadius: 8,
-                  padding:      '16px 20px',
+                  padding: '16px 20px',
                   marginBottom: 24,
-                  background:   '#fafafa'
+                  background: '#fafafa'
                 }}
               >
                 {/* group header */}
@@ -392,15 +367,19 @@ export default function Subjects({ form, onChange, data = {} }) {
                 </div>
 
                 {/* group additional remarks */}
-                <Form.Item label="Group additional remarks" style={{ marginBottom: 16 }}>
-                  <Input
+                <Form.Item
+                  label="Group additional remarks"
+                  style={{ marginBottom: 16 }}
+                >
+                  <TextArea
                     value={group.additionalRemarks || ''}
                     onChange={(e) => updateGroupRemarks(gi, e.target.value)}
                     placeholder="Any additional remarks about this group..."
+                    autoSize={{ minRows: 1, maxRows: 3 }}
                   />
                 </Form.Item>
 
-                {/* subjects */}
+                {/* subjects in group */}
                 {group.subjects.map((field, si) => (
                   <SubjectRow
                     key={field.id}
@@ -423,12 +402,7 @@ export default function Subjects({ form, onChange, data = {} }) {
             ))}
 
             <div style={{ textAlign: 'center', margin: '20px 0' }}>
-              <Button
-                type="dashed"
-                onClick={addGroup}
-                style={{ width: '30%' }}
-                className="add-contributor-button"
-              >
+              <Button type="dashed" onClick={addGroup} style={{ width: '30%' }} className="add-contributor-button">
                 + Add new group
               </Button>
             </div>
