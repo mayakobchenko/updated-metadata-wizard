@@ -2,6 +2,7 @@ import fetchControlledTerms from './fetchControlledTerms.js'
 import {fetchCoreSchemaInstances} from './fetchCoreSchemaInstances.js'
 import { fetchLicenses } from './fetchLicenses.js'
 import fetchStudyTargets from './fetchStudyTargets.js'
+import fetchTechniques from './fetchTechniques.js'
 
 const configObject = [
     {
@@ -32,6 +33,7 @@ export default async function fetchDataFromKg() {
         await fetchCoreSchemaInstances(configObject)
         await fetchControlledTerms()
         await fetchStudyTargets()
+        await fetchTechniques()
     } catch (error) {
         console.log("error running fetchCoreSchemaInstances", error)
     }

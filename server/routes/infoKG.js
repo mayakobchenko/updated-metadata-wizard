@@ -21,11 +21,21 @@ router.get('/studytargets', getStudyTargets)
 router.get('/datatypes', getSemanticDataTypes)
 router.get('/techniques', getTechniques)
 
-
 const OPENMINDS_VOCAB = "https://openminds.ebrains.eu/vocab"
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT = "v3/instances"
 const QUERY_PARAMS = ["stage=RELEASED", "space=common", "type=https://openminds.ebrains.eu/core/"]
+
+async function getTechniques(req, res) {
+  const filePath = path.join(__dirname, '../data/techniques/techniques.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ techniques: JSON.parse(data) })
+  } catch (err) {
+    console.error('Error reading techniques.json:', err.message)
+    res.status(500).send('Error fetching techniques')
+  }
+}
 
 //this route can be used for direct fetching from KG, not used at the moment
 async function getContributors(req, res) {
@@ -139,7 +149,7 @@ async function getPreparationTypes(req, res) {
     console.error('Error fetching preparation types', error.message)
     res.status(500).send('Error fetching preparation types from backend')}
 }  
-
+/*
 async function getTechniques(req, res) {
   const filePath = path.join(__dirname, '../data/controlledTerms/Technique.json')
   try {
@@ -153,7 +163,7 @@ async function getTechniques(req, res) {
   } catch (error) {
     console.error('Error fetching techniques', error.message)
     res.status(500).send('Error fetching techniques from backend')}
-}
+}*/
 
 async function getLicense (req, res) {
   const filePath = path.join(__dirname, '../data/kg-instances/Licenses.json')
