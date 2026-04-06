@@ -559,24 +559,7 @@ export default function Subjects({ form, onChange, data = {} }) {
       const flat = groups.flatMap(g => g.subjects)
       setSubjectData(flat); emit({ subjects: flat, subjectGroups: undefined })
     }
-    }
-    
-    const findSubjectById = (id) => {
-        if (!id) return null
-
-        // flat subjects
-        const flat = subjectsData.find(s => s.id === id)
-        if (flat) return flat
-
-        // grouped subjects
-        for (const g of groups) {
-            const found = g.subjects.find(s => s.id === id)
-            if (found) return found
-        }
-
-        return null
-    }
-
+  }
 
   // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {
@@ -626,55 +609,14 @@ export default function Subjects({ form, onChange, data = {} }) {
     }))
 
   // ── flat tissue handlers ──────────────────────────────────────────────────
-const handleTissueSampleChange = (i, fieldOrPatch, value) => {
-  let patchFieldOrPatch = fieldOrPatch
-  let patchValue = value
-
-  // Auto-fill when a sample is linked to a subject
-  if (typeof fieldOrPatch === 'string' && fieldOrPatch === 'linkedSubjectId') {
-    const subject = findSubjectById(value)
-
-    if (subject) {
-      const pathologyFromSubject = [
-        ...(subject.disease || []),
-        ...(subject.diseaseModel || []),
-      ]
-
-      patchFieldOrPatch = {
-        linkedSubjectId: value,
-
-        // copy core fields
-        species: subject.species || '',
-        strain: subject.strain || '',
-        biologicalSex: subject.bioSex || '',
-
-        // copy age/weight if present
-        age: subject.age || '',
-        ageUnit: subject.ageUnit || '',
-        weight: subject.weight || '',
-        weightUnit: subject.weightUnit || '',
-
-        // pathology on sample comes from subject disease + diseaseModel
-        pathology: pathologyFromSubject,
-      }
-      patchValue = undefined
-    } else {
-      // just set the link if subject cannot be found
-      patchFieldOrPatch = { linkedSubjectId: value }
-      patchValue = undefined
-    }
+  const handleTissueSampleChange = (i, fieldOrPatch, value) => {
+    const updated = tissueSamples.map((s, idx) => {
+      if (idx !== i) return s
+      if (typeof fieldOrPatch === 'object') return { ...s, ...fieldOrPatch }
+      return { ...s, [fieldOrPatch]: value }
+    })
+    setTissueSamples(updated); emit({ tissueSamples: updated })
   }
-
-  const updated = tissueSamples.map((s, idx) => {
-    if (idx !== i) return s
-    if (typeof patchFieldOrPatch === 'object') return { ...s, ...patchFieldOrPatch }
-    return { ...s, [patchFieldOrPatch]: patchValue }
-  })
-
-  setTissueSamples(updated)
-  emit({ tissueSamples: updated })
-}
-
 
   const addTissueSample    = () => { const u = [...tissueSamples, newTissueSample()]; setTissueSamples(u); emit({ tissueSamples: u }) }
   const removeTissueSample = (i) => { const u = tissueSamples.filter((_, idx) => idx !== i); setTissueSamples(u); emit({ tissueSamples: u }) }
@@ -702,57 +644,16 @@ const handleTissueSampleChange = (i, fieldOrPatch, value) => {
     const copy = { ...c.samples[si], id: Date.now() + Math.random() }
     return { ...c, samples: [...c.samples.slice(0, si + 1), copy, ...c.samples.slice(si + 1)] }
   }))
-  
-const handleCollectionSampleChange = (ci, si, fieldOrPatch, value) =>
-  updateCollections(
-    tissueCollections.map((c, i) => {
+  const handleCollectionSampleChange = (ci, si, fieldOrPatch, value) =>
+    updateCollections(tissueCollections.map((c, i) => {
       if (i !== ci) return c
-
       const samples = c.samples.map((s, j) => {
         if (j !== si) return s
-
-        let patchFieldOrPatch = fieldOrPatch
-        let patchValue = value
-
-        // Auto-fill for collection sample when linked to subject
-        if (typeof fieldOrPatch === 'string' && fieldOrPatch === 'linkedSubjectId') {
-          const subject = findSubjectById(value)
-
-          if (subject) {
-            const pathologyFromSubject = [
-              ...(subject.disease || []),
-              ...(subject.diseaseModel || []),
-            ]
-
-            patchFieldOrPatch = {
-              linkedSubjectId: value,
-
-              species: subject.species || '',
-              strain: subject.strain || '',
-              biologicalSex: subject.bioSex || '',
-
-              age: subject.age || '',
-              ageUnit: subject.ageUnit || '',
-              weight: subject.weight || '',
-              weightUnit: subject.weightUnit || '',
-
-              pathology: pathologyFromSubject,
-            }
-            patchValue = undefined
-          } else {
-            patchFieldOrPatch = { linkedSubjectId: value }
-            patchValue = undefined
-          }
-        }
-
-        if (typeof patchFieldOrPatch === 'object') return { ...s, ...patchFieldOrPatch }
-        return { ...s, [patchFieldOrPatch]: patchValue }
+        if (typeof fieldOrPatch === 'object') return { ...s, ...fieldOrPatch }
+        return { ...s, [fieldOrPatch]: value }
       })
-
       return { ...c, samples }
-    })
-  )
-
+    }))
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
