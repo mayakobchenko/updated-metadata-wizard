@@ -15,6 +15,64 @@ router.get('/strain', getStrain)
 router.get('/disease', getDisease)
 router.get('/units', getUnits)
 
+router.get('/diseasemodel',          getDiseaseModel)
+router.get('/subjectattribute',      getSubjectAttribute)
+router.get('/tissuesampletype',      getTissueSampleType)
+router.get('/laterality',            getLaterality)
+router.get('/origin',                getOrigin)
+router.get('/tissuesampleattribute', getTissueSampleAttribute)
+
+async function getDiseaseModel(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/DiseaseModel.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ diseaseModel: JSON.parse(data) })
+  } catch (err) { res.status(500).send('Error fetching disease models') }
+}
+
+async function getTissueSampleType(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/TissueSampleType.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ tissueSampleType: JSON.parse(data) })
+  } catch (err) { res.status(500).send('Error fetching tissue sample types') }
+}
+
+async function getLaterality(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/Laterality.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ laterality: JSON.parse(data) })
+  } catch (err) { res.status(500).send('Error fetching laterality') }
+}
+
+// SubjectAttribute and TissueSampleAttribute and Origin
+// need to be fetched from KG — add to fetchControlledTerms.js:
+async function getSubjectAttribute(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/SubjectAttribute.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ subjectAttribute: JSON.parse(data) })
+  } catch (err) { res.status(500).send('Error fetching subject attributes') }
+}
+
+async function getTissueSampleAttribute(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/TissueSampleAttribute.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    res.status(200).json({ tissueSampleAttribute: JSON.parse(data) })
+  } catch (err) { res.status(500).send('Error fetching tissue sample attributes') }
+}
+
+async function getOrigin(req, res) {
+  const filePath = path.join(__dirname, '../data/controlledTerms/CellType.json')
+  try {
+    const data = await readFile(filePath, 'utf-8')
+    // origin can be UBERONParcellation or CellType — serve CellType for now
+    res.status(200).json({ origin: JSON.parse(data) })
+  } catch (err) { res.status(500).send('Error fetching origin') }
+}
+
 async function getUnits(req, res) {
   const filePath = path.join(__dirname, '../data/controlledTerms/UnitOfMeasurement.json')
   try {

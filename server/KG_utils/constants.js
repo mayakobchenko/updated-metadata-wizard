@@ -35,6 +35,16 @@ export const studyTargetTerms = [
 // ParcellationEntityVersion → atlas space, thousands of entries
 // CustomAnatomicalEntity   → dataset-specific, not a global controlled term
 // TermSuggestion           → dataset-specific, not a global controlled term
+
+export const tissueOrigin = [
+  "Organ",
+  "CellType",
+  "OrganismSubstance"
+]
+export const Pathology = [
+  "Disease",
+  "DiseaseModel",
+]
 export const subjectProperties = [
   "BiologicalSex",
   "AgeCategory",
@@ -46,19 +56,18 @@ export const subjectProperties = [
   "Disease",
   "DiseaseModel",
   "UnitOfMeasurement",
-  "TissueSampleType",
   "PreparationType",
 ]
 
 export const Techniques = [
   "AnalysisTechnique",
-  "MRIPulseSequence",
-  "MRIWeighting",
+  //"MRIPulseSequence",
+  //"MRIWeighting",
   "StimulationApproach",
   "StimulationTechnique",
   "Technique"
 ]
-  //"Technique",
+
 export const keywordSet = [
         "ActionStatusType",
         "AgeCategory",

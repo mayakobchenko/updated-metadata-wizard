@@ -29,8 +29,10 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
 export default async function fetchControlledTerms() {
     const requestOptions = await getRequestOptions()
     //const MAIN_TERMS = ["PreparationType", "Technique", "ContributionType", "SemanticDataType", "ExperimentalApproach"]
+    
     const MAIN_TERMS = ["PreparationType", "ContributionType",
-        "SemanticDataType", "ExperimentalApproach"]
+        "SemanticDataType", "ExperimentalApproach", "SubjectAttribute", "TissueSampleAttribute", "CellType"]
+    
     const CONTROLLED_TERMS = [...MAIN_TERMS, ...subjectProperties, ...Techniques,]
     //const CONTROLLED_TERMS = MAIN_TERMS.concat(subjectProperties).concat(Techniques)
 
