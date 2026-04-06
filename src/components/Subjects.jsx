@@ -602,29 +602,23 @@ export default function Subjects({ form, onChange, data = {} }) {
     }
   }
 
-  // given a subject and a list of sample IDs, prefill those samples
+    // given a subject and a list of sample IDs, prefill those samples
   const autofillSamplesFromSubject = (subject, addedSampleIds = []) => {
     if (!subject || !addedSampleIds.length) return
-
     const patch = buildSamplePatchFromSubject(subject)
-
-    // update flat tissue samples
+    const targetIdSet = new Set(addedSampleIds.map(id => String(id)))
     const updatedTissueSamples = tissueSamples.map(s =>
-      addedSampleIds.includes(s.id)
+      targetIdSet.has(String(s.id))
         ? { ...s, ...patch }
-        : s
-    )
-
-    // update samples inside collections
+        : s)
     const updatedTissueCollections = tissueCollections.map(c => ({
       ...c,
       samples: c.samples.map(s =>
-        addedSampleIds.includes(s.id)
+        targetIdSet.has(String(s.id))
           ? { ...s, ...patch }
           : s
       )
     }))
-
     setTissueSamples(updatedTissueSamples)
     setTissueCollections(updatedTissueCollections)
     emit({
@@ -633,16 +627,17 @@ export default function Subjects({ form, onChange, data = {} }) {
     })
   }
 
-  // ── flat subject handlers ─────────────────────────────────────────────────
+
   // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {
-    // if we are updating linkedSampleIds, compute newly added samples
     if (fieldOrPatch === 'linkedSampleIds') {
       const prevLinked = subjectsData[i]?.linkedSampleIds || []
       const nextLinked = value || []
-      const newlyLinked = nextLinked.filter(id => !prevLinked.includes(id))
 
-      // use the current subject state (before updating) – only linkedSampleIds changes here
+      // compare by string to avoid type mismatches
+      const prevSet = new Set(prevLinked.map(id => String(id)))
+      const newlyLinked = nextLinked.filter(id => !prevSet.has(String(id)))
+
       const subject = subjectsData[i]
       autofillSamplesFromSubject(subject, newlyLinked)
     }
@@ -656,6 +651,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     setSubjectData(updated)
     emit({ subjects: updated })
   }
+
 
 
   const addNewSubject    = () => { const u = [...subjectsData, newSubject()]; setSubjectData(u); emit({ subjects: u }) }
@@ -684,19 +680,16 @@ export default function Subjects({ form, onChange, data = {} }) {
     const copy = { ...g.subjects[si], id: Date.now() + Math.random() }
     return { ...g, subjects: [...g.subjects.slice(0, si + 1), copy, ...g.subjects.slice(si + 1)] }
   }))
+    
   const handleGroupSubjectChange = (gi, si, fieldOrPatch, value) => {
-    // if we are updating linkedSampleIds inside a group, compute newly added samples
     if (fieldOrPatch === 'linkedSampleIds') {
       const subjectBefore = groups[gi]?.subjects?.[si]
       if (subjectBefore) {
         const prevLinked = subjectBefore.linkedSampleIds || []
         const nextLinked = value || []
-        const newlyLinked = nextLinked.filter(id => !prevLinked.includes(id))
-
-        autofillSamplesFromSubject(subjectBefore, newlyLinked)
-      }
-    }
-
+        const prevSet = new Set(prevLinked.map(id => String(id)))
+        const newlyLinked = nextLinked.filter(id => !prevSet.has(String(id)))
+        autofillSamplesFromSubject(subjectBefore, newlyLinked)}}
     const nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
       const subjects = g.subjects.map((s, j) => {
@@ -706,9 +699,9 @@ export default function Subjects({ form, onChange, data = {} }) {
       })
       return { ...g, subjects }
     })
-
     updateGroups(nextGroups)
   }
+
 
 
   // ── flat tissue handlers ──────────────────────────────────────────────────
