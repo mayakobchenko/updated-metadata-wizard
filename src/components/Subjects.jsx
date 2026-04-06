@@ -577,16 +577,86 @@ export default function Subjects({ form, onChange, data = {} }) {
         return null
     }
 
+  // copy relevant subject fields into a tissue sample
+  const buildSamplePatchFromSubject = (subject) => {
+    if (!subject) return {}
+
+    const pathologyFromSubject = [
+      ...(subject.disease || []),
+      ...(subject.diseaseModel || []),
+    ]
+
+    return {
+      // link back to subject
+      linkedSubjectId: subject.id,
+
+      // core fields
+      species: subject.species || '',
+      strain: subject.strain || '',
+      biologicalSex: subject.bioSex || '',
+
+      // IMPORTANT: age/weight are tissue-specific in your model,
+      // so we do NOT copy them from the subject here.
+
+      pathology: pathologyFromSubject,
+    }
+  }
+
+  // given a subject and a list of sample IDs, prefill those samples
+  const autofillSamplesFromSubject = (subject, addedSampleIds = []) => {
+    if (!subject || !addedSampleIds.length) return
+
+    const patch = buildSamplePatchFromSubject(subject)
+
+    // update flat tissue samples
+    const updatedTissueSamples = tissueSamples.map(s =>
+      addedSampleIds.includes(s.id)
+        ? { ...s, ...patch }
+        : s
+    )
+
+    // update samples inside collections
+    const updatedTissueCollections = tissueCollections.map(c => ({
+      ...c,
+      samples: c.samples.map(s =>
+        addedSampleIds.includes(s.id)
+          ? { ...s, ...patch }
+          : s
+      )
+    }))
+
+    setTissueSamples(updatedTissueSamples)
+    setTissueCollections(updatedTissueCollections)
+    emit({
+      tissueSamples: updatedTissueSamples,
+      tissueCollections: updatedTissueCollections,
+    })
+  }
 
   // ── flat subject handlers ─────────────────────────────────────────────────
+  // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {
+    // if we are updating linkedSampleIds, compute newly added samples
+    if (fieldOrPatch === 'linkedSampleIds') {
+      const prevLinked = subjectsData[i]?.linkedSampleIds || []
+      const nextLinked = value || []
+      const newlyLinked = nextLinked.filter(id => !prevLinked.includes(id))
+
+      // use the current subject state (before updating) – only linkedSampleIds changes here
+      const subject = subjectsData[i]
+      autofillSamplesFromSubject(subject, newlyLinked)
+    }
+
     const updated = subjectsData.map((s, idx) => {
       if (idx !== i) return s
       if (typeof fieldOrPatch === 'object') return { ...s, ...fieldOrPatch }
       return { ...s, [fieldOrPatch]: value }
     })
-    setSubjectData(updated); emit({ subjects: updated })
+
+    setSubjectData(updated)
+    emit({ subjects: updated })
   }
+
 
   const addNewSubject    = () => { const u = [...subjectsData, newSubject()]; setSubjectData(u); emit({ subjects: u }) }
   const removeSubject    = (i) => { const u = subjectsData.filter((_, idx) => idx !== i); setSubjectData(u); emit({ subjects: u }) }
@@ -614,8 +684,20 @@ export default function Subjects({ form, onChange, data = {} }) {
     const copy = { ...g.subjects[si], id: Date.now() + Math.random() }
     return { ...g, subjects: [...g.subjects.slice(0, si + 1), copy, ...g.subjects.slice(si + 1)] }
   }))
-  const handleGroupSubjectChange = (gi, si, fieldOrPatch, value) =>
-    updateGroups(groups.map((g, i) => {
+  const handleGroupSubjectChange = (gi, si, fieldOrPatch, value) => {
+    // if we are updating linkedSampleIds inside a group, compute newly added samples
+    if (fieldOrPatch === 'linkedSampleIds') {
+      const subjectBefore = groups[gi]?.subjects?.[si]
+      if (subjectBefore) {
+        const prevLinked = subjectBefore.linkedSampleIds || []
+        const nextLinked = value || []
+        const newlyLinked = nextLinked.filter(id => !prevLinked.includes(id))
+
+        autofillSamplesFromSubject(subjectBefore, newlyLinked)
+      }
+    }
+
+    const nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
       const subjects = g.subjects.map((s, j) => {
         if (j !== si) return s
@@ -623,7 +705,11 @@ export default function Subjects({ form, onChange, data = {} }) {
         return { ...s, [fieldOrPatch]: value }
       })
       return { ...g, subjects }
-    }))
+    })
+
+    updateGroups(nextGroups)
+  }
+
 
   // ── flat tissue handlers ──────────────────────────────────────────────────
 const handleTissueSampleChange = (i, fieldOrPatch, value) => {
@@ -646,15 +732,15 @@ const handleTissueSampleChange = (i, fieldOrPatch, value) => {
         // copy core fields
         species: subject.species || '',
         strain: subject.strain || '',
-        biologicalSex: subject.bioSex || '',
-
+          biologicalSex: subject.bioSex || '',
+        
+//i dont know what should be here: age and weight of the subject or of the tissue?
         // copy age/weight if present
-        age: subject.age || '',
-        ageUnit: subject.ageUnit || '',
-        weight: subject.weight || '',
-        weightUnit: subject.weightUnit || '',
+        //age: subject.age || '',
+        //ageUnit: subject.ageUnit || '',
+        //weight: subject.weight || '',
+        //weightUnit: subject.weightUnit || '',
 
-        // pathology on sample comes from subject disease + diseaseModel
         pathology: pathologyFromSubject,
       }
       patchValue = undefined
