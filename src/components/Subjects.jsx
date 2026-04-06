@@ -21,6 +21,32 @@ const WEIGHT_UNIT_NAMES = new Set([
 
 const LABEL_STYLE = { fontSize: 11, color: '#888', marginBottom: 2 }
 
+// ─── value+unit field (replaces deprecated Input.Group) ──────────────────────
+
+const ValueUnitField = ({ value, unit, onValueChange, onUnitChange, units, valuePlaceholder = 'value' }) => (
+  <div style={{ display: 'flex', gap: 2 }}>
+    <Input
+      size="small"
+      value={value}
+      onChange={onValueChange}
+      placeholder={valuePlaceholder}
+      style={{ width: '40%', minWidth: 0 }}
+    />
+    <Select
+      showSearch
+      allowClear
+      optionFilterProp="children"
+      size="small"
+      value={unit || undefined}
+      onChange={onUnitChange}
+      placeholder="unit"
+      style={{ width: '60%', minWidth: 0 }}
+    >
+      {units.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+    </Select>
+  </div>
+)
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const newSubject = () => ({
@@ -35,7 +61,7 @@ const newSubject = () => ({
 const newTissueSample = () => ({
   id: Date.now() + Math.random(),
   sampleID: '', type: '', species: '', strain: '',
-  biologicalSex: '', laterality: '', origin: '', originType: '',
+  biologicalSex: '', laterality: '', origin: '',
   age: '', ageUnit: '', weight: '', weightUnit: '',
   pathology: [], tissueSampleAttribute: [], additionalRemarks: '',
   linkedSubjectId: null
@@ -43,7 +69,9 @@ const newTissueSample = () => ({
 
 const newTissueSampleCollection = () => ({
   id: Date.now() + Math.random(),
-  collectionID: '', samples: [newTissueSample()]
+  collectionID: '',
+  additionalRemarks: '',
+  samples: [newTissueSample()]
 })
 
 const newGroup = (index) => ({
@@ -155,36 +183,24 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('190px')}>
-          <Input.Group compact>
-            <Input size="small" value={field.age}
-              onChange={(e) => onRowChange(index, 'age', e.target.value)}
-              placeholder="value" style={{ width: '40%' }}
-            />
-            <Select {...sel()} size="small"
-              value={field.ageUnit || undefined}
-              onChange={(v) => onRowChange(index, 'ageUnit', v ?? '')}
-              placeholder="unit" style={{ width: '60%' }}
-            >
-              {ageUnits.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-            </Select>
-          </Input.Group>
+        <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
+          <ValueUnitField
+            value={field.age}
+            unit={field.ageUnit}
+            onValueChange={(e) => onRowChange(index, 'age', e.target.value)}
+            onUnitChange={(v) => onRowChange(index, 'ageUnit', v ?? '')}
+            units={ageUnits}
+          />
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('190px')}>
-          <Input.Group compact>
-            <Input size="small" value={field.weight}
-              onChange={(e) => onRowChange(index, 'weight', e.target.value)}
-              placeholder="value" style={{ width: '40%' }}
-            />
-            <Select {...sel()} size="small"
-              value={field.weightUnit || undefined}
-              onChange={(v) => onRowChange(index, 'weightUnit', v ?? '')}
-              placeholder="unit" style={{ width: '60%' }}
-            >
-              {weightUnits.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-            </Select>
-          </Input.Group>
+        <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
+          <ValueUnitField
+            value={field.weight}
+            unit={field.weightUnit}
+            onValueChange={(e) => onRowChange(index, 'weight', e.target.value)}
+            onUnitChange={(v) => onRowChange(index, 'weightUnit', v ?? '')}
+            units={weightUnits}
+          />
         </Form.Item>
 
         <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
@@ -379,36 +395,24 @@ const TissueSampleRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('185px')}>
-          <Input.Group compact>
-            <Input size="small" value={field.age}
-              onChange={(e) => onRowChange(index, 'age', e.target.value)}
-              placeholder="value" style={{ width: '40%' }}
-            />
-            <Select {...sel()} size="small"
-              value={field.ageUnit || undefined}
-              onChange={(v) => onRowChange(index, 'ageUnit', v ?? '')}
-              placeholder="unit" style={{ width: '60%' }}
-            >
-              {ageUnits.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-            </Select>
-          </Input.Group>
+        <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
+          <ValueUnitField
+            value={field.age}
+            unit={field.ageUnit}
+            onValueChange={(e) => onRowChange(index, 'age', e.target.value)}
+            onUnitChange={(v) => onRowChange(index, 'ageUnit', v ?? '')}
+            units={ageUnits}
+          />
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('185px')}>
-          <Input.Group compact>
-            <Input size="small" value={field.weight}
-              onChange={(e) => onRowChange(index, 'weight', e.target.value)}
-              placeholder="value" style={{ width: '40%' }}
-            />
-            <Select {...sel()} size="small"
-              value={field.weightUnit || undefined}
-              onChange={(v) => onRowChange(index, 'weightUnit', v ?? '')}
-              placeholder="unit" style={{ width: '60%' }}
-            >
-              {weightUnits.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-            </Select>
-          </Input.Group>
+        <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
+          <ValueUnitField
+            value={field.weight}
+            unit={field.weightUnit}
+            onValueChange={(e) => onRowChange(index, 'weight', e.target.value)}
+            onUnitChange={(v) => onRowChange(index, 'weightUnit', v ?? '')}
+            units={weightUnits}
+          />
         </Form.Item>
 
         <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
@@ -472,19 +476,19 @@ const TissueSampleRow = ({
 
 export default function Subjects({ form, onChange, data = {} }) {
 
-  const [agecategory, setAgeCat]                                   = useState([])
-  const [biosex, setBiosex]                                         = useState([])
-  const [handedness, setHandedness]                                 = useState([])
-  const [species, setSpecies]                                       = useState([])
-  const [strainData, setStrainData]                                 = useState([])
-  const [diseaseData, setDiseaseData]                               = useState([])
-  const [diseaseModelData, setDiseaseModelData]                     = useState([])
-  const [subjectAttributeData, setSubjectAttributeData]             = useState([])
-  const [tissueSampleTypeData, setTissueSampleTypeData]             = useState([])
-  const [lateralityData, setLateralityData]                         = useState([])
-  const [originData, setOriginData]                                 = useState([])
-  const [tissueSampleAttributeData, setTissueSampleAttributeData]   = useState([])
-  const [allUnits, setAllUnits]                                     = useState([])
+  const [agecategory, setAgeCat]                                 = useState([])
+  const [biosex, setBiosex]                                       = useState([])
+  const [handedness, setHandedness]                               = useState([])
+  const [species, setSpecies]                                     = useState([])
+  const [strainData, setStrainData]                               = useState([])
+  const [diseaseData, setDiseaseData]                             = useState([])
+  const [diseaseModelData, setDiseaseModelData]                   = useState([])
+  const [subjectAttributeData, setSubjectAttributeData]           = useState([])
+  const [tissueSampleTypeData, setTissueSampleTypeData]           = useState([])
+  const [lateralityData, setLateralityData]                       = useState([])
+  const [originData, setOriginData]                               = useState([])
+  const [tissueSampleAttributeData, setTissueSampleAttributeData] = useState([])
+  const [allUnits, setAllUnits]                                   = useState([])
 
   const [mode, setMode]                   = useState(data.subjectMetadata?.subjectGroups ? 'grouped' : 'flat')
   const [subjectsData, setSubjectData]    = useState(data.subjectMetadata?.subjects || [])
@@ -497,8 +501,8 @@ export default function Subjects({ form, onChange, data = {} }) {
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
 
   useEffect(() => {
-    setSubjectData(data.subjectMetadata?.subjects           || [])
-    setGroups(data.subjectMetadata?.subjectGroups           || [])
+    setSubjectData(data.subjectMetadata?.subjects            || [])
+    setGroups(data.subjectMetadata?.subjectGroups            || [])
     setMode(data.subjectMetadata?.subjectGroups ? 'grouped' : 'flat')
     setTissueCollections(data.subjectMetadata?.tissueCollections || [])
     setTissueSamples(data.subjectMetadata?.tissueSamples         || [])
@@ -544,16 +548,20 @@ export default function Subjects({ form, onChange, data = {} }) {
     return null
   }
 
+  // builds the prefill patch that goes INTO a tissue sample from a subject
+  // age + ageUnit are now included so tissue inherits subject age on link
   const buildTissuePatchFromSubject = (subject) => ({
     linkedSubjectId: subject.id,
-    species:         subject.species      || '',
-    strain:          subject.strain       || '',
-    biologicalSex:   subject.bioSex       || '',
+    species:         subject.species     || '',
+    strain:          subject.strain      || '',
+    biologicalSex:   subject.bioSex      || '',
+    age:             subject.age         || '',
+    ageUnit:         subject.ageUnit     || '',
     pathology: [
       ...(subject.disease      || []),
       ...(subject.diseaseModel || []),
     ]
-    // age/weight intentionally NOT copied — tissue age/weight are independent
+    // weight intentionally NOT copied — tissue weight is independent
   })
 
   const patchFlatSamples = (samples, targetId, patch) =>
@@ -671,17 +679,16 @@ export default function Subjects({ form, onChange, data = {} }) {
   // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {
     if (fieldOrPatch === 'linkedSampleIds') {
-      const subject  = subjectsData[i]
-      const prev     = subject?.linkedSampleIds || []
+      const subject       = subjectsData[i]
+      const prev          = subject?.linkedSampleIds || []
       const tissueUpdates = syncSubjectLinkedSamples(subject.id, value, prev)
-      const updated  = subjectsData.map((s, idx) =>
+      const updated       = subjectsData.map((s, idx) =>
         idx === i ? { ...s, linkedSampleIds: value } : s
       )
       setSubjectData(updated)
       emit({ subjects: updated, ...(tissueUpdates || {}) })
       return
     }
-
     const updated = subjectsData.map((s, idx) => {
       if (idx !== i) return s
       if (typeof fieldOrPatch === 'object') return { ...s, ...fieldOrPatch }
@@ -738,7 +745,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       const subject = groups[gi]?.subjects?.[si]
       const prev    = subject?.linkedSampleIds || []
 
-      // build updated groups first so sync uses correct subject state
       const nextGroups = groups.map((g, i) => {
         if (i !== gi) return g
         const subjects = g.subjects.map((s, j) =>
@@ -749,8 +755,7 @@ export default function Subjects({ form, onChange, data = {} }) {
       setGroups(nextGroups)
 
       const tissueUpdates = syncSubjectLinkedSamples(
-        subject.id, value, prev,
-        subjectsData, nextGroups
+        subject.id, value, prev, subjectsData, nextGroups
       )
       emit({ subjectGroups: nextGroups, ...(tissueUpdates || {}) })
       return
@@ -777,7 +782,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       emit(allUpdates)
       return
     }
-
     const updated = tissueSamples.map((s, idx) => {
       if (idx !== i) return s
       if (typeof fieldOrPatch === 'object') return { ...s, ...fieldOrPatch }
@@ -801,22 +805,24 @@ export default function Subjects({ form, onChange, data = {} }) {
   // ── collection handlers ───────────────────────────────────────────────────
   const updateCollections = (next) => { setTissueCollections(next); emit({ tissueCollections: next }) }
 
-  const addCollection    = ()         => updateCollections([...tissueCollections, newTissueSampleCollection()])
-  const removeCollection = (ci)       => updateCollections(tissueCollections.filter((_, i) => i !== ci))
-  const renameCollection = (ci, id)   => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, collectionID: id } : c))
+  const addCollection       = ()          => updateCollections([...tissueCollections, newTissueSampleCollection()])
+  const removeCollection    = (ci)        => updateCollections(tissueCollections.filter((_, i) => i !== ci))
+  const renameCollection    = (ci, id)    => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, collectionID: id } : c))
+  const updateCollRemarks   = (ci, r)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, additionalRemarks: r } : c))
 
   const duplicateCollection = (ci) => {
     const copy = {
       ...tissueCollections[ci],
-      id:           Date.now() + Math.random(),
-      collectionID: `${tissueCollections[ci].collectionID} (copy)`,
-      samples:      tissueCollections[ci].samples.map(s => ({ ...s, id: Date.now() + Math.random() }))
+      id:                Date.now() + Math.random(),
+      collectionID:      `${tissueCollections[ci].collectionID} (copy)`,
+      additionalRemarks: tissueCollections[ci].additionalRemarks || '',
+      samples:           tissueCollections[ci].samples.map(s => ({ ...s, id: Date.now() + Math.random() }))
     }
     updateCollections([...tissueCollections.slice(0, ci + 1), copy, ...tissueCollections.slice(ci + 1)])
   }
 
-  const addSampleToCollection      = (ci)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: [...c.samples, newTissueSample()] } : c))
-  const removeSampleFromCollection = (ci, si) => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: c.samples.filter((_, j) => j !== si) } : c))
+  const addSampleToCollection       = (ci)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: [...c.samples, newTissueSample()] } : c))
+  const removeSampleFromCollection  = (ci, si) => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: c.samples.filter((_, j) => j !== si) } : c))
   const duplicateSampleInCollection = (ci, si) =>
     updateCollections(tissueCollections.map((c, i) => {
       if (i !== ci) return c
@@ -832,7 +838,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       emit(allUpdates)
       return
     }
-
     const nextCollections = tissueCollections.map((c, i) => {
       if (i !== ci) return c
       const samples = c.samples.map((s, j) => {
@@ -845,7 +850,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     updateCollections(nextCollections)
   }
 
-  // ── row props ─────────────────────────────────────────────────────────────
+  // ── row props bundles ─────────────────────────────────────────────────────
   const subjectRowProps = {
     biosex, agecategory, species, strainData,
     diseaseData, diseaseModelData, subjectAttributeData,
@@ -881,7 +886,6 @@ export default function Subjects({ form, onChange, data = {} }) {
 
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
-            {/* ── FLAT ── */}
             {mode === 'flat' && (
               <>
                 {subjectsData.map((field, index) => (
@@ -899,7 +903,6 @@ export default function Subjects({ form, onChange, data = {} }) {
               </>
             )}
 
-            {/* ── GROUPED ── */}
             {mode === 'grouped' && (
               <>
                 {groups.map((group, gi) => (
@@ -912,8 +915,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                       />
                       <Button size="small" type="text" onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
                       <Button size="small" type="text" danger
-                        onClick={() => removeGroup(gi)}
-                        disabled={groups.length === 1}
+                        onClick={() => removeGroup(gi)} disabled={groups.length === 1}
                       >
                         Remove group
                       </Button>
@@ -935,8 +937,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                     ))}
                     <div style={{ textAlign: 'center', marginTop: 8 }}>
                       <Button type="dashed" size="small"
-                        onClick={() => addSubjectToGroup(gi)}
-                        style={{ width: '40%' }}
+                        onClick={() => addSubjectToGroup(gi)} style={{ width: '40%' }}
                       >
                         + Add subject to {group.name}
                       </Button>
@@ -967,7 +968,6 @@ export default function Subjects({ form, onChange, data = {} }) {
 
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
-            {/* ── FLAT TISSUE ── */}
             {tissueMode === 'flat' && (
               <>
                 {tissueSamples.map((field, index) => (
@@ -986,7 +986,6 @@ export default function Subjects({ form, onChange, data = {} }) {
               </>
             )}
 
-            {/* ── COLLECTIONS ── */}
             {tissueMode === 'collections' && (
               <>
                 {tissueCollections.map((collection, ci) => (
@@ -1007,6 +1006,16 @@ export default function Subjects({ form, onChange, data = {} }) {
                         Remove collection
                       </Button>
                     </div>
+
+                    {/* ── collection remarks ── */}
+                    <Form.Item label={<span style={LABEL_STYLE}>Collection remarks</span>} style={{ marginBottom: 12 }}>
+                      <Input size="small"
+                        value={collection.additionalRemarks || ''}
+                        onChange={(e) => updateCollRemarks(ci, e.target.value)}
+                        placeholder="Additional remarks about this collection..."
+                      />
+                    </Form.Item>
+
                     {collection.samples.map((field, si) => (
                       <TissueSampleRow key={field.id} field={field} index={si}
                         onRemove={(i)            => removeSampleFromCollection(ci, i)}
@@ -1017,8 +1026,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                     ))}
                     <div style={{ textAlign: 'center', marginTop: 8 }}>
                       <Button type="dashed" size="small"
-                        onClick={() => addSampleToCollection(ci)}
-                        style={{ width: '40%' }}
+                        onClick={() => addSampleToCollection(ci)} style={{ width: '40%' }}
                       >
                         + Add sample to collection {ci + 1}
                       </Button>
