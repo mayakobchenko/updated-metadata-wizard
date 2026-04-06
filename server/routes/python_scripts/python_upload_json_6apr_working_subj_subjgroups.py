@@ -29,6 +29,8 @@ else:
     print(json.dumps({"error": "No metadata JSON file path provided."}))
     sys.exit(2)
 
+# ── load form data ────────────────────────────────────────────────────────────
+
 try:
     with open(json_file_path, 'r') as f:
         data = json.load(f)
@@ -91,25 +93,19 @@ def KG_post(instance_id, attr):
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
-def safe_trim(v):
-    """Strip leading/trailing whitespace from strings to avoid KG rejection."""
-    if isinstance(v, str):
-        return v.strip()
-    return v
-
-
 def as_id_list(values):
+    """Convert any input to a flat list of @id objects."""
     if not values:
         return []
     if isinstance(values, str):
-        return [{"@id": values}] if values.strip() else []
+        return [{"@id": values}] if values else []
     if isinstance(values, list):
         flat = []
         for v in values:
             if isinstance(v, list):
                 flat.extend(v)
-            elif isinstance(v, str) and v.strip():
-                flat.append(v.strip())
+            elif isinstance(v, str) and v:
+                flat.append(v)
         return [{"@id": v} for v in flat if v]
     return []
 
@@ -125,43 +121,110 @@ def as_single_or_list(values):
 # ── extract dataset1 fields ───────────────────────────────────────────────────
 
 
-dsv_title = safe_trim(data.get("dataset1", {}).get("dataTitle",    ""))
-dsv_short_title = safe_trim(data.get("dataset1", {}).get("shortTitle",   ""))
-brief_summary = safe_trim(data.get("dataset1", {}).get("briefSummary", ""))
-license_id = safe_trim(data.get("dataset1", {}).get("license",      ""))
-embargo = data.get("dataset1", {}).get("embargo", False)
+dsv_title = data.get("dataset1", {}).get("dataTitle",    "")
+dsv_short_title = data.get("dataset1", {}).get("shortTitle",   "")
+brief_summary = data.get("dataset1", {}).get("briefSummary", "")
+license_id = data.get("dataset1", {}).get("license",      "")
+embargo = data.get("dataset1", {}).get("embargo",      False)
 embargo_date = data.get("dataset1", {}).get("embargoDate") if embargo else None
-homepage = safe_trim(data.get("dataset2", {}).get("homePage", ""))
 
-data_type_list = data.get("dataset1", {}).get("optionsData", [])
+data_type_list = data.get("dataset1", {}).get("optionsData",  [])
 if isinstance(data_type_list, str):
     data_type_list = [data_type_list]
 
+# ── extract dataset2 fields ───────────────────────────────────────────────────
+
+homepage = data.get("dataset2", {}).get("homePage", "")
+
 support_channels = [
-    safe_trim(chan.get("newChannel", ""))
+    chan.get("newChannel", "")
     for chan in data.get("dataset2", {}).get("supportChannels", [])
     if chan.get("newChannel", "").strip()
 ]
 
+# ── FIXED: experiments are stored under "experiments" key ────────────────────
 experiments = data.get("experiments", {})
+
 experimental_approach = experiments.get("experimentalApproach", [])
 techniques = experiments.get("techniques",            [])
 preparation_types = experiments.get("preparationTypes",      [])
 study_targets = experiments.get("studyTargets",          [])
 
+print(f"DEBUG experimental_approach: {experimental_approach}", file=sys.stderr)
+print(f"DEBUG techniques:            {techniques}",            file=sys.stderr)
+print(f"DEBUG preparation_types:     {preparation_types}",     file=sys.stderr)
+print(f"DEBUG study_targets:         {study_targets}",         file=sys.stderr)
+
+# ── authors ───────────────────────────────────────────────────────────────────
+
 authors = [
-    safe_trim(exp.get("selectedAuthor", ""))
+    exp.get("selectedAuthor", "")
     for exp in data.get("contribution", {}).get("authors", [])
     if exp.get("selectedAuthor", "").strip()
 ]
 
+# ── FIXED: other contributors — build Contribution nodes with @type ───────────
+# otherContribution in openMINDS is NOT a list of @id Person links
+# it is a list of Contribution instances with contributor + contributionType
+
+
+def build_contribution_nodes(data):
+    """
+    Build Contribution instances for other contributors.
+    Each contributor entry has selectedOtherContr (Person @id)
+    and contributionTypes (list of ContributionType @ids).
+    Returns list of (uuid, contribution_node) tuples.
+    """
+    contributions = []
+    othercontr_list = data.get("contribution", {}) \
+                          .get("contributor", {}) \
+                          .get("othercontr", [])
+
+    for entry in othercontr_list:
+        person_id = entry.get("selectedOtherContr", "").strip()
+        if not person_id:
+            continue
+        contribution_types = entry.get("contributionTypes", [])
+
+        contrib_uuid = str(uuid4())
+        contrib_node = {
+            "@type":             [f"{T}Contribution"],
+            "contributor":       {"@id": person_id},
+            "contributionType":  [{"@id": ct} for ct in contribution_types if ct],
+        }
+        contributions.append((contrib_uuid, contrib_node))
+
+    return contributions
+
+
 # ── accessibility ─────────────────────────────────────────────────────────────
+# controlled term UUIDs from the KG
+# ── accessibility ─────────────────────────────────────────────────────────────
+# embargo is boolean — must be explicitly True to be embargoed
+# use a controlled term UUID, never None or undefined
 
 EMBARGO_ACCESS_ID = KG_PREFIX + "897dc2af-405d-4df3-9152-6d9e5cae55d8"
+FREE_ACCESS_ID = KG_PREFIX + "b2ff7a47-b349-48d7-8ce4-cf51868675f1"
+
+if embargo is True or embargo == "true":
+    accessibility_id = EMBARGO_ACCESS_ID
+else:
+    accessibility_id = FREE_ACCESS_ID
+
+print(f"DEBUG embargo raw value:   {repr(embargo)}",    file=sys.stderr)
+print(f"DEBUG accessibility_id:    {accessibility_id}", file=sys.stderr)
+
+print(f"DEBUG data_type_list:      {data_type_list}",      file=sys.stderr)
+print(f"DEBUG authors:             {authors}",             file=sys.stderr)
+# print(f"DEBUG embargo:             {embargo}",             file=sys.stderr)
+# print(f"DEBUG accessibility_id:    {accessibility_id}",   file=sys.stderr)
+print(f"DEBUG license_id:          {license_id}",         file=sys.stderr)
 
 # ── build dataset version attributes ─────────────────────────────────────────
 
-dsv_attributes = {"@type": [f"{T}DatasetVersion"]}
+dsv_attributes = {
+    "@type": [f"{T}DatasetVersion"]
+}
 
 if dsv_title:
     dsv_attributes["fullName"] = dsv_title
@@ -176,19 +239,21 @@ if support_channels:
 if license_id:
     dsv_attributes["license"] = {"@id": license_id}
 
-if embargo is True or embargo == "true":
-    dsv_attributes["accessibility"] = {"@id": EMBARGO_ACCESS_ID}
-    if embargo_date:
-        dsv_attributes["releaseDate"] = embargo_date
+# accessibility — always set
+dsv_attributes["accessibility"] = {"@id": accessibility_id}
 
+if embargo_date:
+    dsv_attributes["releaseDate"] = embargo_date
 if data_type_list:
     dsv_attributes["dataType"] = [{"@id": u} for u in data_type_list]
 if authors:
     dsv_attributes["author"] = as_id_list(authors)
 
-exp_appr = as_single_or_list(experimental_approach)
-if exp_appr:
-    dsv_attributes["experimentalApproach"] = exp_appr
+# experimental fields — now reading from correct "experiments" key
+if experimental_approach:
+    exp_appr = as_single_or_list(experimental_approach)
+    if exp_appr:
+        dsv_attributes["experimentalApproach"] = exp_appr
 if techniques:
     dsv_attributes["technique"] = as_id_list(techniques)
 if preparation_types:
@@ -199,34 +264,22 @@ if study_targets:
 print(
     f"DEBUG dsv_attributes:\n{json.dumps(dsv_attributes, indent=2)}", file=sys.stderr)
 
+# ── results collector ─────────────────────────────────────────────────────────
+
 results = []
 
-# ── 1. contributions ──────────────────────────────────────────────────────────
-
-
-def build_contribution_nodes(data):
-    contributions = []
-    for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
-        person_id = safe_trim(entry.get("selectedOtherContr", ""))
-        if not person_id:
-            continue
-        contrib_uuid = str(uuid4())
-        contrib_node = {
-            "@type":            [f"{T}Contribution"],
-            "contributor":      {"@id": person_id},
-            "contributionType": [{"@id": ct} for ct in entry.get("contributionTypes", []) if ct],
-        }
-        contributions.append((contrib_uuid, contrib_node))
-    return contributions
-
-
+# ── 1. post Contribution instances first ─────────────────────────────────────
+# they need to exist before we can reference them in DatasetVersion
 contribution_nodes = build_contribution_nodes(data)
 contribution_ids = []
+
 for contrib_uuid, contrib_node in contribution_nodes:
     contrib_result = KG_post(contrib_uuid, contrib_node)
     results.append({"contribution": contrib_result})
     contribution_ids.append({"@id": KG_PREFIX + contrib_uuid})
+    print(f"DEBUG posted Contribution {contrib_uuid}", file=sys.stderr)
 
+# add contribution references to DatasetVersion
 if contribution_ids:
     dsv_attributes["otherContribution"] = contribution_ids
 
@@ -235,13 +288,52 @@ if contribution_ids:
 dsv_result = KG_patch(dsv_id, dsv_attributes)
 results.append({"datasetVersion": dsv_result})
 
-# ── 3. subjects and subject groups ────────────────────────────────────────────
+# ── 3. create subjects, subject states and subject groups ─────────────────────
+
+
+def build_subject_group(group, subject_uuids, state_uuids, subjects):
+    """
+    Build a SubjectGroup node.
+    References all subject states, collects unique species/strain/biosex.
+    quantity = number of subjects in the group.
+    """
+    group_uuid = str(uuid4())
+    group_name = group.get("name", group_uuid)
+
+    # collect unique values across all subjects in the group
+    all_species = list({s["species"] for s in subjects if s.get("species")})
+    all_strains = list({s["strain"] for s in subjects if s.get("strain")})
+    all_bio_sex = list({s["bioSex"] for s in subjects if s.get("bioSex")})
+
+    group_node = {
+        "@type":              [f"{T}SubjectGroup"],
+        "lookupLabel":        group_name,
+        "internalIdentifier": group_name,
+        "quantity":           len(subjects),
+        "studiedState":       [{"@id": KG_PREFIX + su} for su in state_uuids],
+    }
+
+    if all_species:
+        group_node["species"] = [{"@id": s} for s in all_species]
+    if all_strains:
+        group_node["strain"] = [{"@id": s} for s in all_strains]
+    if all_bio_sex:
+        group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
+    if group.get("additionalRemarks"):
+        group_node["additionalRemarks"] = group["additionalRemarks"]
+
+    return group_uuid, group_node
 
 
 def build_subject_instance(subject, group_uuid=None):
+    """
+    Build Subject and SubjectState nodes.
+    Upload strain only if present, otherwise species only.
+    If group_uuid provided, links subject to group via isPartOf.
+    """
     subject_uuid = str(uuid4())
     state_uuid = str(uuid4())
-    subject_id_str = safe_trim(subject.get("subjectID", subject_uuid))
+    subject_id_str = subject.get("subjectID", subject_uuid)
 
     subject_node = {
         "@type":              [f"{T}Subject"],
@@ -253,20 +345,20 @@ def build_subject_instance(subject, group_uuid=None):
     if subject.get("bioSex"):
         subject_node["biologicalSex"] = {"@id": subject["bioSex"]}
 
-    # ── FIX: always upload species, upload strain additionally if present ──
-    if subject.get("species"):
-        subject_node["species"] = [{"@id": subject["species"]}]
+    # upload strain only if present — strain implies species in KG
+    # if no strain, upload species only
     if subject.get("strain"):
         subject_node["strain"] = {"@id": subject["strain"]}
+    elif subject.get("species"):
+        subject_node["species"] = [{"@id": subject["species"]}]
 
+    # link subject to its group
     if group_uuid:
         subject_node["isPartOf"] = {"@id": KG_PREFIX + group_uuid}
 
-    remarks = safe_trim(subject.get("additionalRemarks", ""))
-    if remarks:
-        subject_node["additionalRemarks"] = remarks
+    if subject.get("additionalRemarks"):
+        subject_node["additionalRemarks"] = subject["additionalRemarks"]
 
-    # ── SubjectState ──────────────────────────────────────────────────────
     state_node = {
         "@type":              [f"{T}SubjectState"],
         "lookupLabel":        subject_id_str + "_state",
@@ -276,35 +368,23 @@ def build_subject_instance(subject, group_uuid=None):
         state_node["ageCategory"] = {"@id": subject["ageCategory"]}
     if subject.get("handedness"):
         state_node["handedness"] = {"@id": subject["handedness"]}
-
-    # disease + diseaseModel both go into pathology
-    pathology_ids = []
-    for d in (subject.get("disease") or []):
-        if d:
-            pathology_ids.append({"@id": d})
-    for d in (subject.get("diseaseModel") or []):
-        if d:
-            pathology_ids.append({"@id": d})
-    if pathology_ids:
-        state_node["pathology"] = pathology_ids
-
-    if subject.get("subjectAttribute"):
-        state_node["attribute"] = as_id_list(subject["subjectAttribute"])
-
-    remarks = safe_trim(subject.get("additionalRemarks", ""))
-    if remarks:
-        state_node["additionalRemarks"] = remarks
-
+    if subject.get("disease"):
+        state_node["pathology"] = [{"@id": subject["disease"]}]
+    if subject.get("additionalRemarks"):
+        state_node["additionalRemarks"] = subject["additionalRemarks"]
     if subject.get("age"):
         state_node["age"] = {
             "@type": f"{T}QuantitativeValue",
-            "unit":  {"@id": subject.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
+            "unit":  {"@id": subject.get("ageUnit") or
+                      KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},  # default: year
             "value": subject["age"]
         }
+
     if subject.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
-            "unit":  {"@id": subject.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
+            "unit":  {"@id": subject.get("weightUnit") or
+                      KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},  # default: gram
             "value": subject["weight"]
         }
 
@@ -312,22 +392,32 @@ def build_subject_instance(subject, group_uuid=None):
 
 
 subject_metadata = data.get("subjectMetadata", {})
+
+# specimen_list collects what goes into DatasetVersion.studiedSpecimen
+# in grouped mode: SubjectGroup @ids + individual Subject @ids
+# in flat mode:    individual Subject @ids only
 specimen_list = []
 
-# map frontend sample id → KG UUID (for linking subjects → tissue samples)
-sample_id_to_kg_uuid = {}
-
 if subject_metadata.get("subjectGroups"):
+    # ── GROUPED MODE ──────────────────────────────────────────────────────────
     for group in subject_metadata["subjectGroups"]:
         subjects = group.get("subjects", [])
+
+        # step 1 — generate group UUID first so subjects can reference it
+        # via isPartOf before the group node is actually posted
         group_uuid_placeholder = str(uuid4())
+
         group_subj_uuids = []
         group_state_uuids = []
 
+        # step 2 — post all SubjectStates and Subjects for this group
         for subject in subjects:
             (subj_uuid, subj_node), (state_uuid, state_node) = build_subject_instance(
-                subject, group_uuid=group_uuid_placeholder
+                subject,
+                group_uuid=group_uuid_placeholder  # link subject → group
             )
+
+            # post state first — subject references it
             state_result = KG_post(state_uuid, state_node)
             results.append({"subjectState": state_result})
 
@@ -336,19 +426,20 @@ if subject_metadata.get("subjectGroups"):
 
             group_subj_uuids.append(subj_uuid)
             group_state_uuids.append(state_uuid)
+
+            # add individual subject to specimen list too
             specimen_list.append({"@id": KG_PREFIX + subj_uuid})
 
-            # store mapping for tissue sample linking
-            sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + subj_uuid
-
+        # step 3 — build and post SubjectGroup using the pre-generated UUID
         group_node = {
             "@type":              [f"{T}SubjectGroup"],
-            "lookupLabel":        safe_trim(group.get("name", group_uuid_placeholder)),
-            "internalIdentifier": safe_trim(group.get("name", group_uuid_placeholder)),
+            "lookupLabel":        group.get("name", group_uuid_placeholder),
+            "internalIdentifier": group.get("name", group_uuid_placeholder),
             "quantity":           len(subjects),
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
 
+        # collect unique species/strain/biosex across all subjects
         all_species = list({s["species"]
                            for s in subjects if s.get("species")})
         all_strains = list({s["strain"] for s in subjects if s.get("strain")})
@@ -360,161 +451,44 @@ if subject_metadata.get("subjectGroups"):
             group_node["strain"] = [{"@id": s} for s in all_strains]
         if all_bio_sex:
             group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
+        if group.get("additionalRemarks"):
+            group_node["additionalRemarks"] = group["additionalRemarks"]
 
-        remarks = safe_trim(group.get("additionalRemarks", ""))
-        if remarks:
-            group_node["additionalRemarks"] = remarks
-
+        # post group using the pre-generated UUID
         group_result = KG_post(group_uuid_placeholder, group_node)
         results.append({"subjectGroup": group_result})
-        specimen_list.append({"@id": KG_PREFIX + group_uuid_placeholder})
         print(
-            f"DEBUG posted SubjectGroup {group_uuid_placeholder} '{group.get('name')}' with {len(subjects)} subjects", file=sys.stderr)
+            f"DEBUG posted SubjectGroup {group_uuid_placeholder} "
+            f"'{group.get('name')}' with {len(subjects)} subjects",
+            file=sys.stderr
+        )
+
+        # add SubjectGroup to specimen list as well
+        specimen_list.append({"@id": KG_PREFIX + group_uuid_placeholder})
 
 elif subject_metadata.get("subjects"):
+    # ── FLAT MODE — no groups ─────────────────────────────────────────────────
     for subject in subject_metadata["subjects"]:
         (subj_uuid, subj_node), (state_uuid,
                                  state_node) = build_subject_instance(subject)
+
         state_result = KG_post(state_uuid, state_node)
         results.append({"subjectState": state_result})
+
         subj_result = KG_post(subj_uuid, subj_node)
         results.append({"subject": subj_result})
+
         specimen_list.append({"@id": KG_PREFIX + subj_uuid})
-        sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + subj_uuid
 
-# ── 4. tissue samples ─────────────────────────────────────────────────────────
-
-
-def build_tissue_sample_instance(sample, collection_uuid=None):
-    """Build TissueSample and TissueSampleState nodes."""
-    sample_uuid = str(uuid4())
-    state_uuid = str(uuid4())
-    sample_id_str = safe_trim(sample.get("sampleID", sample_uuid))
-
-    sample_node = {
-        "@type":              [f"{T}TissueSample"],
-        "lookupLabel":        sample_id_str,
-        "internalIdentifier": sample_id_str,
-        "studiedState":       {"@id": KG_PREFIX + state_uuid},
-    }
-
-    if sample.get("type"):
-        sample_node["type"] = {"@id": sample["type"]}
-    if sample.get("species"):
-        sample_node["species"] = [{"@id": sample["species"]}]
-    if sample.get("strain"):
-        sample_node["strain"] = {"@id": sample["strain"]}
-    if sample.get("biologicalSex"):
-        sample_node["biologicalSex"] = {"@id": sample["biologicalSex"]}
-    if sample.get("laterality"):
-        sample_node["laterality"] = {"@id": sample["laterality"]}
-    if sample.get("origin"):
-        sample_node["origin"] = {"@id": sample["origin"]}
-    if collection_uuid:
-        sample_node["isPartOf"] = {"@id": KG_PREFIX + collection_uuid}
-
-    # link to subject if set
-    linked_subj_id = sample.get("linkedSubjectId")
-    if linked_subj_id and linked_subj_id in sample_id_to_kg_uuid:
-        sample_node["wasDerivedFrom"] = {
-            "@id": sample_id_to_kg_uuid[linked_subj_id]}
-
-    remarks = safe_trim(sample.get("additionalRemarks", ""))
-    if remarks:
-        sample_node["additionalRemarks"] = remarks
-
-    # ── TissueSampleState ─────────────────────────────────────────────────
-    state_node = {
-        "@type":              [f"{T}TissueSampleState"],
-        "lookupLabel":        sample_id_str + "_state",
-        "internalIdentifier": sample_id_str + "_state",
-    }
-
-    pathology_ids = [{"@id": p} for p in (sample.get("pathology") or []) if p]
-    if pathology_ids:
-        state_node["pathology"] = pathology_ids
-
-    if sample.get("tissueSampleAttribute"):
-        state_node["attribute"] = as_id_list(sample["tissueSampleAttribute"])
-
-    if remarks:
-        state_node["additionalRemarks"] = remarks
-
-    if sample.get("age"):
-        state_node["age"] = {
-            "@type": f"{T}QuantitativeValue",
-            "unit":  {"@id": sample.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-            "value": sample["age"]
-        }
-    if sample.get("weight"):
-        state_node["weight"] = {
-            "@type": f"{T}QuantitativeValue",
-            "unit":  {"@id": sample.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-            "value": sample["weight"]
-        }
-
-    return (sample_uuid, sample_node), (state_uuid, state_node)
-
-
-# flat tissue samples
-for sample in subject_metadata.get("tissueSamples", []):
-    (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(sample)
-    results.append({"tissueSampleState": KG_post(st_uuid, st_node)})
-    results.append({"tissueSample":      KG_post(s_uuid,  s_node)})
-    specimen_list.append({"@id": KG_PREFIX + s_uuid})
-
-# tissue sample collections
-for collection in subject_metadata.get("tissueCollections", []):
-    collection_uuid = str(uuid4())
-    coll_id_str = safe_trim(collection.get("collectionID", collection_uuid))
-
-    collection_sample_uuids = []
-    collection_state_uuids = []
-    collection_sample_bio_sex = []
-    collection_sample_species = []
-
-    for sample in collection.get("samples", []):
-        (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(
-            sample, collection_uuid=collection_uuid
-        )
-        results.append({"tissueSampleState": KG_post(st_uuid, st_node)})
-        results.append({"tissueSample":      KG_post(s_uuid,  s_node)})
-        collection_sample_uuids.append(s_uuid)
-        collection_state_uuids.append(st_uuid)
-        specimen_list.append({"@id": KG_PREFIX + s_uuid})
-        if sample.get("biologicalSex"):
-            collection_sample_bio_sex.append(sample["biologicalSex"])
-        if sample.get("species"):
-            collection_sample_species.append(sample["species"])
-
-    # post the collection node
-    collection_node = {
-        "@type":              [f"{T}TissueSampleCollection"],
-        "lookupLabel":        coll_id_str,
-        "internalIdentifier": coll_id_str,
-        "quantity":           len(collection.get("samples", [])),
-        "studiedState":       [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
-    }
-    unique_species = list(set(collection_sample_species))
-    unique_sex = list(set(collection_sample_bio_sex))
-    if unique_species:
-        collection_node["species"] = [{"@id": s} for s in unique_species]
-    if unique_sex:
-        collection_node["biologicalSex"] = [{"@id": s} for s in unique_sex]
-
-    coll_result = KG_post(collection_uuid, collection_node)
-    results.append({"tissueSampleCollection": coll_result})
-    specimen_list.append({"@id": KG_PREFIX + collection_uuid})
-    print(
-        f"DEBUG posted TissueSampleCollection {collection_uuid} '{coll_id_str}' with {len(collection.get('samples', []))} samples", file=sys.stderr)
-
-# ── 5. attach all specimen to DatasetVersion ──────────────────────────────────
+# ── 4. attach specimen to DatasetVersion ──────────────────────────────────────
 
 if specimen_list:
     attach_result = KG_patch(dsv_id, {"studiedSpecimen": specimen_list})
     results.append({"attachSpecimen": attach_result})
     print(
-        f"DEBUG attached {len(specimen_list)} specimen to DatasetVersion", file=sys.stderr)
+        f"DEBUG attached {len(specimen_list)} specimen to DatasetVersion",
+        file=sys.stderr
+    )
 
 # ── done ──────────────────────────────────────────────────────────────────────
 

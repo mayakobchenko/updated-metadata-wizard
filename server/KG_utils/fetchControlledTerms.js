@@ -31,7 +31,8 @@ export default async function fetchControlledTerms() {
     //const MAIN_TERMS = ["PreparationType", "Technique", "ContributionType", "SemanticDataType", "ExperimentalApproach"]
     
     const MAIN_TERMS = ["PreparationType", "ContributionType",
-        "SemanticDataType", "ExperimentalApproach", "SubjectAttribute", "TissueSampleAttribute", "CellType"]
+        "SemanticDataType", "ExperimentalApproach", "SubjectAttribute",
+        "TissueSampleAttribute", "CellType", "Organ", "OrganismSubstance"]
     
     const CONTROLLED_TERMS = [...MAIN_TERMS, ...subjectProperties, ...Techniques,]
     //const CONTROLLED_TERMS = MAIN_TERMS.concat(subjectProperties).concat(Techniques)

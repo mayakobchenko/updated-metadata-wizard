@@ -19,8 +19,30 @@ router.get('/diseasemodel',          getDiseaseModel)
 router.get('/subjectattribute',      getSubjectAttribute)
 router.get('/tissuesampletype',      getTissueSampleType)
 router.get('/laterality',            getLaterality)
-router.get('/origin',                getOrigin)
 router.get('/tissuesampleattribute', getTissueSampleAttribute)
+router.get('/origin',                getOrigin)
+
+async function getOrigin(req, res) {
+  const filePaths = [
+    { file: '../data/controlledTerms/Organ.json',            type: 'Organ' },
+    { file: '../data/controlledTerms/CellType.json',         type: 'Cell type' },
+    { file: '../data/controlledTerms/OrganismSubstance.json', type: 'Organism substance' },
+  ]
+  try {
+    const results = await Promise.all(
+      filePaths.map(async ({ file, type }) => {
+        try {
+          const data = await readFile(path.join(__dirname, file), 'utf-8')
+          return JSON.parse(data).map(item => ({ ...item, originType: type }))
+        } catch { return [] }
+      })
+    )
+    const origin = results.flat().sort((a, b) => a.name.localeCompare(b.name))
+    res.status(200).json({ origin })
+  } catch (err) {
+    res.status(500).send('Error fetching origin')
+  }
+}
 
 async function getDiseaseModel(req, res) {
   const filePath = path.join(__dirname, '../data/controlledTerms/DiseaseModel.json')
@@ -62,15 +84,6 @@ async function getTissueSampleAttribute(req, res) {
     const data = await readFile(filePath, 'utf-8')
     res.status(200).json({ tissueSampleAttribute: JSON.parse(data) })
   } catch (err) { res.status(500).send('Error fetching tissue sample attributes') }
-}
-
-async function getOrigin(req, res) {
-  const filePath = path.join(__dirname, '../data/controlledTerms/CellType.json')
-  try {
-    const data = await readFile(filePath, 'utf-8')
-    // origin can be UBERONParcellation or CellType — serve CellType for now
-    res.status(200).json({ origin: JSON.parse(data) })
-  } catch (err) { res.status(500).send('Error fetching origin') }
 }
 
 async function getUnits(req, res) {
