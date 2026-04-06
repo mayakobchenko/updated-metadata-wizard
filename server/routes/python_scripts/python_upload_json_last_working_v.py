@@ -357,17 +357,12 @@ def build_subject_instance(subject, group_uuid=None):
     if subject.get("bioSex"):
         subject_node["biologicalSex"] = {"@id": subject["bioSex"]}
 
-    # ── strain-first rule — explicitly null out the other field so KG_patch
-    #    does not leave stale values from previous uploads
+    # ── FIX: if strain present → upload strain only (strain implies species in KG)
+    #         if no strain     → upload species only
     if subject.get("strain"):
         subject_node["strain"] = {"@id": subject["strain"]}
-        subject_node["species"] = None   # explicitly clear species
     elif subject.get("species"):
         subject_node["species"] = [{"@id": subject["species"]}]
-        subject_node["strain"] = None   # explicitly clear strain
-    else:
-        subject_node["species"] = None
-        subject_node["strain"] = None
 
     if group_uuid:
         subject_node["isPartOf"] = {"@id": KG_PREFIX + group_uuid}
@@ -376,11 +371,13 @@ def build_subject_instance(subject, group_uuid=None):
     if remarks:
         subject_node["additionalRemarks"] = remarks
 
+    # ── SubjectState ──────────────────────────────────────────────────────────
     state_node = {
         "@type":              [f"{T}SubjectState"],
         "lookupLabel":        subject_id_str + "_state",
         "internalIdentifier": subject_id_str + "_state",
     }
+
     if subject.get("ageCategory"):
         state_node["ageCategory"] = {"@id": subject["ageCategory"]}
     if subject.get("handedness"):
@@ -395,13 +392,9 @@ def build_subject_instance(subject, group_uuid=None):
             pathology_ids.append({"@id": d})
     if pathology_ids:
         state_node["pathology"] = pathology_ids
-    else:
-        state_node["pathology"] = None   # clear stale pathology too
 
     if subject.get("subjectAttribute"):
         state_node["attribute"] = as_id_list(subject["subjectAttribute"])
-    else:
-        state_node["attribute"] = None
 
     if remarks:
         state_node["additionalRemarks"] = remarks
@@ -412,17 +405,12 @@ def build_subject_instance(subject, group_uuid=None):
             "unit":  {"@id": subject.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
             "value": subject["age"]
         }
-    else:
-        state_node["age"] = None
-
     if subject.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
             "unit":  {"@id": subject.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
             "value": subject["weight"]
         }
-    else:
-        state_node["weight"] = None
 
     return (subject_uuid, subject_node), (state_uuid, state_node)
 
@@ -482,16 +470,12 @@ if subject_metadata.get("subjectGroups"):
             "quantity":           len(subjects),
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
+
         # ── same rule for group: strain only if present, else species ─────────
         if all_strains:
             group_node["strain"] = [{"@id": s} for s in all_strains]
-            group_node["species"] = None
         elif all_species:
             group_node["species"] = [{"@id": s} for s in all_species]
-            group_node["strain"] = None
-        else:
-            group_node["species"] = None
-            group_node["strain"] = None
 
         if all_bio_sex:
             group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
@@ -542,16 +526,11 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     if sample.get("type"):
         sample_node["type"] = {"@id": sample["type"]}
 
-    # strain-first with explicit null clearing
+    # ── same strain-first rule for tissue samples ─────────────────────────────
     if sample.get("strain"):
         sample_node["strain"] = {"@id": sample["strain"]}
-        sample_node["species"] = None
     elif sample.get("species"):
         sample_node["species"] = [{"@id": sample["species"]}]
-        sample_node["strain"] = None
-    else:
-        sample_node["species"] = None
-        sample_node["strain"] = None
 
     if sample.get("biologicalSex"):
         sample_node["biologicalSex"] = {"@id": sample["biologicalSex"]}
@@ -562,6 +541,7 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     if collection_uuid:
         sample_node["isPartOf"] = {"@id": KG_PREFIX + collection_uuid}
 
+    # link to subject if set (wasDerivedFrom)
     linked_subj_id = sample.get("linkedSubjectId")
     if linked_subj_id and linked_subj_id in sample_id_to_kg_uuid:
         sample_node["wasDerivedFrom"] = {
@@ -571,6 +551,7 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     if remarks:
         sample_node["additionalRemarks"] = remarks
 
+    # ── TissueSampleState ─────────────────────────────────────────────────────
     state_node = {
         "@type":              [f"{T}TissueSampleState"],
         "lookupLabel":        sample_id_str + "_state",
@@ -578,12 +559,11 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     }
 
     pathology_ids = [{"@id": p} for p in (sample.get("pathology") or []) if p]
-    state_node["pathology"] = pathology_ids if pathology_ids else None
+    if pathology_ids:
+        state_node["pathology"] = pathology_ids
 
     if sample.get("tissueSampleAttribute"):
         state_node["attribute"] = as_id_list(sample["tissueSampleAttribute"])
-    else:
-        state_node["attribute"] = None
 
     if remarks:
         state_node["additionalRemarks"] = remarks
@@ -594,22 +574,17 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
             "unit":  {"@id": sample.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
             "value": sample["age"]
         }
-    else:
-        state_node["age"] = None
-
     if sample.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
             "unit":  {"@id": sample.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
             "value": sample["weight"]
         }
-    else:
-        state_node["weight"] = None
 
     return (sample_uuid, sample_node), (state_uuid, state_node)
 
-# ── flat tissue samples ───────────────────────────────────────────────────────
 
+# ── flat tissue samples ───────────────────────────────────────────────────────
 
 for sample in subject_metadata.get("tissueSamples", []):
     (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(sample)
@@ -662,16 +637,12 @@ for collection in subject_metadata.get("tissueCollections", []):
     }
 
     # ── strain-first rule for collections too ─────────────────────────────────
-
+    unique_strains = list(set(collection_strains))
+    unique_species = list(set(collection_species))
     if unique_strains:
         collection_node["strain"] = [{"@id": s} for s in unique_strains]
-        collection_node["species"] = None
     elif unique_species:
         collection_node["species"] = [{"@id": s} for s in unique_species]
-        collection_node["strain"] = None
-    else:
-        collection_node["species"] = None
-        collection_node["strain"] = None
 
     unique_sex = list(set(collection_bio_sex))
     unique_types = list(set(collection_types))
