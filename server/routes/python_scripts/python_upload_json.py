@@ -662,6 +662,8 @@ for collection in subject_metadata.get("tissueCollections", []):
     }
 
     # ── strain-first rule for collections too ─────────────────────────────────
+    unique_strains = list(set(collection_strains))
+    unique_species = list(set(collection_species))
 
     if unique_strains:
         collection_node["strain"] = [{"@id": s} for s in unique_strains]
