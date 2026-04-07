@@ -186,7 +186,7 @@ const getTicketId = async () => {
   }
   return fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`)
 }
-
+const PYTHON_JSON_PATH = '/usr/src/app/server/routes/data.json'
 const saveJsonToZammad = async (ticketId) => {
   try {
     const response = await fetch('/api/zammad/save-json', {
@@ -194,7 +194,7 @@ const saveJsonToZammad = async (ticketId) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ticketId:     ticketId,
-        jsonFilePath: jsonFilePath,   // the same path used by the KG upload
+        jsonFilePath: PYTHON_JSON_PATH,   // the same path used by the KG upload
         datasetTitle: formDataRef.current?.dataset1?.dataTitle || 'dataset'
       })
     })

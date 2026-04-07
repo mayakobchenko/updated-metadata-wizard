@@ -107,30 +107,6 @@ def KG_post(instance_id, attr):
     except Exception as e:
         return {"error": str(e)}
 
-
-def KG_post_shared(instance_id, attr):
-    """Post to shared KG space for new Person instances.
-    Returns full KG URL string or None."""
-    try:
-        payload = {**VOCAB, **attr}
-        headers = {
-            "accept":        "*/*",
-            "Authorization": "Bearer " + personal_token,
-            "Content-Type":  "application/json; charset=utf-8"
-        }
-        url = f'{KG_API}{instance_id}?space=shared'
-        resp = rq.post(url=url, headers=headers,
-                       data=json.dumps(payload, indent=4))
-        print(
-            f"DEBUG POST (shared) {url} → {resp.status_code}", file=sys.stderr)
-        if not resp.ok:
-            print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
-            return None
-        return KG_PREFIX + instance_id   # always return a plain URL string
-    except Exception as e:
-        print(f"DEBUG KG_post_shared error: {e}", file=sys.stderr)
-        return None
-
 # ── string helpers ────────────────────────────────────────────────────────────
 
 
@@ -271,7 +247,7 @@ def create_person(first_name, family_name, orcid=None):
 
     print(
         f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
-    new_url = KG_post_shared(person_uuid, person_node)
+    new_url = KG_post(person_uuid, person_node)
     if new_url:
         print(f"DEBUG new Person → {new_url}", file=sys.stderr)
     else:
