@@ -47,10 +47,15 @@ if not dsv_id:
 print(f"DEBUG dsv_id: {dsv_id}", file=sys.stderr)
 
 # ── load persons list ─────────────────────────────────────────────────────────
+# Script is at: server/routes/python_scripts/python_upload_json.py
+# Person.json is at: server/data/kg-instances/Person.json
+# Go up from python_scripts → routes → server, then into data/kg-instances/
 
+# .../server/routes/python_scripts
 _script_dir = os.path.dirname(os.path.abspath(__file__))
+# .../server/routes
 _routes_dir = os.path.dirname(_script_dir)
-_server_dir = os.path.dirname(_routes_dir)
+_server_dir = os.path.dirname(_routes_dir)                         # .../server
 _persons_path = os.path.join(
     _server_dir, 'data', 'kg-instances', 'Person.json')
 
@@ -108,29 +113,6 @@ def KG_post(instance_id, attr):
     except Exception as e:
         return {"error": str(e)}
 
-
-def KG_post_global(instance_id, attr):
-    """Post to the global shared KG space (for new Person instances)."""
-    try:
-        payload = {**VOCAB, **attr}
-        headers = {
-            "accept":        "*/*",
-            "Authorization": "Bearer " + personal_token,
-            "Content-Type":  "application/json; charset=utf-8"
-        }
-        url = f'{KG_API}{instance_id}?space=shared'
-        resp = rq.post(url=url, headers=headers,
-                       data=json.dumps(payload, indent=4))
-        print(
-            f"DEBUG POST (shared) {url} → {resp.status_code}", file=sys.stderr)
-        if not resp.ok:
-            print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
-            return None
-        return KG_PREFIX + instance_id
-    except Exception as e:
-        print(f"DEBUG KG_post_global error: {e}", file=sys.stderr)
-        return None
-
 # ── string helpers ────────────────────────────────────────────────────────────
 
 
@@ -138,12 +120,6 @@ def safe_trim(v):
     if isinstance(v, str):
         return v.strip()
     return v
-
-
-def nonempty(v):
-    """Return trimmed string if non-empty, else None."""
-    s = safe_trim(v or "")
-    return s if s else None
 
 
 def as_id_list(values):
@@ -168,113 +144,51 @@ def as_single_or_list(values):
         return None
     return items[0] if len(items) == 1 else items
 
-# ── species/strain helper ─────────────────────────────────────────────────────
-
-
-def apply_strain_species(node, strain_val, species_val):
-    """
-    Apply strain-first rule to any node dict.
-    If strain present  → set strain,  set species to [] (clears stale KG value)
-    If no strain       → set species, set strain  to [] (clears stale KG value)
-    If neither present → omit both (new instance, nothing to clear)
-    Always uses lists for species (KG expects array) and single @id for strain.
-    Prints debug so we can verify in the log.
-    """
-    strain = nonempty(strain_val)
-    species = nonempty(species_val)
-
-    print(
-        f"DEBUG apply_strain_species: strain={strain!r} species={species!r}", file=sys.stderr)
-
-    if strain:
-        node["strain"] = {"@id": strain}
-        node["species"] = []            # explicitly clear species
-        print(f"DEBUG → uploading strain only: {strain}", file=sys.stderr)
-    elif species:
-        node["species"] = [{"@id": species}]
-        node["strain"] = []            # explicitly clear strain
-        print(f"DEBUG → uploading species only: {species}", file=sys.stderr)
-    else:
-        print(f"DEBUG → neither strain nor species present, omitting both",
-              file=sys.stderr)
-
 # ── person lookup ─────────────────────────────────────────────────────────────
 
 
 def find_person_uuid(first_name, family_name, orcid=None):
     """
-    Search persons list by ORCID first, then by name.
-    Returns uuid string if found, None otherwise.
+    Look up a person in Person.json (from kg-instances).
+    Person.json structure: { "uuid": "...", "givenName": "...", "familyName": "...", "orcid": "..." }
+    Search priority:
+      1. ORCID match (case-insensitive) if orcid supplied
+      2. givenName + familyName match (case-insensitive, trimmed)
+    Returns the uuid string if found, None otherwise.
     """
-    fn = nonempty(first_name) or ""
-    fam = nonempty(family_name) or ""
-    orc = nonempty(orcid) or ""
+    first_name = safe_trim(first_name or '').lower()
+    family_name = safe_trim(family_name or '').lower()
+    orcid_query = safe_trim(orcid or '').lower()
 
-    # pass 1 — ORCID
-    if orc:
+    # pass 1 — orcid match
+    if orcid_query:
         for p in _persons_list:
-            if nonempty(p.get('orcid', '')) and nonempty(p.get('orcid', '')).lower() == orc.lower():
+            p_orcid = safe_trim(p.get('orcid', '') or '').lower()
+            if p_orcid and p_orcid == orcid_query:
                 print(
-                    f"DEBUG person found by ORCID: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}", file=sys.stderr)
+                    f"DEBUG person found by ORCID: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}",
+                    file=sys.stderr
+                )
                 return p['uuid']
         print(
-            f"DEBUG ORCID '{orc}' not found, trying name match", file=sys.stderr)
+            f"DEBUG ORCID '{orcid_query}' not found, trying name match", file=sys.stderr)
 
-    # pass 2 — name
-    if fn or fam:
+    # pass 2 — name match
+    if first_name or family_name:
         for p in _persons_list:
-            p_given = nonempty(p.get('givenName',  '')) or ""
-            p_family = nonempty(p.get('familyName', '')) or ""
-            if p_given.lower() == fn.lower() and p_family.lower() == fam.lower():
+            p_given = safe_trim(p.get('givenName',  '') or '').lower()
+            p_family = safe_trim(p.get('familyName', '') or '').lower()
+            if p_given == first_name and p_family == family_name:
                 print(
-                    f"DEBUG person found by name: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}", file=sys.stderr)
+                    f"DEBUG person found by name: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}",
+                    file=sys.stderr
+                )
                 return p['uuid']
 
     print(
-        f"DEBUG person NOT found: givenName='{fn}' familyName='{fam}' orcid='{orc}'", file=sys.stderr)
-    return None
-
-
-def create_person(first_name, family_name, orcid=None):
-    """
-    Create a new Person instance in the KG shared space.
-    Returns the new KG @id string, or None on failure.
-    What happens when custodian/author is not found:
-      - Without this function: the field is simply skipped → no custodian on the dataset
-      - With this function: a new Person is created in the shared KG space and then linked
-    Note: new persons created this way may need curation/review in the KG editor.
-    """
-    person_uuid = str(uuid4())
-    person_node = {
-        "@type": [f"{T}Person"],
-        "givenName":  safe_trim(first_name or ""),
-        "familyName": safe_trim(family_name or ""),
-    }
-    if nonempty(orcid):
-        person_node["digitalIdentifier"] = [{"@id": nonempty(orcid)}]
-
-    print(
-        f"DEBUG creating new Person: {first_name} {family_name} (orcid={orcid})", file=sys.stderr)
-    new_id = KG_post_global(person_uuid, person_node)
-    if new_id:
-        print(f"DEBUG new Person created → {new_id}", file=sys.stderr)
-    else:
-        print(
-            f"DEBUG failed to create Person for {first_name} {family_name}", file=sys.stderr)
-    return new_id
-
-
-def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
-    """
-    Find person UUID or create a new Person if not found.
-    Returns @id string (full KG URL) or None.
-    """
-    uuid = find_person_uuid(first_name, family_name, orcid)
-    if uuid:
-        # uuid from Person.json is already a full URL
-        return uuid
-    if create_if_missing and (nonempty(first_name) or nonempty(family_name)):
-        return create_person(first_name, family_name, orcid)
+        f"DEBUG person NOT found: givenName='{first_name}' familyName='{family_name}' orcid='{orcid_query}'",
+        file=sys.stderr
+    )
     return None
 
 # ── extract dataset fields ────────────────────────────────────────────────────
@@ -295,7 +209,7 @@ if isinstance(data_type_list, str):
 support_channels = [
     safe_trim(chan.get("newChannel", ""))
     for chan in data.get("dataset2", {}).get("supportChannels", [])
-    if nonempty(chan.get("newChannel", ""))
+    if safe_trim(chan.get("newChannel", ""))
 ]
 
 experiments = data.get("experiments", {})
@@ -304,39 +218,24 @@ techniques = experiments.get("techniques",            [])
 preparation_types = experiments.get("preparationTypes",      [])
 study_targets = experiments.get("studyTargets",          [])
 
-# ── resolve authors ───────────────────────────────────────────────────────────
-# Authors can be selected from KG (selectedAuthor has URL) or custom (isCustom=True)
-
-author_ids = []
-for entry in data.get("contribution", {}).get("authors", []):
-    selected = nonempty(entry.get("selectedAuthor", ""))
-    if selected:
-        author_ids.append(selected)
-    elif entry.get("isCustom"):
-        fn = entry.get("firstName",  "")
-        fam = entry.get("lastName",   "")
-        orc = entry.get("orcid",      "")
-        if nonempty(fn) or nonempty(fam):
-            person_id = resolve_person(fn, fam, orc, create_if_missing=True)
-            if person_id:
-                author_ids.append(person_id)
-                print(
-                    f"DEBUG custom author resolved → {person_id}", file=sys.stderr)
+authors = [
+    safe_trim(exp.get("selectedAuthor", ""))
+    for exp in data.get("contribution", {}).get("authors", [])
+    if safe_trim(exp.get("selectedAuthor", ""))
+]
 
 # ── resolve custodian ─────────────────────────────────────────────────────────
 
 custodian_data = data.get("custodian", {})
-custodian_id = resolve_person(
+custodian_uuid = find_person_uuid(
     first_name=custodian_data.get("firstName",  ""),
     family_name=custodian_data.get("familyName", ""),
     orcid=custodian_data.get("orcid",      ""),
-    create_if_missing=True   # create new Person if not found
 )
-
-if custodian_id:
-    print(f"DEBUG custodian resolved → {custodian_id}", file=sys.stderr)
+if custodian_uuid:
+    print(f"DEBUG custodian resolved → {custodian_uuid}", file=sys.stderr)
 else:
-    print(f"DEBUG custodian NOT resolved and could not be created", file=sys.stderr)
+    print(f"DEBUG custodian NOT resolved — will be skipped", file=sys.stderr)
 
 # ── accessibility ─────────────────────────────────────────────────────────────
 
@@ -366,10 +265,10 @@ if embargo is True or embargo == "true":
 
 if data_type_list:
     dsv_attributes["dataType"] = [{"@id": u} for u in data_type_list]
-if author_ids:
-    dsv_attributes["author"] = [{"@id": a} for a in author_ids]
-if custodian_id:
-    dsv_attributes["custodian"] = {"@id": custodian_id}
+if authors:
+    dsv_attributes["author"] = as_id_list(authors)
+if custodian_uuid:
+    dsv_attributes["custodian"] = {"@id": custodian_uuid}
 
 exp_appr = as_single_or_list(experimental_approach)
 if exp_appr:
@@ -392,14 +291,7 @@ results = []
 def build_contribution_nodes(data):
     contributions = []
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
-        person_id = nonempty(entry.get("selectedOtherContr", ""))
-        if not person_id and entry.get("isCustom"):
-            fn = entry.get("firstName", "")
-            fam = entry.get("lastName",  "")
-            orc = entry.get("orcid",     "")
-            if nonempty(fn) or nonempty(fam):
-                person_id = resolve_person(
-                    fn, fam, orc, create_if_missing=True)
+        person_id = safe_trim(entry.get("selectedOtherContr", ""))
         if not person_id:
             continue
         contrib_uuid = str(uuid4())
@@ -471,17 +363,22 @@ def build_subject_instance(subject, group_uuid=None):
     if subject.get("bioSex"):
         subject_node["biologicalSex"] = {"@id": subject["bioSex"]}
 
-    # strain-first with debug logging
-    apply_strain_species(
-        subject_node,
-        subject.get("strain",  ""),
-        subject.get("species", "")
-    )
+    # strain-first: use empty list [] to actively clear the other field on patch
+    strain_val = safe_trim(subject.get("strain",  "") or "")
+    species_val = safe_trim(subject.get("species", "") or "")
+
+    if strain_val:
+        subject_node["strain"] = {"@id": strain_val}
+        subject_node["species"] = []        # clear stale species
+    elif species_val:
+        subject_node["species"] = [{"@id": species_val}]
+        subject_node["strain"] = []        # clear stale strain
+    # if neither: omit both — no stale data since it's a new instance
 
     if group_uuid:
         subject_node["isPartOf"] = {"@id": KG_PREFIX + group_uuid}
 
-    remarks = nonempty(subject.get("additionalRemarks", ""))
+    remarks = safe_trim(subject.get("additionalRemarks", "") or "")
     if remarks:
         subject_node["additionalRemarks"] = remarks
 
@@ -504,22 +401,22 @@ def build_subject_instance(subject, group_uuid=None):
     for d in (subject.get("diseaseModel") or []):
         if d:
             pathology_ids.append({"@id": d})
-    state_node["pathology"] = pathology_ids   # [] clears stale values
+    state_node["pathology"] = pathology_ids   # empty list clears stale values
 
     attrs = as_id_list(subject.get("subjectAttribute") or [])
-    state_node["attribute"] = attrs           # [] clears stale values
+    state_node["attribute"] = attrs           # empty list clears stale values
 
     if remarks:
         state_node["additionalRemarks"] = remarks
 
-    if nonempty(subject.get("age", "")):
+    if subject.get("age"):
         state_node["age"] = {
             "@type": f"{T}QuantitativeValue",
             "unit":  {"@id": subject.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
             "value": subject["age"]
         }
 
-    if nonempty(subject.get("weight", "")):
+    if subject.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
             "unit":  {"@id": subject.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
@@ -568,27 +465,12 @@ if subject_metadata.get("subjectGroups"):
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
 
-        # ── aggregate species and strains across ALL subjects in group ────────
-        # Collect non-empty values only
-        all_strains = list({
-            nonempty(s.get("strain", ""))
-            for s in subjects
-            if nonempty(s.get("strain", ""))
-        })
-        all_species = list({
-            nonempty(s.get("species", ""))
-            for s in subjects
-            if nonempty(s.get("species", ""))
-        })
-        all_bio_sex = list({
-            s["bioSex"] for s in subjects if s.get("bioSex")
-        })
-
-        print(
-            f"DEBUG group '{group.get('name')}': "
-            f"strains={all_strains} species={all_species} quantity={len(subjects)}",
-            file=sys.stderr
-        )
+        # aggregate unique non-empty values across subjects
+        all_species = list(
+            {s["species"] for s in subjects if safe_trim(s.get("species") or "")})
+        all_strains = list(
+            {s["strain"] for s in subjects if safe_trim(s.get("strain") or "")})
+        all_bio_sex = list({s["bioSex"] for s in subjects if s.get("bioSex")})
 
         group_node = {
             "@type":              [f"{T}SubjectGroup"],
@@ -598,23 +480,17 @@ if subject_metadata.get("subjectGroups"):
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
 
-        # For a GROUP: if ANY subject has a strain, include all strains.
-        # Always include species for the group (unlike individual subjects)
-        # because a group can contain subjects with different species/strains.
         if all_strains:
             group_node["strain"] = [{"@id": s} for s in all_strains]
-        else:
-            group_node["strain"] = []   # clear stale
-
-        if all_species:
+            group_node["species"] = []
+        elif all_species:
             group_node["species"] = [{"@id": s} for s in all_species]
-        else:
-            group_node["species"] = []   # clear stale
+            group_node["strain"] = []
 
         if all_bio_sex:
             group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
 
-        remarks = nonempty(group.get("additionalRemarks", ""))
+        remarks = safe_trim(group.get("additionalRemarks", "") or "")
         if remarks:
             group_node["additionalRemarks"] = remarks
 
@@ -660,12 +536,15 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     if sample.get("type"):
         sample_node["type"] = {"@id": sample["type"]}
 
-    # strain-first with debug logging
-    apply_strain_species(
-        sample_node,
-        sample.get("strain",  ""),
-        sample.get("species", "")
-    )
+    strain_val = safe_trim(sample.get("strain",  "") or "")
+    species_val = safe_trim(sample.get("species", "") or "")
+
+    if strain_val:
+        sample_node["strain"] = {"@id": strain_val}
+        sample_node["species"] = []
+    elif species_val:
+        sample_node["species"] = [{"@id": species_val}]
+        sample_node["strain"] = []
 
     if sample.get("biologicalSex"):
         sample_node["biologicalSex"] = {"@id": sample["biologicalSex"]}
@@ -681,7 +560,7 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
         sample_node["wasDerivedFrom"] = {
             "@id": sample_id_to_kg_uuid[linked_subj_id]}
 
-    remarks = nonempty(sample.get("additionalRemarks", ""))
+    remarks = safe_trim(sample.get("additionalRemarks", "") or "")
     if remarks:
         sample_node["additionalRemarks"] = remarks
 
@@ -693,22 +572,22 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     }
 
     pathology_ids = [{"@id": p} for p in (sample.get("pathology") or []) if p]
-    state_node["pathology"] = pathology_ids   # [] clears stale
+    state_node["pathology"] = pathology_ids   # empty list clears stale values
 
     attrs = as_id_list(sample.get("tissueSampleAttribute") or [])
-    state_node["attribute"] = attrs           # [] clears stale
+    state_node["attribute"] = attrs           # empty list clears stale values
 
     if remarks:
         state_node["additionalRemarks"] = remarks
 
-    if nonempty(sample.get("age", "")):
+    if sample.get("age"):
         state_node["age"] = {
             "@type": f"{T}QuantitativeValue",
             "unit":  {"@id": sample.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
             "value": sample["age"]
         }
 
-    if nonempty(sample.get("weight", "")):
+    if sample.get("weight"):
         state_node["weight"] = {
             "@type": f"{T}QuantitativeValue",
             "unit":  {"@id": sample.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
@@ -749,17 +628,17 @@ for collection in subject_metadata.get("tissueCollections", []):
         collection_state_uuids.append(st_uuid)
         specimen_list.append({"@id": KG_PREFIX + s_uuid})
 
-        if nonempty(sample.get("biologicalSex", "")):
+        if safe_trim(sample.get("biologicalSex") or ""):
             collection_bio_sex.append(sample["biologicalSex"])
-        if nonempty(sample.get("species",       "")):
+        if safe_trim(sample.get("species") or ""):
             collection_species.append(sample["species"])
-        if nonempty(sample.get("strain",        "")):
+        if safe_trim(sample.get("strain") or ""):
             collection_strains.append(sample["strain"])
-        if nonempty(sample.get("type",          "")):
+        if safe_trim(sample.get("type") or ""):
             collection_types.append(sample["type"])
-        if nonempty(sample.get("laterality",    "")):
+        if safe_trim(sample.get("laterality") or ""):
             collection_lateralities.append(sample["laterality"])
-        if nonempty(sample.get("origin",        "")):
+        if safe_trim(sample.get("origin") or ""):
             collection_origins.append(sample["origin"])
 
     unique_strains = list(set(collection_strains))
@@ -769,12 +648,6 @@ for collection in subject_metadata.get("tissueCollections", []):
     unique_lats = list(set(collection_lateralities))
     unique_origins = list(set(collection_origins))
 
-    print(
-        f"DEBUG collection '{coll_id_str}': "
-        f"strains={unique_strains} species={unique_species} quantity={len(collection.get('samples',[]))}",
-        file=sys.stderr
-    )
-
     collection_node = {
         "@type":              [f"{T}TissueSampleCollection"],
         "lookupLabel":        coll_id_str,
@@ -783,17 +656,12 @@ for collection in subject_metadata.get("tissueCollections", []):
         "studiedState":       [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
     }
 
-    # For collections: same as groups — include both strain AND species
-    # because samples in a collection may have different species/strains
     if unique_strains:
         collection_node["strain"] = [{"@id": s} for s in unique_strains]
-    else:
-        collection_node["strain"] = []
-
-    if unique_species:
-        collection_node["species"] = [{"@id": s} for s in unique_species]
-    else:
         collection_node["species"] = []
+    elif unique_species:
+        collection_node["species"] = [{"@id": s} for s in unique_species]
+        collection_node["strain"] = []
 
     if unique_sex:
         collection_node["biologicalSex"] = [{"@id": s} for s in unique_sex]
@@ -804,7 +672,7 @@ for collection in subject_metadata.get("tissueCollections", []):
     if unique_origins:
         collection_node["origin"] = [{"@id": o} for o in unique_origins]
 
-    coll_remarks = nonempty(collection.get("additionalRemarks", ""))
+    coll_remarks = safe_trim(collection.get("additionalRemarks", "") or "")
     if coll_remarks:
         collection_node["additionalRemarks"] = coll_remarks
 
