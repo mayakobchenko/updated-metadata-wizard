@@ -117,13 +117,13 @@ jobs:
       K8S_NAMESPACE: metadata-wizard
 
       # Full image name for PROD
-      WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard/image-wizard
+      WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard
       
       # Container name inside the PROD Deployment
-      WIZARD_CONTAINER: container-wizard
+      WIZARD_CONTAINER: container-0
 
       # Kubernetes PROD Deployment name
-      WIZARD_DEPLOYMENT: wizard-deployment
+      WIZARD_DEPLOYMENT: metadata-wizard
 
     steps:
       - name: Checkout
