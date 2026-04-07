@@ -16,7 +16,7 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const skjemaInfo = useAuthContext()
 
-//to do: test if multiple options coma as an array from nettskjema
+//to do: test if multiple options comes as an array from nettskjema
   const normalizeOptionsData = (val) => {
   if (Array.isArray(val)) return val
   if (!val) return []
@@ -179,7 +179,26 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return formData
   }
 }
+// add this function alongside savePythonKG and saveJsonToDrive in StepsWizard.jsx
 
+const saveJsonToZammad = async (ticketId) => {
+  try {
+    const response = await fetch('/api/zammad/save-json', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticketId:     ticketId,
+        jsonFilePath: jsonFilePath,   // the same path used by the KG upload
+        datasetTitle: formDataRef.current?.dataset1?.dataTitle || 'dataset'
+      })
+    })
+    return response
+  } catch (err) {
+    console.error('Error saving to Zammad:', err)
+    throw err
+  }
+  }
+  
 const savePythonKG = async () => {
   const pythonurl = 'api/python/runpython'
   const payload = await mapDataset1OptionsToIds(formDataRef.current)
@@ -286,6 +305,7 @@ const downloadJson = async () => {
             downloadJson={downloadJson}
             uploadpythonKG={savePythonKG}
             saveJsonToDrive={saveJsonToDrive}
+            saveJsonToZammad={saveJsonToZammad}
           />
         )}
       </div>

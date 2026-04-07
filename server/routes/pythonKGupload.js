@@ -1,4 +1,4 @@
-//a workaround to use python fairgraph package for KG uploading
+//a workaround to use python script for KG uploading
 import express from 'express'
 import dotenv from 'dotenv'
 import { exec } from 'child_process'
