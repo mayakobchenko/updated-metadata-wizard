@@ -118,7 +118,7 @@ def KG_post_global(instance_id, attr):
             "Authorization": "Bearer " + personal_token,
             "Content-Type":  "application/json; charset=utf-8"
         }
-        url = f'{KG_API}{instance_id}?space=shared'
+        url = f'{KG_API}{instance_id}?space=collab-d-{dsv_id}'
         resp = rq.post(url=url, headers=headers,
                        data=json.dumps(payload, indent=4))
         print(
