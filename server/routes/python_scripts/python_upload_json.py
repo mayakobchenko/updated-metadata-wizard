@@ -108,29 +108,6 @@ def KG_post(instance_id, attr):
     except Exception as e:
         return {"error": str(e)}
 
-
-def KG_post_global(instance_id, attr):
-    """Post to the global shared KG space (for new Person instances)."""
-    try:
-        payload = {**VOCAB, **attr}
-        headers = {
-            "accept":        "*/*",
-            "Authorization": "Bearer " + personal_token,
-            "Content-Type":  "application/json; charset=utf-8"
-        }
-        url = f'{KG_API}{instance_id}?space=collab-d-{dsv_id}'
-        resp = rq.post(url=url, headers=headers,
-                       data=json.dumps(payload, indent=4))
-        print(
-            f"DEBUG POST (shared) {url} → {resp.status_code}", file=sys.stderr)
-        if not resp.ok:
-            print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
-            return None
-        return KG_PREFIX + instance_id
-    except Exception as e:
-        print(f"DEBUG KG_post_global error: {e}", file=sys.stderr)
-        return None
-
 # ── string helpers ────────────────────────────────────────────────────────────
 
 
@@ -172,14 +149,7 @@ def as_single_or_list(values):
 
 
 def apply_strain_species(node, strain_val, species_val):
-    """
-    Apply strain-first rule to any node dict.
-    If strain present  → set strain,  set species to [] (clears stale KG value)
-    If no strain       → set species, set strain  to [] (clears stale KG value)
-    If neither present → omit both (new instance, nothing to clear)
-    Always uses lists for species (KG expects array) and single @id for strain.
-    Prints debug so we can verify in the log.
-    """
+
     strain = nonempty(strain_val)
     species = nonempty(species_val)
 
@@ -187,15 +157,13 @@ def apply_strain_species(node, strain_val, species_val):
         f"DEBUG apply_strain_species: strain={strain!r} species={species!r}", file=sys.stderr)
 
     if strain:
-        node["strain"] = {"@id": strain}
-        node["species"] = []            # explicitly clear species
-        print(f"DEBUG → uploading strain only: {strain}", file=sys.stderr)
+        node["species"] = {"@id": strain}
+        print(f"DEBUG → uploading strain: {strain}", file=sys.stderr)
     elif species:
         node["species"] = [{"@id": species}]
-        node["strain"] = []            # explicitly clear strain
-        print(f"DEBUG → uploading species only: {species}", file=sys.stderr)
+        print(f"DEBUG → uploading species: {species}", file=sys.stderr)
     else:
-        print(f"DEBUG → neither strain nor species present, omitting both",
+        print(f"DEBUG → missing strain/species",
               file=sys.stderr)
 
 # ── person lookup ─────────────────────────────────────────────────────────────
@@ -255,7 +223,7 @@ def create_person(first_name, family_name, orcid=None):
 
     print(
         f"DEBUG creating new Person: {first_name} {family_name} (orcid={orcid})", file=sys.stderr)
-    new_id = KG_post_global(person_uuid, person_node)
+    new_id = KG_post(person_uuid, person_node)
     if new_id:
         print(f"DEBUG new Person created → {new_id}", file=sys.stderr)
     else:
@@ -471,10 +439,9 @@ def build_subject_instance(subject, group_uuid=None):
     if subject.get("bioSex"):
         subject_node["biologicalSex"] = {"@id": subject["bioSex"]}
 
-    # strain-first with debug logging
     apply_strain_species(
         subject_node,
-        subject.get("strain",  ""),
+        subject.get("strain", ""),
         subject.get("species", "")
     )
 
@@ -568,13 +535,9 @@ if subject_metadata.get("subjectGroups"):
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
 
-        # ── aggregate species and strains across ALL subjects in group ────────
+        # ── aggregate species across ALL subjects in group ────────
         # Collect non-empty values only
-        all_strains = list({
-            nonempty(s.get("strain", ""))
-            for s in subjects
-            if nonempty(s.get("strain", ""))
-        })
+
         all_species = list({
             nonempty(s.get("species", ""))
             for s in subjects
@@ -586,7 +549,7 @@ if subject_metadata.get("subjectGroups"):
 
         print(
             f"DEBUG group '{group.get('name')}': "
-            f"strains={all_strains} species={all_species} quantity={len(subjects)}",
+            f"species={all_species} quantity={len(subjects)}",
             file=sys.stderr
         )
 
@@ -598,18 +561,13 @@ if subject_metadata.get("subjectGroups"):
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
 
-        # For a GROUP: if ANY subject has a strain, include all strains.
         # Always include species for the group (unlike individual subjects)
         # because a group can contain subjects with different species/strains.
-        if all_strains:
-            group_node["strain"] = [{"@id": s} for s in all_strains]
-        else:
-            group_node["strain"] = []   # clear stale
 
         if all_species:
             group_node["species"] = [{"@id": s} for s in all_species]
         else:
-            group_node["species"] = []   # clear stale
+            group_node["species"] = []
 
         if all_bio_sex:
             group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
@@ -663,7 +621,7 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     # strain-first with debug logging
     apply_strain_species(
         sample_node,
-        sample.get("strain",  ""),
+        sample.get("strain", ""),
         sample.get("species", "")
     )
 
@@ -735,7 +693,6 @@ for collection in subject_metadata.get("tissueCollections", []):
     collection_state_uuids = []
     collection_bio_sex = []
     collection_species = []
-    collection_strains = []
     collection_types = []
     collection_lateralities = []
     collection_origins = []
@@ -753,8 +710,6 @@ for collection in subject_metadata.get("tissueCollections", []):
             collection_bio_sex.append(sample["biologicalSex"])
         if nonempty(sample.get("species",       "")):
             collection_species.append(sample["species"])
-        if nonempty(sample.get("strain",        "")):
-            collection_strains.append(sample["strain"])
         if nonempty(sample.get("type",          "")):
             collection_types.append(sample["type"])
         if nonempty(sample.get("laterality",    "")):
@@ -762,7 +717,6 @@ for collection in subject_metadata.get("tissueCollections", []):
         if nonempty(sample.get("origin",        "")):
             collection_origins.append(sample["origin"])
 
-    unique_strains = list(set(collection_strains))
     unique_species = list(set(collection_species))
     unique_sex = list(set(collection_bio_sex))
     unique_types = list(set(collection_types))
@@ -771,7 +725,7 @@ for collection in subject_metadata.get("tissueCollections", []):
 
     print(
         f"DEBUG collection '{coll_id_str}': "
-        f"strains={unique_strains} species={unique_species} quantity={len(collection.get('samples',[]))}",
+        f"species={unique_species} quantity={len(collection.get('samples',[]))}",
         file=sys.stderr
     )
 
@@ -785,10 +739,6 @@ for collection in subject_metadata.get("tissueCollections", []):
 
     # For collections: same as groups — include both strain AND species
     # because samples in a collection may have different species/strains
-    if unique_strains:
-        collection_node["strain"] = [{"@id": s} for s in unique_strains]
-    else:
-        collection_node["strain"] = []
 
     if unique_species:
         collection_node["species"] = [{"@id": s} for s in unique_species]
