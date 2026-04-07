@@ -4,183 +4,130 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   LoadingOutlined,
-  CloudUploadOutlined,
-  ShareAltOutlined
+  SendOutlined,
 } from '@ant-design/icons'
 
-export default function PopoverSave({ uploadpythonKG, saveJsonToDrive }) {
+export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonToZammad, getTicketId }) {
 
-  const [uploadStatus, setUploadStatus]   = useState(null)
-  const [driveStatus, setDriveStatus]     = useState(null)
-  // null | 'loading' | 'success' | 'error' | 'session_expired'
-  const [errorMessage, setErrorMessage]   = useState('')
-  const [modalVisible, setModalVisible]   = useState(false)
-  const [activeAction, setActiveAction]   = useState(null)
-  // 'kg' | 'drive'
+  const [status, setStatus]       = useState(null)
+  // null | 'loading' | 'success' | 'error'
+  const [errorDetail, setErrorDetail] = useState('')
+  const [modalVisible, setModalVisible] = useState(false)
 
-  // ── upload to KG ────────────────────────────────────────────────────────────
-  const handleUpload = async () => {
-    setActiveAction('kg')
-    setUploadStatus('loading')
+  // ── main submit handler ───────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    setStatus('loading')
+    setErrorDetail('')
     setModalVisible(true)
-    setErrorMessage('')
 
     try {
-      const response = await uploadpythonKG()
+      // ── step 1: fetch ticket ID from Zammad in the background ─────────────
+      // getTicketId() calls GET /api/zammad/zammadinfo with the ticket number
+      // stored in the wizard context — the user never sees this step
+      let ticketId = null
+      try {
+        const ticketRes  = await getTicketId()
+        const ticketData = await ticketRes.json()
+        ticketId = ticketData?.ticketId ?? null
+      } catch (e) {
+        // ticket fetch failing is non-fatal — we still attempt the KG upload
+        console.warn('Could not fetch ticket ID:', e.message)
+      }
 
-      if (!response) {
-        setUploadStatus('error')
-        setErrorMessage('No response from server.')
+      // ── step 2: upload metadata to Knowledge Graph ────────────────────────
+      const kgResponse = await uploadpythonKG()
+
+      if (!kgResponse) {
+        setStatus('error')
+        setErrorDetail('No response from the upload server.')
         return
       }
 
-      const data = await response.json()
-
-      if (response.status === 401) {
-        setUploadStatus('session_expired')
-        setErrorMessage(data.message || 'Session expired. Please reload.')
+      // check for session expiry first
+      if (kgResponse.status === 401) {
+        setStatus('error')
+        setErrorDetail('Your session has expired. Please reload the page, then try again.')
         return
       }
 
-      if (!response.ok || data.error) {
-        setUploadStatus('error')
-        setErrorMessage(data.error || data.message ||
-                        `Server error: ${response.status}`)
+      const kgData = await kgResponse.json()
+
+      if (!kgResponse.ok || kgData.error) {
+        setStatus('error')
+        setErrorDetail(kgData.error || kgData.message || `Server error ${kgResponse.status}`)
         return
       }
 
-      setUploadStatus('success')
+      // ── step 3: save JSON to Zammad ticket (best-effort, non-fatal) ───────
+      if (ticketId && saveJsonToZammad) {
+        try {
+          await saveJsonToZammad(ticketId)
+        } catch (e) {
+          // Zammad save failing does NOT block success — KG upload already succeeded
+          console.warn('Zammad save failed (non-fatal):', e.message)
+        }
+      }
+
+      // ── all done ──────────────────────────────────────────────────────────
+      setStatus('success')
 
     } catch (err) {
-      setUploadStatus('error')
-      setErrorMessage(err.message || 'Unknown error occurred.')
+      setStatus('error')
+      setErrorDetail(err.message || 'An unexpected error occurred.')
     }
   }
 
-  // ── share to Collab ──────────────────────────────────────────────────────────
-  const handleShareToCollab = async () => {
-    setActiveAction('drive')
-    setDriveStatus('loading')
-    setModalVisible(true)
-    setErrorMessage('')
-
-    try {
-      const response = await saveJsonToDrive()
-
-      if (!response) {
-        setDriveStatus('error')
-        setErrorMessage('No response from server.')
-        return
-      }
-
-      const data = await response.json()
-
-      if (response.status === 401) {
-        setDriveStatus('session_expired')
-        setErrorMessage(data.message || 'Session expired. Please reload.')
-        return
-      }
-
-      if (!response.ok || data.error) {
-        setDriveStatus('error')
-        setErrorMessage(data.error || data.message ||
-                        `Server error: ${response.status}`)
-        return
-      }
-
-      setDriveStatus('success')
-
-    } catch (err) {
-      setDriveStatus('error')
-      setErrorMessage(err.message || 'Unknown error occurred.')
-    }
-  }
-
-  // ── derive current status for the modal ──────────────────────────────────────
-  const currentStatus = activeAction === 'kg' ? uploadStatus : driveStatus
-
-  const handleCloseModal = () => {
-    if (currentStatus !== 'loading') {
+  const handleClose = () => {
+    if (status !== 'loading') {
       setModalVisible(false)
-      setUploadStatus(null)
-      setDriveStatus(null)
-      setErrorMessage('')
-      setActiveAction(null)
+      setStatus(null)
+      setErrorDetail('')
     }
   }
-
-  const handleReload = () => {
-    window.location.reload()
-  }
-
-  // ── modal titles and subtitles per action ─────────────────────────────────────
-  const modalContent = {
-    kg: {
-      loadingTitle:   "Uploading to Knowledge Graph...",
-      successTitle:   "Upload successful!",
-      successSub:     "Your metadata has been saved to the EBRAINS Knowledge Graph.",
-      errorTitle:     "Upload failed",
-      errorSub:       "There was a problem uploading to the Knowledge Graph.",
-    },
-    drive: {
-      loadingTitle:   "Sharing to Collab...",
-      successTitle:   "Shared successfully!",
-      successSub:     "Your JSON file has been saved to the EBRAINS Collab.",
-      errorTitle:     "Share failed",
-      errorSub:       "There was a problem sharing the file to the Collab.",
-    }
-  }
-
-  const mc = modalContent[activeAction] || modalContent.kg
 
   return (
     <>
-      {/* ── upload to KG button ── */}
+      {/* ── single submit button ── */}
       <Button
         type="primary"
-        icon={<CloudUploadOutlined />}
-        onClick={handleUpload}
-        className="next-back-button"
-        disabled={currentStatus === 'loading'}>
-        Upload to Knowledge Graph
-      </Button>
-
-      {/* ── share to Collab button ── */}
-      <Button
-        icon={<ShareAltOutlined />}
-        onClick={handleShareToCollab}
-        className="next-back-button"
-        disabled={currentStatus === 'loading'}>
-        Share JSON to Collab
+        size="large"
+        icon={<SendOutlined />}
+        onClick={handleSubmit}
+        disabled={status === 'loading'}
+        style={{ minWidth: 180 }}
+      >
+        Submit
       </Button>
 
       {/* ── status modal ── */}
       <Modal
         open={modalVisible}
-        onCancel={handleCloseModal}
+        onCancel={handleClose}
         footer={null}
-        closable={currentStatus !== 'loading'}
-        maskClosable={currentStatus !== 'loading'}
-        centered>
+        closable={status !== 'loading'}
+        maskClosable={status !== 'loading'}
+        centered
+        width={520}
+      >
 
         {/* loading */}
-        {currentStatus === 'loading' && (
+        {status === 'loading' && (
           <Result
             icon={<Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />}
-            title={mc.loadingTitle}
+            title="Submitting your metadata..."
             subTitle="Please wait, this may take a moment."
           />
         )}
 
         {/* success */}
-        {currentStatus === 'success' && (
+        {status === 'success' && (
           <Result
             status="success"
-            icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: 48 }} />}
-            title={mc.successTitle}
-            subTitle={mc.successSub}
+            icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: 56 }} />}
+            title="Submission successful!"
+            subTitle="Your metadata has been submitted to the EBRAINS Knowledge Graph."
             extra={[
-              <Button type="primary" key="close" onClick={handleCloseModal}>
+              <Button type="primary" key="close" onClick={handleClose}>
                 Close
               </Button>
             ]}
@@ -188,51 +135,38 @@ export default function PopoverSave({ uploadpythonKG, saveJsonToDrive }) {
         )}
 
         {/* error */}
-        {currentStatus === 'error' && (
+        {status === 'error' && (
           <Result
             status="error"
-            icon={<CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 48 }} />}
-            title={mc.errorTitle}
-            subTitle={mc.errorSub}
+            icon={<CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 56 }} />}
+            title="Submission failed"
             extra={[
-              <Button
-                type="primary"
-                key="retry"
-                onClick={activeAction === 'kg' ? handleUpload : handleShareToCollab}>
+              <Button type="primary" key="retry" onClick={handleSubmit}>
                 Try again
               </Button>,
-              <Button key="close" onClick={handleCloseModal}>
+              <Button key="close" onClick={handleClose}>
                 Close
               </Button>
-            ]}>
+            ]}
+          >
             <Alert
               type="error"
-              message="Error details"
-              description={errorMessage}
               showIcon
-            />
-          </Result>
-        )}
-
-        {/* session expired */}
-        {currentStatus === 'session_expired' && (
-          <Result
-            status="warning"
-            title="Session expired"
-            subTitle="Your login session has expired. Please reload the page and log in again."
-            extra={[
-              <Button type="primary" key="reload" onClick={handleReload}>
-                Reload page
-              </Button>,
-              <Button key="close" onClick={handleCloseModal}>
-                Close
-              </Button>
-            ]}>
-            <Alert
-              type="warning"
-              message="Your form data is not lost"
-              description="Use the Download JSON button in the header to save your work before reloading."
-              showIcon
+              message="Please download your JSON and send it manually"
+              description={
+                <span>
+                  Use the <strong>Download JSON</strong> button in the header to save your
+                  form data, then send it to{' '}
+                  <a href="mailto:curation-support@ebrains.eu">
+                    curation-support@ebrains.eu
+                  </a>
+                  {errorDetail && (
+                    <span style={{ display: 'block', marginTop: 8, color: '#888', fontSize: 12 }}>
+                      Technical details: {errorDetail}
+                    </span>
+                  )}
+                </span>
+              }
             />
           </Result>
         )}

@@ -179,7 +179,13 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return formData
   }
 }
-// add this function alongside savePythonKG and saveJsonToDrive in StepsWizard.jsx
+const getTicketId = async () => {
+  const ticketNumber = skjemaInfo?.ticketNumber || ''
+  if (!ticketNumber) {
+    return { json: async () => ({ ticketId: null }) }
+  }
+  return fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`)
+}
 
 const saveJsonToZammad = async (ticketId) => {
   try {
@@ -302,10 +308,11 @@ const downloadJson = async () => {
             - If Subjects disabled or "No": on Experiments */}
         {isLastLogicalStep && (
           <PopoverSave
-            downloadJson={downloadJson}
+            //downloadJson={downloadJson}
             uploadpythonKG={savePythonKG}
             saveJsonToDrive={saveJsonToDrive}
             saveJsonToZammad={saveJsonToZammad}
+            getTicketId={getTicketId}
           />
         )}
       </div>

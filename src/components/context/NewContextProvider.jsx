@@ -10,7 +10,8 @@ const initialState = {
   showLoginDialog: false,
   nettskjemaInfo: null,
   reloadWizard: false,
-  datasetVersionId: null
+  datasetVersionId: null,
+  ticketNumber: null,
 }
 export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
@@ -83,11 +84,14 @@ export default function NewContextProvider({ children }) {
               if (resp_data.success) {
                 dispatch({ type: "SET_USER", text: resp_data.user })
                 hasAuthenticatedRef.current = true
+                hasTicket.current = resp_data.ticket
+                dispatch({ type: "SET_TICKET", text: resp_data.ticket })
               } else {
                 console.log(resp_data.message)
                 dispatch({ type: "RELOAD_WIZARD" })
                 }
-              hasTicket.current = resp_data.ticket
+              //hasTicket.current = resp_data.ticket
+              //dispatch({ type: "SET_TICKET", text: resp_data.ticket })
               console.log('Authentication complete!')
             return true
           }
@@ -192,7 +196,9 @@ export function authReducer(state, action) {
     case 'nettskjemaInfo':
       return { ...state, nettskjemaInfo: action.text }  
     case 'dsvId':
-      return {...state, datasetVersionId: action.text} 
+      return { ...state, datasetVersionId: action.text } 
+    case 'SET_TICKET':
+      return { ...state, ticketNumber: action.text } 
     default:
       return state
   }
