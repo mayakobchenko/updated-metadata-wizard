@@ -2,7 +2,9 @@ name: Build, Push and Deploy (frontend + backend)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - main
+      - production
 
 env:
   SHORT_TAG: ${{ github.sha }}
@@ -11,21 +13,26 @@ env:
   REGISTRY: docker-registry.ebrains.eu
   PROJECT: ebrains-data-curation
 
-  # Kubernetes namespace (where Deployments exist)
-  K8S_NAMESPACE: metadata-wizard-dev
-
-  # Full image names (registry/project/repo)
-  DEV_WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-wizard-dev
-  
-  # Container names inside the Deployments (must match k8s manifests)
-  WIZARD_CONTAINER: container-dev-wizard
-
-  # Kubernetes Deployment names (adjust to your real names)
-  WIZARD_DEPLOYMENT: dev-wizard-deployment
-
 jobs:
-  build-push-deploy:
+  # ==========================
+  # DEV deployment (main)
+  # ==========================
+  build-push-deploy-dev:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      # Kubernetes namespace (where DEV Deployment exists)
+      K8S_NAMESPACE: metadata-wizard-dev
+
+      # Full image name for DEV
+      WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard-dev/image-wizard-dev
+      
+      # Container name inside the DEV Deployment
+      WIZARD_CONTAINER: container-dev-wizard
+
+      # Kubernetes DEV Deployment name
+      WIZARD_DEPLOYMENT: dev-wizard-deployment
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,17 +48,17 @@ jobs:
           username: ${{ secrets.HARBOR_USERNAME }}
           password: ${{ secrets.HARBOR_PASSWORD }}
 
-      - name: Build & push image
+      - name: Build & push DEV image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.DEV_WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
-            ${{ env.DEV_WIZARD_IMAGE }}:latest
+            ${{ env.WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
+            ${{ env.WIZARD_IMAGE }}:latest
 
-      - name: Write kubeconfig (base64)
+      - name: Write kubeconfig (base64) for DEV
         env:
           KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG }}
         run: |
@@ -60,10 +67,8 @@ jobs:
           KUBE_FILE="${KUBE_DIR}/kubeconfig.yaml"
           mkdir -p "${KUBE_DIR}"
 
-          # Decode the base64 secret into the kubeconfig file
           echo "${KUBECONFIG_B64}" | base64 --decode > "${KUBE_FILE}"
 
-          # Sanity check: make sure it looks like a kubeconfig (contains apiVersion)
           if ! grep -q "apiVersion" "${KUBE_FILE}" ; then
             echo "Decoded file does not look like a kubeconfig; aborting"
             sed -n '1,200p' "${KUBE_FILE}" || true
@@ -72,32 +77,122 @@ jobs:
 
           chmod 600 "${KUBE_FILE}"
           echo "Wrote kubeconfig to ${KUBE_FILE}"
-          # optional preview for debugging (first 10 lines)
           sed -n '1,10p' "${KUBE_FILE}"
 
-      - name: Verify cluster (optional)
+      - name: Verify DEV cluster (optional)
         run: |
           set -euo pipefail
           KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
-          # Use explicit --kubeconfig so we don't depend on env var
           kubectl --kubeconfig="${KUBE_FILE}" cluster-info || true
           kubectl --kubeconfig="${KUBE_FILE}" get ns || true
 
-      - name: Patch image
+      - name: Patch DEV image
         run: |
           set -euo pipefail
           KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
           kubectl --kubeconfig="${KUBE_FILE}" -n ${{ env.K8S_NAMESPACE }} set image \
             deployment/${{ env.WIZARD_DEPLOYMENT }} \
-            ${{ env.WIZARD_CONTAINER }}=${{ env.DEV_WIZARD_IMAGE }}:${{ env.SHORT_TAG }} --record
+            ${{ env.WIZARD_CONTAINER }}=${{ env.WIZARD_IMAGE }}:${{ env.SHORT_TAG }} --record
 
-      - name: Wait for rollout
+      - name: Wait for DEV rollout
         run: |
           set -euo pipefail
           KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
           kubectl --kubeconfig="${KUBE_FILE}" -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.WIZARD_DEPLOYMENT }} --timeout=180s
 
-      - name: Cleanup kubeconfig
+      - name: Cleanup DEV kubeconfig
+        if: always()
+        run: |
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          shred -u "${KUBE_FILE}" || rm -f "${KUBE_FILE}"
+
+  # ==========================
+  # PROD deployment (production)
+  # ==========================
+  build-push-deploy-prod:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production'
+    env:
+      # Kubernetes namespace (where PROD Deployment exists)
+      K8S_NAMESPACE: metadata-wizard
+
+      # Full image name for PROD
+      WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard/image-wizard
+      
+      # Container name inside the PROD Deployment
+      WIZARD_CONTAINER: container-wizard
+
+      # Kubernetes PROD Deployment name
+      WIZARD_DEPLOYMENT: wizard-deployment
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Debug TLS
+        run: |
+          curl -v https://docker-registry.ebrains.eu/v2/ 
+
+      - name: Log in to Harbor
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build & push PROD image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
+            ${{ env.WIZARD_IMAGE }}:latest
+
+      - name: Write kubeconfig (base64) for PROD
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          set -euo pipefail
+          KUBE_DIR="${{ runner.temp }}/.kube"
+          KUBE_FILE="${KUBE_DIR}/kubeconfig.yaml"
+          mkdir -p "${KUBE_DIR}"
+
+          echo "${KUBECONFIG_B64}" | base64 --decode > "${KUBE_FILE}"
+
+          if ! grep -q "apiVersion" "${KUBE_FILE}" ; then
+            echo "Decoded file does not look like a kubeconfig; aborting"
+            sed -n '1,200p' "${KUBE_FILE}" || true
+            exit 1
+          fi
+
+          chmod 600 "${KUBE_FILE}"
+          echo "Wrote kubeconfig to ${KUBE_FILE}"
+          sed -n '1,10p' "${KUBE_FILE}"
+
+      - name: Verify PROD cluster (optional)
+        run: |
+          set -euo pipefail
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          kubectl --kubeconfig="${KUBE_FILE}" cluster-info || true
+          kubectl --kubeconfig="${KUBE_FILE}" get ns || true
+
+      - name: Patch PROD image
+        run: |
+          set -euo pipefail
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          kubectl --kubeconfig="${KUBE_FILE}" -n ${{ env.K8S_NAMESPACE }} set image \
+            deployment/${{ env.WIZARD_DEPLOYMENT }} \
+            ${{ env.WIZARD_CONTAINER }}=${{ env.WIZARD_IMAGE }}:${{ env.SHORT_TAG }} --record
+
+      - name: Wait for PROD rollout
+        run: |
+          set -euo pipefail
+          KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"
+          kubectl --kubeconfig="${KUBE_FILE}" -n ${{ env.K8S_NAMESPACE }} rollout status deployment/${{ env.WIZARD_DEPLOYMENT }} --timeout=180s
+
+      - name: Cleanup PROD kubeconfig
         if: always()
         run: |
           KUBE_FILE="${{ runner.temp }}/.kube/kubeconfig.yaml"

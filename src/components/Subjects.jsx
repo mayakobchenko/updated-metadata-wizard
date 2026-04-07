@@ -14,7 +14,7 @@ const AGE_UNIT_NAMES = new Set([
 
 const WEIGHT_UNIT_NAMES = new Set([
   'gram', 'kilogram',
-  'milligram per kilogram body weight'
+  //'milligram per kilogram body weight'
 ])
 
 // ─── label style ─────────────────────────────────────────────────────────────
