@@ -1,6 +1,5 @@
 import dotenv        from 'dotenv'
 import express       from 'express'
-import fetch         from 'node-fetch'
 import { readFile }  from 'fs/promises'
 import logger        from '../logger.js'
 
