@@ -272,7 +272,7 @@ dsv_short_title = safe_trim(data.get("dataset1", {}).get("shortTitle",   ""))
 brief_summary = safe_trim(data.get("dataset1", {}).get("briefSummary", ""))
 license_id = safe_trim(data.get("dataset1", {}).get("license",      ""))
 embargo = data.get("dataset1", {}).get("embargo", False)
-embargo_date = data.get("dataset1", {}).get("embargoDate") if embargo else None
+# embargo_date = data.get("dataset1", {}).get("embargoDate") if embargo else None
 homepage = safe_trim(data.get("dataset2", {}).get("homePage", ""))
 
 data_type_list = data.get("dataset1", {}).get("optionsData", [])

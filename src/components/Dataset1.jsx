@@ -20,7 +20,7 @@ export default function Dataset1({ form, onChange, data }) {
       shortTitle: data.dataset1?.shortTitle || '',
       optionsData: data.dataset1?.optionsData || '',
       embargo: data.dataset1?.embargo ?? false,
-      embargoDate: data.dataset1?.embargoDate || null,
+      //embargoDate: data.dataset1?.embargoDate || null,
       embargoReview: data.dataset1?.embargoReview || false,
       submitJournalName: data.dataset1?.submitJournalName || '',
       copyright: data.dataset1?.copyright || '',
@@ -156,7 +156,7 @@ export default function Dataset1({ form, onChange, data }) {
             </Radio>
         </Radio.Group>
         </AntForm.Item>
-              
+ {/*           
         {embargo && (
           <AntForm.Item
             label="Intended release date"
@@ -172,7 +172,7 @@ export default function Dataset1({ form, onChange, data }) {
             rules={[{ required: initialValues.dataset1.embargoReview, message: 'Please confirm the journal name!' }]}>
             <Input />
         </AntForm.Item>)}
-              
+ */}               
         <AntForm.Item
           name={['dataset1', 'copyright']}
           label="Is this version of the dataset copyrighted?"
