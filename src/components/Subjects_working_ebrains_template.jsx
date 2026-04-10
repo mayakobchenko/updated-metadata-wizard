@@ -76,216 +76,284 @@ const sel = (extraStyle = {}) => ({
 })
 
 // ─── Excel template download ─────────────────────────────────────────────────
+// ─── Excel template download ─────────────────────────────────────────────────
 
 const downloadExcelTemplate = () => {
+  const wb = XLSX.utils.book_new()
+
+  // Subject sheet
   const subjectHeaders = [
-    'subjectID', 'groupName', 'sex', 'ageCategory', 'species', 'strain',
-    'age', 'ageUnit', 'weight', 'weightUnit', 'disease', 'diseaseModel',
-    'handedness', 'subjectAttribute', 'additionalRemarks'
+    'SubjectID', 'Age', 'Weight', 'AgeCategory', 'BiologicalSex',
+    'Disease', 'Handedness', 'Species', 'Strain',
+    'SubjectAttribute', 'AdditionalRemarks', 'IsPartOf'
   ]
+  const subjectExample = [
+    ['Sub-1', '9', '23', 'young adult', 'male', '', 'ambidextrous handedness', 'Mus musculus', 'C57BL/6', '', 'example remark', 'SG-1'],
+    ['Sub-2', '13', '26', 'adult', 'female', '', 'right handedness', 'Mus musculus', 'C57BL/6', '', '', 'SG-1'],
+  ]
+  const ws1 = XLSX.utils.aoa_to_sheet([subjectHeaders, ...subjectExample])
+  ws1['!cols'] = subjectHeaders.map(() => ({ wch: 20 }))
+  XLSX.utils.book_append_sheet(wb, ws1, 'Subject')
+
+  // SubjectGroup sheet
+  const groupHeaders = [
+    'SubjectGroupID', 'Quantity', 'Age', 'Weight', 'AgeCategory', 'BiologicalSex',
+    'Disease', 'Handedness', 'Species', 'Strain', 'SubjectAttribute', 'AdditionalRemarks'
+  ]
+  const groupExample = [
+    ['SG-1', '5', '12', '25', 'young adult', 'male', '', 'ambidextrous handedness', 'Mus musculus', 'C57BL/6', '', 'group A'],
+    ['SG-2', '8', '13', '27', 'young adult', 'female', '', '', 'Rattus norvegicus', '', '', 'group B'],
+  ]
+  const ws2 = XLSX.utils.aoa_to_sheet([groupHeaders, ...groupExample])
+  ws2['!cols'] = groupHeaders.map(() => ({ wch: 20 }))
+  XLSX.utils.book_append_sheet(wb, ws2, 'SubjectGroup')
+
+  // TissueSample sheet
   const tissueHeaders = [
-    'sampleID', 'collectionID', 'type', 'species', 'strain', 'sex',
-    'laterality', 'origin', 'age', 'ageUnit', 'weight', 'weightUnit',
-    'pathology', 'tissueSampleAttribute', 'additionalRemarks', 'linkedSubjectID'
+    'TissueSampleID', 'Origin', 'AnatomicalLocation', 'Age', 'Weight',
+    'BiologicalSex', 'Disease', 'Laterality', 'Species', 'Strain',
+    'TissueSampleAttribute', 'TissueSampleType', 'AdditionalRemarks',
+    'IsPartOf', 'DescendedFromSubjectID'
   ]
-
-  const exampleSubjects = [
-    ['subject_001', 'Group 1', 'female', 'adult', 'Mus musculus', 'C57BL/6', '12', 'week', '25', 'gram', '', '', 'right-handed', '', 'example subject'],
-    ['subject_002', 'Group 1', 'male',   'adult', 'Mus musculus', 'C57BL/6', '12', 'week', '28', 'gram', '', '', '',            '', ''],
-    ['subject_003', 'Group 2', 'female', 'adult', 'Rattus norvegicus', '', '8', 'week', '200', 'gram', '', '', '', '', ''],
+  const tissueExample = [
+    ['TS-1', 'Brain', 'hippocampus', '3', '2', 'male', '', 'right', 'Mus musculus', 'C57BL/6', '', '', '', 'TSC-1', 'Sub-1'],
   ]
-  const exampleTissues = [
-    ['tissue_001', 'Collection A', 'brain slice', 'Mus musculus', 'C57BL/6', 'female', 'left', 'Hippocampus', '12', 'week', '', '', '', '', 'fixed 4% PFA', 'subject_001'],
-    ['tissue_002', 'Collection A', 'brain slice', 'Mus musculus', 'C57BL/6', 'male',   'right','Hippocampus', '12', 'week', '', '', '', '', '', 'subject_002'],
+  const ws3 = XLSX.utils.aoa_to_sheet([tissueHeaders, ...tissueExample])
+  ws3['!cols'] = tissueHeaders.map(() => ({ wch: 20 }))
+  XLSX.utils.book_append_sheet(wb, ws3, 'TissueSample')
+
+  // TissueSampleCollection sheet
+  const collectionHeaders = [
+    'TissueSampleCollectionID', 'Quantity', 'Origin', 'AnatomicalLocation',
+    'Age', 'Weight', 'BiologicalSex', 'Disease', 'Laterality',
+    'Species', 'Strain', 'TissueSampleAttribute', 'TissueSampleType',
+    'AdditionalRemarks', 'DescendedFromSubjectID'
   ]
+  const collectionExample = [
+    ['TSC-1', '5', 'Brain', 'hippocampus', '5', '3', 'male', '', 'right', 'Mus musculus', 'C57BL/6', '', '', 'collection remark', 'Sub-1'],
+  ]
+  const ws4 = XLSX.utils.aoa_to_sheet([collectionHeaders, ...collectionExample])
+  ws4['!cols'] = collectionHeaders.map(() => ({ wch: 20 }))
+  XLSX.utils.book_append_sheet(wb, ws4, 'TissueSampleCollection')
 
-  const wb  = XLSX.utils.book_new()
-  const ws1 = XLSX.utils.aoa_to_sheet([subjectHeaders, ...exampleSubjects])
-  const ws2 = XLSX.utils.aoa_to_sheet([tissueHeaders,  ...exampleTissues])
-
-  // style the header row bold width hints
-  ws1['!cols'] = subjectHeaders.map(() => ({ wch: 18 }))
-  ws2['!cols'] = tissueHeaders.map(()  => ({ wch: 18 }))
-
-  XLSX.utils.book_append_sheet(wb, ws1, 'Subjects')
-  XLSX.utils.book_append_sheet(wb, ws2, 'TissueSamples')
-
+  // Instructions sheet
   const instructions = [
     ['EBRAINS Metadata Wizard — Subject/Tissue Import Template'],
     [''],
-    ['INSTRUCTIONS:'],
-    ['• Fill in the "Subjects" sheet for subjects and subject groups.'],
-    ['• Fill in the "TissueSamples" sheet for tissue samples and collections.'],
-    ['• Use the exact text names from the KG dropdowns (e.g. "Mus musculus", "adult", "gram").'],
-    ['• For groupName: subjects with the same groupName will be placed in the same group.'],
-    ['• For collectionID: tissue samples with the same collectionID go into the same collection.'],
-    ['• Leave groupName empty for flat (ungrouped) subjects.'],
-    ['• Leave collectionID empty for flat (uncollected) tissue samples.'],
-    ['• Multiple values (disease, attributes) can be separated by semicolons: "Epilepsy;Diabetes"'],
-    ['• linkedSubjectID links a tissue sample to its source subject (use the subjectID value).'],
-    ['• ageUnit examples: year, month, week, day, postnatal day, embryonic day, hour, second'],
-    ['• weightUnit examples: gram, kilogram'],
+    ['SHEETS:'],
+    ['  Subject              — one row per individual subject'],
+    ['  SubjectGroup         — one row per subject group'],
+    ['  TissueSample         — one row per tissue sample'],
+    ['  TissueSampleCollection — one row per tissue sample collection'],
+    [''],
+    ['LINKING:'],
+    ['  Subject.IsPartOf           → SubjectGroupID from SubjectGroup sheet'],
+    ['  TissueSample.IsPartOf      → TissueSampleCollectionID from TissueSampleCollection sheet'],
+    ['  TissueSample.DescendedFromSubjectID → SubjectID from Subject sheet'],
+    ['  TissueSampleCollection.DescendedFromSubjectID → SubjectID from Subject sheet'],
+    [''],
+    ['VALUE MATCHING:'],
+    ['  Species, Strain, AgeCategory, BiologicalSex, Handedness, Laterality etc.'],
+    ['  must match the display names from the EBRAINS KG (e.g. "Mus musculus", "adult", "gram").'],
+    ['  Unmatched values will be left blank with a warning shown in the import preview.'],
+    [''],
+    ['MULTIPLE VALUES:'],
+    ['  Disease, SubjectAttribute, TissueSampleAttribute — separate with semicolons'],
+    ['  e.g. "Epilepsy;Diabetes"'],
   ]
-  const ws3 = XLSX.utils.aoa_to_sheet(instructions)
-  ws3['!cols'] = [{ wch: 80 }]
-  XLSX.utils.book_append_sheet(wb, ws3, 'Instructions')
+  const ws5 = XLSX.utils.aoa_to_sheet(instructions)
+  ws5['!cols'] = [{ wch: 80 }]
+  XLSX.utils.book_append_sheet(wb, ws5, 'Instructions')
 
   XLSX.writeFile(wb, 'metadata_wizard_subjects_template.xlsx')
 }
 
-// ─── Excel parser ─────────────────────────────────────────────────────────────
+// ─── Excel parser — matches your 6-sheet format ───────────────────────────────
 
 const parseExcelFile = (file, lookupMaps) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target.result)
-        const wb   = XLSX.read(data, { type: 'array' })
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' })
 
-        const subjectSheet = wb.Sheets['Subjects']
-        const tissueSheet  = wb.Sheets['TissueSamples']
+        const getSheet = (name) => {
+          const ws = wb.Sheets[name]
+          if (!ws) return []
+          return XLSX.utils.sheet_to_json(ws, { defval: '' })
+        }
 
-        if (!subjectSheet && !tissueSheet) {
-          reject(new Error('Excel file must contain a "Subjects" or "TissueSamples" sheet.'))
+        const subjectRows    = getSheet('Subject')
+        const groupRows      = getSheet('SubjectGroup')
+        const tissueRows     = getSheet('TissueSample')
+        const collectionRows = getSheet('TissueSampleCollection')
+
+        if (!subjectRows.length && !groupRows.length &&
+            !tissueRows.length && !collectionRows.length) {
+          reject(new Error('No data found. Expected sheets: Subject, SubjectGroup, TissueSample, TissueSampleCollection'))
           return
         }
 
-        const subjectRows = subjectSheet
-          ? XLSX.utils.sheet_to_json(subjectSheet, { defval: '' })
-          : []
-        const tissueRows  = tissueSheet
-          ? XLSX.utils.sheet_to_json(tissueSheet,  { defval: '' })
-          : []
+        const warnings = []
 
-        // ── helper: resolve a text name to a KG identifier ────────────────
-        const resolve = (mapName, textValue) => {
-          if (!textValue || typeof textValue !== 'string') return ''
+        const resolveOne = (mapName, textValue, label) => {
+          const v = String(textValue || '').trim()
+          if (!v) return ''
           const map = lookupMaps[mapName]
           if (!map) return ''
-          const key = textValue.trim().toLowerCase()
-          return map.get(key) || ''   // returns identifier or '' if not found
+          const found = map.get(v.toLowerCase())
+          if (!found) warnings.push(`${label}: "${v}" not found in KG — left blank`)
+          return found || ''
         }
 
-        const resolveMulti = (mapName, textValue) => {
-          if (!textValue || typeof textValue !== 'string') return []
-          return textValue.split(';')
-            .map(v => resolve(mapName, v.trim()))
+        const resolveMulti = (mapName, textValue, label) =>
+          String(textValue || '').trim()
+            .split(';')
+            .map(p => resolveOne(mapName, p.trim(), label))
             .filter(Boolean)
+
+        // ── STEP 1: build group shells from SubjectGroup sheet ────────────────
+        const groupMap = new Map()  // groupID → group object
+        for (const row of groupRows) {
+          const groupID = String(row.SubjectGroupID || '').trim()
+          if (!groupID) continue
+          groupMap.set(groupID, {
+            id:                Date.now() + Math.random(),
+            _excelID:          groupID,
+            name:              groupID,
+            additionalRemarks: String(row.AdditionalRemarks || '').trim(),
+            subjects:          [],
+          })
         }
 
-        // ── parse subjects ────────────────────────────────────────────────
-        // group by groupName — empty groupName = flat mode
-        const groupMap    = new Map()  // groupName → [subjects]
-        const flatSubjects = []
-        const warnings    = []
+        // ── STEP 2: parse subjects and add to groups ──────────────────────────
+        const flatSubjects   = []
+        const subjectIdIndex = new Map()  // SubjectID string → frontend id
 
         for (const row of subjectRows) {
-          const groupName = String(row.groupName || '').trim()
+          const subjectID = String(row.SubjectID || '').trim()
+          if (!subjectID) { warnings.push('Subject row skipped: missing SubjectID'); continue }
+
           const subj = {
             id:                Date.now() + Math.random(),
-            subjectID:         String(row.subjectID || '').trim(),
-            age:               String(row.age       || '').trim(),
-            ageUnit:           resolve('units',       row.ageUnit),
-            weight:            String(row.weight     || '').trim(),
-            weightUnit:        resolve('units',       row.weightUnit),
-            ageCategory:       resolve('agecategory', row.ageCategory),
-            bioSex:            resolve('biosex',      row.sex),
-            species:           resolve('species',     row.species),
-            strain:            resolve('strain',      row.strain),
-            handedness:        resolve('handedness',  row.handedness),
-            disease:           resolveMulti('disease',          row.disease),
-            diseaseModel:      resolveMulti('diseaseModel',     row.diseaseModel),
-            subjectAttribute:  resolveMulti('subjectAttribute', row.subjectAttribute),
-            additionalRemarks: String(row.additionalRemarks || '').trim(),
+            subjectID,
+            age:               String(row.Age    || '').trim(),
+            ageUnit:           '',
+            weight:            String(row.Weight || '').trim(),
+            weightUnit:        '',
+            ageCategory:       resolveOne('agecategory',      row.AgeCategory,      `Subject "${subjectID}" AgeCategory`),
+            bioSex:            resolveOne('biosex',            row.BiologicalSex,    `Subject "${subjectID}" BiologicalSex`),
+            species:           resolveOne('species',           row.Species,          `Subject "${subjectID}" Species`),
+            strain:            resolveOne('strain',            row.Strain,           `Subject "${subjectID}" Strain`),
+            handedness:        resolveOne('handedness',        row.Handedness,       `Subject "${subjectID}" Handedness`),
+            disease:           resolveMulti('disease',         row.Disease,          `Subject "${subjectID}" Disease`),
+            diseaseModel:      resolveMulti('diseaseModel',    row.Disease,          `Subject "${subjectID}" DiseaseModel`),
+            subjectAttribute:  resolveMulti('subjectAttribute',row.SubjectAttribute, `Subject "${subjectID}" SubjectAttribute`),
+            additionalRemarks: String(row.AdditionalRemarks || '').trim(),
             file_path:         '',
             linkedSampleIds:   [],
           }
 
-          if (!subj.subjectID) {
-            warnings.push(`Row skipped: missing subjectID`)
-            continue
-          }
+          // register in index BEFORE adding to group (needed for tissue linking)
+          subjectIdIndex.set(subjectID, subj.id)
 
-          // warn about unresolved values
-          if (row.species && !subj.species)
-            warnings.push(`Subject "${subj.subjectID}": species "${row.species}" not found in KG — left blank`)
-          if (row.ageUnit && !subj.ageUnit)
-            warnings.push(`Subject "${subj.subjectID}": ageUnit "${row.ageUnit}" not found — left blank`)
-
-          if (groupName) {
-            if (!groupMap.has(groupName)) groupMap.set(groupName, [])
-            groupMap.get(groupName).push(subj)
+          const groupID = String(row.IsPartOf || '').trim()
+          if (groupID) {
+            if (groupMap.has(groupID)) {
+              groupMap.get(groupID).subjects.push(subj)
+            } else {
+              warnings.push(`Subject "${subjectID}": group "${groupID}" not found in SubjectGroup sheet — placed in flat list`)
+              flatSubjects.push(subj)
+            }
           } else {
             flatSubjects.push(subj)
           }
         }
 
-        // build groups array
-        const groups = [...groupMap.entries()].map(([name, subjects]) => ({
-          id:                Date.now() + Math.random(),
-          name,
-          additionalRemarks: '',
-          subjects,
-        }))
+        // keep only groups that have at least one subject
+        const groups = [...groupMap.values()].filter(g => g.subjects.length > 0)
 
-        // ── parse tissue samples ──────────────────────────────────────────
-        const collectionMap  = new Map()  // collectionID → [samples]
-        const flatSamples    = []
-        const subjectIdIndex = new Map()  // subjectID string → frontend id
+        console.log('DEBUG parsed groups:', groups.length, groups.map(g => g.name))
+        console.log('DEBUG parsed flatSubjects:', flatSubjects.length)
+        console.log('DEBUG subjectIdIndex:', [...subjectIdIndex.entries()])
 
-        // build index for subject linking
-        for (const s of flatSubjects)
-          subjectIdIndex.set(s.subjectID, s.id)
-        for (const g of groups)
-          for (const s of g.subjects)
-            subjectIdIndex.set(s.subjectID, s.id)
+        // ── STEP 3: parse TissueSampleCollections ─────────────────────────────
+        const collectionMap = new Map()
+
+        for (const row of collectionRows) {
+          const collID = String(row.TissueSampleCollectionID || '').trim()
+          if (!collID) continue
+
+          const linkedSubjStr   = String(row.DescendedFromSubjectID || '').trim()
+          const linkedSubjectId = subjectIdIndex.get(linkedSubjStr) || null
+
+          if (linkedSubjStr && !linkedSubjectId) {
+            warnings.push(`Collection "${collID}": subject "${linkedSubjStr}" not found`)
+          }
+
+          collectionMap.set(collID, {
+            id:                Date.now() + Math.random(),
+            _excelID:          collID,
+            collectionID:      collID,
+            additionalRemarks: String(row.AdditionalRemarks || '').trim(),
+            linkedSubjectId,
+            samples:           [],
+          })
+        }
+
+        // ── STEP 4: parse TissueSamples and add to collections ────────────────
+        const flatSamples = []
 
         for (const row of tissueRows) {
-          const collectionID = String(row.collectionID || '').trim()
+          const sampleID = String(row.TissueSampleID || '').trim()
+          if (!sampleID) { warnings.push('TissueSample row skipped: missing TissueSampleID'); continue }
+
+          const linkedSubjStr   = String(row.DescendedFromSubjectID || '').trim()
+          const linkedSubjectId = subjectIdIndex.get(linkedSubjStr) || null
+
+          if (linkedSubjStr && !linkedSubjectId) {
+            warnings.push(`Sample "${sampleID}": subject "${linkedSubjStr}" not found`)
+          }
+
           const sample = {
-            id:                   Date.now() + Math.random(),
-            sampleID:             String(row.sampleID || '').trim(),
-            type:                 resolve('tissueSampleType',      row.type),
-            species:              resolve('species',               row.species),
-            strain:               resolve('strain',                row.strain),
-            biologicalSex:        resolve('biosex',                row.sex),
-            laterality:           resolve('laterality',            row.laterality),
-            origin:               resolve('origin',                row.origin),
-            age:                  String(row.age    || '').trim(),
-            ageUnit:              resolve('units',                  row.ageUnit),
-            weight:               String(row.weight || '').trim(),
-            weightUnit:           resolve('units',                  row.weightUnit),
-            pathology:            resolveMulti('disease',           row.pathology),
-            tissueSampleAttribute: resolveMulti('tissueSampleAttribute', row.tissueSampleAttribute),
-            additionalRemarks:    String(row.additionalRemarks || '').trim(),
-            linkedSubjectId:      subjectIdIndex.get(String(row.linkedSubjectID || '').trim()) || null,
+            id:                    Date.now() + Math.random(),
+            sampleID,
+            type:                  resolveOne('tissueSampleType',      row.TissueSampleType,      `Sample "${sampleID}" Type`),
+            species:               resolveOne('species',                row.Species,               `Sample "${sampleID}" Species`),
+            strain:                resolveOne('strain',                 row.Strain,                `Sample "${sampleID}" Strain`),
+            biologicalSex:         resolveOne('biosex',                 row.BiologicalSex,         `Sample "${sampleID}" BiologicalSex`),
+            laterality:            resolveOne('laterality',             row.Laterality,            `Sample "${sampleID}" Laterality`),
+            origin:                resolveOne('origin',                 row.Origin,                `Sample "${sampleID}" Origin`),
+            age:                   String(row.Age    || '').trim(),
+            ageUnit:               '',
+            weight:                String(row.Weight || '').trim(),
+            weightUnit:            '',
+            pathology:             resolveMulti('disease', row.Disease, `Sample "${sampleID}" Disease`),
+            tissueSampleAttribute: resolveMulti('tissueSampleAttribute', row.TissueSampleAttribute, `Sample "${sampleID}" Attribute`),
+            additionalRemarks:     String(row.AdditionalRemarks || '').trim(),
+            linkedSubjectId,
           }
 
-          if (!sample.sampleID) {
-            warnings.push(`Tissue row skipped: missing sampleID`)
-            continue
-          }
-
-          if (row.species && !sample.species)
-            warnings.push(`Sample "${sample.sampleID}": species "${row.species}" not found — left blank`)
-
-          if (collectionID) {
-            if (!collectionMap.has(collectionID)) collectionMap.set(collectionID, [])
-            collectionMap.get(collectionID).push(sample)
+          const collID = String(row.IsPartOf || '').trim()
+          if (collID) {
+            if (collectionMap.has(collID)) {
+              collectionMap.get(collID).samples.push(sample)
+            } else {
+              warnings.push(`Sample "${sampleID}": collection "${collID}" not found — placed in flat list`)
+              flatSamples.push(sample)
+            }
           } else {
             flatSamples.push(sample)
           }
         }
 
-        const collections = [...collectionMap.entries()].map(([collectionID, samples]) => ({
-          id:                Date.now() + Math.random(),
-          collectionID,
-          additionalRemarks: '',
-          samples,
-        }))
+        const collections = [...collectionMap.values()].filter(c => c.samples.length > 0)
+
+        console.log('DEBUG parsed collections:', collections.length)
+        console.log('DEBUG parsed flatSamples:', flatSamples.length)
 
         resolve({ groups, flatSubjects, collections, flatSamples, warnings })
+
       } catch (err) {
         reject(err)
       }
@@ -695,41 +763,57 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   // ── apply parsed Excel data to the form ───────────────────────────────────
-  const applyExcelData = () => {
-    if (!excelPreview) return
+ // ─── Replace applyExcelData with this version ─────────────────────────────────
 
-    const { groups: parsedGroups, flatSubjects, collections, flatSamples } = excelPreview
+const applyExcelData = () => {
+  if (!excelPreview) return
 
-    const hasGroups      = parsedGroups.length > 0
-    const hasCollections = collections.length > 0
+  const { groups: parsedGroups, flatSubjects, collections, flatSamples } = excelPreview
 
-    if (hasGroups) {
-      setGroups(parsedGroups)
-      setMode('grouped')
-      setSubjectData([])
-      emit({ subjectGroups: parsedGroups, subjects: undefined })
-    } else if (flatSubjects.length > 0) {
-      setSubjectData(flatSubjects)
-      setMode('flat')
-      setGroups([])
-      emit({ subjects: flatSubjects, subjectGroups: undefined })
-    }
+  const hasGroups      = parsedGroups.length > 0
+  const hasCollections = collections.length > 0
+  const hasFlatSubjects = flatSubjects.length > 0
+  const hasFlatSamples  = flatSamples.length > 0
 
-    if (hasCollections) {
-      setTissueCollections(collections)
-      setTissueMode('collections')
-      setTissueSamples([])
-      emit({ tissueCollections: collections, tissueSamples: undefined })
-    } else if (flatSamples.length > 0) {
-      setTissueSamples(flatSamples)
-      setTissueMode('flat')
-      setTissueCollections([])
-      emit({ tissueSamples: flatSamples, tissueCollections: undefined })
-    }
+  // ── build the full subjectMetadata patch in one go ─────────────────────────
+  // emit() merges with data.subjectMetadata so we must send everything at once
+  // otherwise the second emit() call overwrites keys set by the first
+  const patch = {}
 
-    setExcelModalVisible(false)
-    setExcelPreview(null)
+  if (hasGroups) {
+    patch.subjectGroups = parsedGroups
+    patch.subjects      = undefined
+    setGroups(parsedGroups)
+    setMode('grouped')
+    setSubjectData([])
+  } else if (hasFlatSubjects) {
+    patch.subjects      = flatSubjects
+    patch.subjectGroups = undefined
+    setSubjectData(flatSubjects)
+    setMode('flat')
+    setGroups([])
   }
+
+  if (hasCollections) {
+    patch.tissueCollections = collections
+    patch.tissueSamples     = undefined
+    setTissueCollections(collections)
+    setTissueMode('collections')
+    setTissueSamples([])
+  } else if (hasFlatSamples) {
+    patch.tissueSamples     = flatSamples
+    patch.tissueCollections = undefined
+    setTissueSamples(flatSamples)
+    setTissueMode('flat')
+    setTissueCollections([])
+  }
+
+  // single emit call with the complete patch
+  emit(patch)
+
+  setExcelModalVisible(false)
+  setExcelPreview(null)
+}
 
   // ── bidirectional link helpers (unchanged) ────────────────────────────────
 
