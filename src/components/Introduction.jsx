@@ -34,12 +34,25 @@ export default function Introduction({ form, onChange, data }) {
       return callback()}
     callback('Price enter a valid email address')
   }
-  
+ /* 
   const checkOrcid = (rule, value, callback) => {
     const orcidRegex = /^\d{4}-\d{4}-\d{4}-[\dX]$/  
     const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-\d{4}$/
     if (orcidRegex.test(value) || orcidUrlRegex.test(value)) { return callback() }
     callback('Please provide the orchid number in this format: https://orcid.org/xxxx-xxxx-xxxx-xxxx')
+  }*/
+
+  const checkOrcid = (rule, value, callback) => {
+    if (!value || value.trim() === '') return callback()
+    // bare format:  0000-0001-8359-3486  or  0000-0001-8359-348X
+    const orcidRegex    = /^\d{4}-\d{4}-\d{4}-[\dX]$/
+    // URL format:   https://orcid.org/0000-0001-8359-3486
+    //               https://orcid.org/0000-0001-8359-348X  
+    const orcidUrlRegex = /^https:\/\/orcid\.org\/\d{4}-\d{4}-\d{4}-[\dX]$/
+    if (orcidRegex.test(value) || orcidUrlRegex.test(value)) {
+      return callback()
+    }
+    callback('Please provide the ORCID in this format: https://orcid.org/xxxx-xxxx-xxxx-xxxx (last character may be X)')
   }
 
   return (

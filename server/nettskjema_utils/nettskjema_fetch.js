@@ -6,7 +6,7 @@ const tokenNettskjema = await fetchTokenNettskjema()
 const submissionId = 33464654
 //https://nettskjema.no/api/v3/form/submission/33464654
 
-const submissionData = await fetchSubmission(submissionId, tokenNettskjema);
+const submissionData = await fetchSubmission(submissionId, tokenNettskjema)
 //console.log(submissionData)
 
 const answerData = await fetchAnswers(submissionData, 'Title');
