@@ -80,7 +80,7 @@ export default function Dataset1({ form, onChange, data }) {
     { label: 'Raw data', value: 'Raw data' },
     { label: 'Derived data', value: 'Derived data' },
   ]
-  const optionsDataStandart = [
+  const dataStandart = [
     { label: 'No, I didn\'t use a standard', value: 'No, I didn\'t use a standard' },
     { label: 'NIX',        value: 'NIX' },
     { label: 'NWB',        value: 'NWB' },
@@ -289,7 +289,7 @@ export default function Dataset1({ form, onChange, data }) {
             })}
           </Select>
         </AntForm.Item>
-
+        {/*
         <AntForm.Item
           label="Data organization"
           name={['dataset1', 'dataStandart']} 
@@ -297,14 +297,14 @@ export default function Dataset1({ form, onChange, data }) {
           extra="Do your data organization follows any community standards such as BIDS or NWB?">
           <Input />
         </AntForm.Item>
-
+*/}
         <AntForm.Item
           name={['dataset1', 'dataStandart']}
           label="Data organization standard(s)"
           rules={[{ required: false }]}
           extra="Did your data organization follow any community standards such as BIDS or NWB?">
           <Checkbox.Group
-            options={optionsDataStandart}
+            options={dataStandart}
             style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}
             onChange={(values) => setDataStandartValues(values)}
           />
