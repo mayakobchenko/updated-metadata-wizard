@@ -38,7 +38,7 @@ const NETTSKJEMA_ELEMENTS_ID = {
   DatasetUpdate:            5990398,
   Novelties:                5990399,
   Spicies:                  6409074,
-  DataTypes:                5990401,
+  DataTypes:                5990401,   //raw, simulation etc What type of data do you wish to share?
   ContactSurname:           5990407,
   ContactFirstName:         5990406,
   ContactEmail:             5990408,
@@ -61,7 +61,10 @@ const NETTSKJEMA_ELEMENTS_ID = {
   UrlDoiRepo:               5990441,
   WillPiblish:              5990442,
   WillSubmitJournal:        5990443,
-  ChoseEmbargo:             5990444,
+  ChoseEmbargo: 5990444,
+  DataStandart: 5990460,  //Did you use one or several (meta)data/repository standards?
+  OtherDataType: 5990403,  //Please specify which other type of data you want to share
+  OtherDataStandart: 5990461,  //Please specify which other standard was used
 }
 
 // ── Nettskjema answer option IDs ──────────────────────────────────────────────
@@ -85,17 +88,26 @@ const ANSWERS_ID = {
   DataPublishedYes:      14472748,
   PartofDataPublished:   14472749,
   DataNotPublished:      14472750,
-  ExperimentalData:      14472456,
-  SimulationData:        14472457,
-  ComputationalModel:    14472458,
-  Software:              14472459,
-  BrainAtlas:            14472460,
-  OtherData:             14472461,
+  ExperimentalData:      14472456,   //What type of data do you wish to share?
+  SimulationData:        14472457,   //What type of data do you wish to share?
+  ComputationalModel:    14472458,   //What type of data do you wish to share?
+  Software:              14472459,   //What type of data do you wish to share?
+  BrainAtlas:            14472460,   //What type of data do you wish to share?
+  OtherData:             14472461,   //What type of data do you wish to share?
   WillSumbit:            14472751,
   WillNot:               14472752,
   FreeAccess:            15156763,
   RequestEmbargo:        15156764,
-  KeepPrivate:           15156765,
+  KeepPrivate: 15156765,
+  NoStandart: 14473022,              //Did you use one or several (meta)data/repository standards?
+  NIX: 14473023,
+  NWB: 14473024,
+  Sonata: 14473025,
+  Bids: 14473026, 
+  NeuroML: 14473027,
+  odML: 14473028,
+  openMinds: 14745188,
+  other: 14473029,
 }
 
 // ── GET /api/zammad/zammadinfo ────────────────────────────────────────────────
@@ -262,12 +274,52 @@ async function getNettskjemaInfo(req, res) {
     const ifNewDataset = find(NETTSKJEMA_ELEMENTS_ID.RequestType)?.answerOptionIds ?? null
     if (ifNewDataset?.[0] === ANSWERS_ID.NewDataset)           isRequestingNew = true
     if (ifNewDataset?.[0] === ANSWERS_ID.NewVersionOfExisting) isRequestingNew = false
-
+/*
     let optionsData
     const selectedDataTypes = find(NETTSKJEMA_ELEMENTS_ID.DataTypes)?.answerOptionIds ?? null
     if (selectedDataTypes?.[0] === ANSWERS_ID.ExperimentalData) optionsData = 'Experimental data'
     if (selectedDataTypes?.[0] === ANSWERS_ID.SimulationData)   optionsData = [...(optionsData ? [optionsData] : []), 'Simulated data']
+*/  
+    const selectedDataTypes = find(NETTSKJEMA_ELEMENTS_ID.DataTypes)?.answerOptionIds ?? []
+    const DATA_TYPE_MAP = {
+      [ANSWERS_ID.ExperimentalData]:   'Experimental data',  
+      [ANSWERS_ID.SimulationData]:     'Simulated data'}
+    const optionsData = selectedDataTypes.length > 0
+      ? selectedDataTypes.map(id => DATA_TYPE_MAP[id]).filter(Boolean) : null
+    
+    const otherDataType = find(NETTSKJEMA_ELEMENTS_ID.OtherDataType)?.textAnswer ?? null
 
+    // ── data types (multi-select checkbox) ───────────────────────────────────────
+    /*
+    const selectedDataTypes = find(NETTSKJEMA_ELEMENTS_ID.DataTypes)?.answerOptionIds ?? []
+    const DATA_TYPE_MAP = {
+      [ANSWERS_ID.ExperimentalData]:   'experimental data (raw/derived)',  
+      [ANSWERS_ID.SimulationData]:     'simulated data',
+      [ANSWERS_ID.ComputationalModel]: 'a computational model',
+      [ANSWERS_ID.Software]:           'software',
+      [ANSWERS_ID.BrainAtlas]:         'brain atlas',
+      [ANSWERS_ID.OtherData]:          'other(s)',}
+    const optionsData = selectedDataTypes.length > 0
+      ? selectedDataTypes.map(id => DATA_TYPE_MAP[id]).filter(Boolean) : null
+    const otherDataType = find(NETTSKJEMA_ELEMENTS_ID.OtherDataType)?.textAnswer ?? null
+    */
+    // ── data standards (multi-select checkbox) ───────────────────────────────────
+    const selectedDataStandarts = find(NETTSKJEMA_ELEMENTS_ID.DataStandart)?.answerOptionIds ?? []
+
+    const DATA_STANDARD_MAP = {
+      [ANSWERS_ID.NoStandart]: 'No, I didn\'t use a standard',
+      [ANSWERS_ID.NIX]:        'NIX',
+      [ANSWERS_ID.NWB]:        'NWB',
+      [ANSWERS_ID.Sonata]:     'SONATA',
+      [ANSWERS_ID.Bids]:       'BIDS',
+      [ANSWERS_ID.NeuroML]:    'neuroML',
+      [ANSWERS_ID.odML]:       'odML',
+      [ANSWERS_ID.openMinds]:  'openMINDS',
+      [ANSWERS_ID.other]:      'other(s)',
+    }
+
+    const dataStandart = selectedDataStandarts.length > 0 ? selectedDataStandarts.map(id => DATA_STANDARD_MAP[id]).filter(Boolean) : null
+    const otherDataStandart = find(NETTSKJEMA_ELEMENTS_ID.OtherDataStandart)?.textAnswer?? null
     // ── embargo ───────────────────────────────────────────────────────────────
     let embargo, embargoReview
     const isEmbargo    = find(NETTSKJEMA_ELEMENTS_ID.Embargo)?.answerOptionIds    ?? null
@@ -290,8 +342,9 @@ async function getNettskjemaInfo(req, res) {
       }
     }
 
-    const DataInfo = [dataTitle, briefSummary, embargo, optionsData, embargoReview, submitJournalName]
-
+    //const DataInfo = [dataTitle, briefSummary, embargo, optionsData, embargoReview, submitJournalName]
+    const DataInfo = [dataTitle, briefSummary, embargo, optionsData, otherDataType,
+      dataStandart, otherDataStandart, embargoReview, submitJournalName]
     // ── group leader ──────────────────────────────────────────────────────────
     const GroupLeaderName  = find(NETTSKJEMA_ELEMENTS_ID.GroupLeader)?.textAnswer     ?? null
     const GroupLeaderOrcid = find(NETTSKJEMA_ELEMENTS_ID.ORCIDgroupLeader)?.textAnswer ?? null

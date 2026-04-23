@@ -19,6 +19,9 @@ export default function Dataset1({ form, onChange, data }) {
       briefSummary: data.dataset1?.briefSummary || '',
       shortTitle: data.dataset1?.shortTitle || '',
       optionsData: data.dataset1?.optionsData || '',
+      //otherDataType: data.dataset1?.otherDataType || '',
+      dataStandart: data.dataset1?.dataStandart || '',
+      otherDataStandart: data.dataset1?.otherDataStandart || '',
       embargo: data.dataset1?.embargo ?? false,
       //embargoDate: data.dataset1?.embargoDate || null,
       embargoReview: data.dataset1?.embargoReview || false,
@@ -33,17 +36,23 @@ export default function Dataset1({ form, onChange, data }) {
       dataStandart: data.dataset1?.dataStandart || '',
     }}
 
+    const [showOtherStandart, setShowOtherStandart] = useState(
+      (data.dataset1?.dataStandart || []).includes('other(s)'))
+  
     const handleValuesChange = (changedValues, allValues) => {
-    if (changedValues['dataset1']?.embargo !== undefined) {
+      if (changedValues['dataset1']?.embargo !== undefined) {
         setEmbargo(changedValues['dataset1'].embargo)
-    }
-    if (changedValues['dataset1']?.copyright) {
-        setCopyright(changedValues['dataset1'].copyright)
-    }
-    if (changedValues['dataset1']?.copyrightHolder) {
-        setCopyrightHolder(changedValues['dataset1'].copyrightHolder)
-    }
-    onChange(allValues)
+      }
+      if (changedValues['dataset1']?.copyright) {
+          setCopyright(changedValues['dataset1'].copyright)
+      }
+      if (changedValues['dataset1']?.copyrightHolder) {
+          setCopyrightHolder(changedValues['dataset1'].copyrightHolder)
+      }
+      if (changedValues['dataset1']?.dataStandart !== undefined) {
+        setShowOtherStandart(changedValues['dataset1'].dataStandart.includes('other(s)'))
+      }
+      onChange(allValues)
     }
 /*
   const fetchSemanticDataType = async () => {
@@ -71,7 +80,17 @@ export default function Dataset1({ form, onChange, data }) {
     { label: 'Raw data', value: 'Raw data' },
     { label: 'Derived data', value: 'Derived data' },
   ]
-
+  const optionsDataStandart = [
+    { label: 'No, I didn\'t use a standard', value: 'No, I didn\'t use a standard' },
+    { label: 'NIX',        value: 'NIX' },
+    { label: 'NWB',        value: 'NWB' },
+    { label: 'SONATA',     value: 'SONATA' },
+    { label: 'BIDS',       value: 'BIDS' },
+    { label: 'neuroML',    value: 'neuroML' },
+    { label: 'odML',       value: 'odML' },
+    { label: 'openMINDS',  value: 'openMINDS' },
+    { label: 'other(s)',   value: 'other(s)' },
+  ]
   const optionsYesNo = [
     { label: 'Yes', value: 'Yes' },
     { label: 'No', value: 'No' },
@@ -270,6 +289,7 @@ export default function Dataset1({ form, onChange, data }) {
             })}
           </Select>
         </AntForm.Item>
+
         <AntForm.Item
           label="Data organization"
           name={['dataset1', 'dataStandart']} 
@@ -277,6 +297,27 @@ export default function Dataset1({ form, onChange, data }) {
           extra="Do your data organization follows any community standards such as BIDS or NWB?">
           <Input />
         </AntForm.Item>
+
+        <AntForm.Item
+          name={['dataset1', 'dataStandart']}
+          label="Data organization standard(s)"
+          rules={[{ required: false }]}
+          extra="Did your data organization follow any community standards such as BIDS or NWB?">
+          <Checkbox.Group
+            options={optionsDataStandart}
+            style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}
+            onChange={(values) => setDataStandartValues(values)}
+          />
+        </AntForm.Item>
+
+        {showOtherStandart && (
+          <AntForm.Item
+            label="Please specify other standard(s)"
+            name={['dataset1', 'otherDataStandart']}
+            rules={[{ required: true, message: 'Please specify the standard(s) you used!' }]}>
+            <Input placeholder="e.g. NIfTI, DICOM..." />
+          </AntForm.Item>
+        )}
 
       </AntForm>
     </div>
