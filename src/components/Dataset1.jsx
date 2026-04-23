@@ -314,7 +314,7 @@ export default function Dataset1({ form, onChange, data }) {
           <AntForm.Item
             label="Please specify other standard(s)"
             name={['dataset1', 'otherDataStandart']}
-            rules={[{ required: true, message: 'Please specify the standard(s) you used!' }]}>
+            rules={[{ required: false, message: 'Please specify the standard(s) you used!' }]}>
             <Input placeholder="e.g. NIfTI, DICOM..." />
           </AntForm.Item>
         )}
