@@ -130,6 +130,4 @@ tokenFunctions.setAccessToken = function(clientId, clientSecret, newAccessToken,
   console.log(`[tokenManager] Token set. Background refresh scheduled in ${expiresIn - 60}s`)
 }
 
-export { SessionExpiredError }
-
 export default tokenFunctions
