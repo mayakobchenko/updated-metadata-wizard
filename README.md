@@ -6,7 +6,7 @@ The EBRAINS Metadata Wizard is a freely accessible web-based service designed to
 
 The EBRAINS Metadata Wizard is developed by the Neural Systems Laboratory at the Institute of Basic Medical Sciences, University of Oslo, Norway. The EBRAINS Metadata Wizard was developed with support from the EBRAINS infrastructure, and funding from the European Union’s Horizon 2020 Framework Programme for Research and Innovation under the Framework Partnership Agreement No. 650003 (HBP FPA) and the European Union’s Horizon Europe Programme for Research Infrastructures Grant Agreement No. 101147319 (EBRAINS 2.0).
 
-# Developper
+# Developer
 
 Maya Kobchenko
 
@@ -16,7 +16,7 @@ MIT licence
 
 # Current version
 
-v3.0.0
+v3.2.0
 
 # Contact us
 
