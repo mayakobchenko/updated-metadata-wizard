@@ -6,13 +6,12 @@ import {
   LoadingOutlined,
   SendOutlined,
   WarningOutlined,
-  ReloadOutlined,
 } from '@ant-design/icons'
 
 export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonToZammad, getTicketId }) {
 
   const [status, setStatus]           = useState(null)
-  // null | 'loading' | 'success' | 'success_no_ticket' | 'error' | 'session_expired'
+  // null | 'loading' | 'success' | 'success_no_ticket' | 'error'
   const [errorDetail, setErrorDetail] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
 
@@ -21,7 +20,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
     setErrorDetail('')
     setModalVisible(true)
 
-    // ── step 1: fetch ticket ID silently ──────────────────────────────────────
+    // ── step 1: fetch ticket ID silently ─────────────────────────────────────
     let ticketId = null
     try {
       const ticketRes  = await getTicketId()
@@ -47,20 +46,9 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
       return
     }
 
-    // ── session expiry — check before reading body ────────────────────────────
     if (kgResponse.status === 401) {
-      let code = 'SESSION_EXPIRED'
-      try {
-        const errData = await kgResponse.json()
-        code = errData.code || code
-      } catch { /* ignore */ }
-
-      if (code === 'SESSION_EXPIRED') {
-        setStatus('session_expired')
-        return
-      }
       setStatus('error')
-      setErrorDetail('Authentication failed. Please reload the page.')
+      setErrorDetail('Your session has expired. Please reload the page, then try again.')
       return
     }
 
@@ -84,6 +72,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
       try {
         const zRes = await saveJsonToZammad(ticketId)
         if (!zRes || !zRes.ok) {
+          // KG succeeded but Zammad failed — show partial success
           setStatus('success_no_ticket')
           return
         }
@@ -93,6 +82,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
         return
       }
     } else if (!ticketId) {
+      // No ticket found — still a success for KG, but warn about ticket
       setStatus('success_no_ticket')
       return
     }
@@ -106,10 +96,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
       setStatus(null)
       setErrorDetail('')
     }
-  }
-
-  const handleReload = () => {
-    window.location.reload()
   }
 
   return (
@@ -184,41 +170,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
           </Result>
         )}
 
-        {/* ── session expired ── */}
-        {status === 'session_expired' && (
-          <Result
-            icon={<WarningOutlined style={{ color: '#faad14', fontSize: 56 }} />}
-            title="Your session has expired"
-            subTitle="Your login session timed out before the upload could complete. Your form data is safe — please reload the page to log back in, then submit again."
-            extra={[
-              <Button
-                type="primary"
-                key="reload"
-                icon={<ReloadOutlined />}
-                onClick={handleReload}
-              >
-                Reload page
-              </Button>,
-              <Button key="close" onClick={handleClose}>
-                Cancel
-              </Button>
-            ]}
-          >
-            <Alert
-              type="info"
-              showIcon
-              message="Your data will not be lost"
-              description={
-                <span>
-                  Before reloading, use the <strong>Download JSON</strong> button
-                  to save your current form data. After logging back in, you can
-                  use <strong>Import JSON</strong> to restore it instantly.
-                </span>
-              }
-            />
-          </Result>
-        )}
-
         {/* error */}
         {status === 'error' && (
           <Result
@@ -236,8 +187,8 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonT
               message="Please download your JSON and send it manually"
               description={
                 <span>
-                  Use the <strong>Download JSON</strong> button in the header to
-                  save your form data, then send it to{' '}
+                  Use the <strong>Download JSON</strong> button in the header to save
+                  your form data, then send it to{' '}
                   <a href="mailto:curation-support@ebrains.eu">
                     curation-support@ebrains.eu
                   </a>
