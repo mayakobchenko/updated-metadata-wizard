@@ -27,18 +27,39 @@ const API_ENDPOINT = "v3/instances"
 const QUERY_PARAMS = ["stage=RELEASED", "space=common", "type=https://openminds.ebrains.eu/core/"]
 
 router.get('/funding', async (req, res) => {
-  const filePath = path.join(__dirname, '../data/kg-instances/Funding.json')
+  const fundingPath = path.join(__dirname, '../data/kg-instances/Funding.json')
+  const fundersPath = path.join(__dirname, '../data/kg-instances/Funders.json')
+
   try {
-    const raw     = await readFile(filePath, 'utf-8')
-    const data    = JSON.parse(raw)
-    const funding = Array.isArray(data) ? data : data.funding || []
-    res.status(200).json({ funding })
+    // read both files in parallel
+    const [rawFunding, rawFunders] = await Promise.all([
+      readFile(fundingPath, 'utf-8'),
+      readFile(fundersPath, 'utf-8').catch(() => '[]'),  // non-fatal if missing
+    ])
+
+    const funding = JSON.parse(rawFunding)
+    const funders = JSON.parse(rawFunders)
+
+    // build lookup: funder @id → name
+    const funderLookup = {}
+    for (const f of funders) {
+      if (f.id && f.name) funderLookup[f.id] = f.name
+    }
+
+    // attach resolved name to each funding entry
+    const enriched = funding.map(f => ({
+      ...f,
+      funderName: funderLookup[f.funder?.['@id']] || f.funder?.['@id'] || 'Unknown funder'
+    }))
+
+    res.status(200).json({ funding: enriched })
+
   } catch (err) {
-    console.error('Error reading Funding.json:', err.message)
+    console.error('Error in /funding route:', err.message)
     res.status(500).json({ funding: [] })
   }
 })
-
+/*
 router.get('/organisations', async (req, res) => {
   const filePath = path.join(__dirname, '../data/kg-instances/Organization.json')
   try {
@@ -51,7 +72,7 @@ router.get('/organisations', async (req, res) => {
     res.status(500).json({ organisations: [] })
   }
 })
-
+*/
 
 async function getTechniques(req, res) {
   const filePath = path.join(__dirname, '../data/techniques/techniques.json')

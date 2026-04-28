@@ -1,62 +1,60 @@
 import { Form, Input, Button, Select, Checkbox, Spin, Tag } from 'antd'
-import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
-import { useState, useEffect, useRef } from 'react'
+import { PlusOutlined } from '@ant-design/icons'
+import { useState, useEffect } from 'react'
 
 const { Option } = Select
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const newFunder = () => ({
-  id:            Date.now() + Math.random(),
-  mode:          'kg',        // 'kg' | 'custom'
-  // KG-selected fields
-  selectedFundingId: '',      // uuid of the Funding instance
-  selectedFunderId:  '',      // @id of the Organisation/funder
+  id:                Date.now() + Math.random(),
+  mode:              'kg',
+  selectedFundingId: '',
+  selectedFunderId:  '',
+  funderName:        '',
   awardTitle:        '',
   awardNumber:       '',
-  // custom fields (when mode === 'custom')
-  funderName: '',
-  grantId:    '',
+  // custom mode only
+  customFunderName:  '',
+  grantId:           '',
 })
 
-// extract unique funders from the flat Funding.json list
-// returns [{ id, name }]
-const buildFunderList = (fundingData, orgData) => {
-  const seen = new Set()
-  const list = []
+// build deduplicated funder list directly from enriched funding entries
+// (funderName is already resolved by the backend)
+const buildFunderList = (fundingData) => {
+  const seen = new Map()
   for (const f of fundingData) {
-    const funderId = f.funder?.['@id'] || ''
-    if (!funderId || seen.has(funderId)) continue
-    seen.add(funderId)
-    // try to resolve the org name from the Organisation list
-    const org  = orgData.find(o => o.uuid === funderId || o.identifier === funderId)
-    const name = org?.fullName || org?.name || funderId
-    list.push({ id: funderId, name })
+    const id   = f.funder?.['@id'] || ''
+    const name = f.funderName || id
+    if (id && !seen.has(id)) seen.set(id, name)
   }
-  return list.sort((a, b) => a.name.localeCompare(b.name))
+  return [...seen.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // ── FunderRow ─────────────────────────────────────────────────────────────────
 
-function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, onChange }) {
-  const [isCustom, setIsCustom]           = useState(field.mode === 'custom')
-  const [selectedFunder, setSelectedFunder] = useState(field.selectedFunderId || '')
-  const [awardsForFunder, setAwardsForFunder] = useState([])
-  const [selectedFunding, setSelectedFunding] = useState(field.selectedFundingId || '')
-  const [funderSearch, setFunderSearch]   = useState('')
-  const [awardSearch, setAwardSearch]     = useState('')
+function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }) {
 
-  // when a funder is chosen, compute the matching award list
+  const [isCustom,        setIsCustom]        = useState(field.mode === 'custom')
+  const [selectedFunder,  setSelectedFunder]  = useState(field.selectedFunderId  || '')
+  const [selectedFunding, setSelectedFunding] = useState(field.selectedFundingId || '')
+  const [awardsForFunder, setAwardsForFunder] = useState([])
+  const [awardSearch,     setAwardSearch]     = useState('')
+
+  // recompute award list whenever selected funder changes
   useEffect(() => {
     if (!selectedFunder) { setAwardsForFunder([]); return }
-    const awards = fundingData.filter(f => f.funder?.['@id'] === selectedFunder)
-    setAwardsForFunder(awards)
+    setAwardsForFunder(
+      fundingData.filter(f => f.funder?.['@id'] === selectedFunder && f.uuid)
+    )
   }, [selectedFunder, fundingData])
 
-  // if the parent data changes externally (e.g. JSON import), re-sync
+  // sync if parent data changes (e.g. JSON import)
   useEffect(() => {
     setIsCustom(field.mode === 'custom')
-    setSelectedFunder(field.selectedFunderId || '')
+    setSelectedFunder(field.selectedFunderId   || '')
     setSelectedFunding(field.selectedFundingId || '')
   }, [field.mode, field.selectedFunderId, field.selectedFundingId])
 
@@ -70,47 +68,47 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
       mode:              custom ? 'custom' : 'kg',
       selectedFundingId: '',
       selectedFunderId:  '',
+      funderName:        '',
       awardTitle:        '',
       awardNumber:       '',
-      funderName:        '',
+      customFunderName:  '',
       grantId:           '',
     })
   }
 
   const handleFunderSelect = (funderId) => {
+    const funder = funderList.find(f => f.id === funderId)
     setSelectedFunder(funderId)
     setSelectedFunding('')
+    setAwardSearch('')
     onChange(index, {
       selectedFunderId:  funderId,
       selectedFundingId: '',
+      funderName:        funder?.name || '',
       awardTitle:        '',
       awardNumber:       '',
     })
   }
 
-  const handleAwardSelect = (fundingUuid) => {
-    setSelectedFunding(fundingUuid)
-    const award = fundingData.find(f => f.uuid === fundingUuid)
+  const handleAwardSelect = (uuid) => {
+    setSelectedFunding(uuid)
+    const award = fundingData.find(f => f.uuid === uuid)
     if (award) {
       onChange(index, {
-        selectedFundingId: fundingUuid,
+        selectedFundingId: uuid,
         awardTitle:        award.awardTitle  || '',
         awardNumber:       award.awardNumber || '',
-        selectedFunderId:  selectedFunder,
       })
     }
   }
 
-  // filtered lists for search
-  const filteredFunders = funderList.filter(f =>
-    f.name.toLowerCase().includes(funderSearch.toLowerCase())
-  )
   const filteredAwards = awardsForFunder.filter(a =>
+    !awardSearch ||
     (a.awardTitle  || '').toLowerCase().includes(awardSearch.toLowerCase()) ||
     (a.awardNumber || '').toLowerCase().includes(awardSearch.toLowerCase())
   )
 
-  const labelStyle = { fontSize: 12, color: '#555', marginBottom: 2 }
+  const labelStyle = { fontSize: 12, color: '#555' }
 
   return (
     <div style={{
@@ -121,10 +119,10 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
       {/* header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <span style={{ fontWeight: 600, fontSize: 14 }}>Funder {index + 1}</span>
-        <Button type="text" danger onClick={() => onRemove(index)} size="small">Remove</Button>
+        <Button type="text" danger size="small" onClick={() => onRemove(index)}>Remove</Button>
       </div>
 
-      {/* custom toggle */}
+      {/* manual toggle */}
       <Form.Item style={{ marginBottom: 14 }}>
         <Checkbox checked={isCustom} onChange={handleModeToggle}>
           Funding not found in EBRAINS KG — enter manually
@@ -134,9 +132,9 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
       {/* ── KG mode ── */}
       {!isCustom && (
         <>
-          {/* step 1: funder */}
+          {/* step 1 — funder */}
           <Form.Item
-            label={<span style={labelStyle}>Step 1 — Search for funder organisation</span>}
+            label={<span style={labelStyle}>Step 1 — Select funder organisation</span>}
             style={{ marginBottom: 12 }}
           >
             <Select
@@ -144,26 +142,36 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
               allowClear
               value={selectedFunder || undefined}
               placeholder="Type to search funder…"
-              filterOption={false}
-              onSearch={setFunderSearch}
+              optionFilterProp="label"
               onChange={handleFunderSelect}
-              onClear={() => { setSelectedFunder(''); setSelectedFunding(''); setAwardsForFunder([]) }}
+              onClear={() => {
+                setSelectedFunder('')
+                setSelectedFunding('')
+                setAwardsForFunder([])
+                onChange(index, {
+                  selectedFunderId:  '',
+                  selectedFundingId: '',
+                  funderName:        '',
+                  awardTitle:        '',
+                  awardNumber:       '',
+                })
+              }}
               style={{ width: '100%' }}
               notFoundContent={
-                funderSearch
-                  ? <span style={{ color: '#888', fontSize: 12 }}>No matching funder — try the manual entry checkbox above</span>
-                  : <span style={{ color: '#888', fontSize: 12 }}>Start typing to search</span>
+                <span style={{ color: '#888', fontSize: 12 }}>
+                  No matching funder — try the manual entry checkbox above
+                </span>
               }
             >
-              {filteredFunders.map(f => (
-                <Option key={f.id} value={f.id}>
+              {funderList.map(f => (
+                <Option key={f.id} value={f.id} label={f.name}>
                   {f.name}
                 </Option>
               ))}
             </Select>
           </Form.Item>
 
-          {/* step 2: award — only shown after funder selected */}
+          {/* step 2 — award (only after funder selected) */}
           {selectedFunder && (
             <Form.Item
               label={<span style={labelStyle}>Step 2 — Select award / grant</span>}
@@ -172,7 +180,6 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
               {awardsForFunder.length === 0 ? (
                 <div style={{ color: '#888', fontSize: 12, padding: '4px 0' }}>
                   No awards found for this funder in the KG.
-                  <br />
                   Please use the manual entry checkbox above to enter the grant details.
                 </div>
               ) : (
@@ -186,15 +193,18 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
                   onChange={handleAwardSelect}
                   onClear={() => {
                     setSelectedFunding('')
+                    setAwardSearch('')
                     onChange(index, { selectedFundingId: '', awardTitle: '', awardNumber: '' })
                   }}
                   style={{ width: '100%' }}
                 >
                   {filteredAwards.map(a => (
                     <Option key={a.uuid} value={a.uuid}>
-                      <span style={{ fontWeight: 500 }}>{a.awardTitle || '(no title)'}</span>
+                      <span style={{ fontWeight: 500 }}>
+                        {a.awardTitle || <em style={{ color: '#aaa' }}>No title</em>}
+                      </span>
                       {a.awardNumber && (
-                        <Tag style={{ marginLeft: 8, fontSize: 11 }} color="blue">
+                        <Tag color="blue" style={{ marginLeft: 8, fontSize: 11 }}>
                           {a.awardNumber}
                         </Tag>
                       )}
@@ -205,14 +215,17 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
             </Form.Item>
           )}
 
-          {/* preview of selected award */}
+          {/* selected award preview */}
           {selectedFunding && field.awardTitle && (
             <div style={{
               background: '#e6f4ff', border: '1px solid #91caff',
-              borderRadius: 6, padding: '8px 12px', fontSize: 12, color: '#1677ff'
+              borderRadius: 6, padding: '8px 12px', fontSize: 12
             }}>
-              <strong>Selected:</strong> {field.awardTitle}
-              {field.awardNumber && <span style={{ marginLeft: 8, color: '#555' }}>#{field.awardNumber}</span>}
+              <span style={{ color: '#1677ff', fontWeight: 500 }}>Selected: </span>
+              <span>{field.awardTitle}</span>
+              {field.awardNumber && (
+                <span style={{ marginLeft: 8, color: '#555' }}>#{field.awardNumber}</span>
+              )}
             </div>
           )}
         </>
@@ -228,8 +241,11 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
             style={{ marginBottom: 12 }}
           >
             <Input
-              value={field.funderName}
-              onChange={(e) => onChange(index, { funderName: e.target.value })}
+              value={field.customFunderName || field.funderName || ''}
+              onChange={(e) => onChange(index, {
+                customFunderName: e.target.value,
+                funderName:       e.target.value,
+              })}
               placeholder="e.g. European Research Council"
             />
           </Form.Item>
@@ -239,7 +255,7 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
             style={{ marginBottom: 12 }}
           >
             <Input
-              value={field.awardTitle}
+              value={field.awardTitle || ''}
               onChange={(e) => onChange(index, { awardTitle: e.target.value })}
               placeholder="e.g. BrainScaleS"
             />
@@ -251,8 +267,11 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
             style={{ marginBottom: 0 }}
           >
             <Input
-              value={field.grantId || field.awardNumber}
-              onChange={(e) => onChange(index, { grantId: e.target.value, awardNumber: e.target.value })}
+              value={field.grantId || field.awardNumber || ''}
+              onChange={(e) => onChange(index, {
+                grantId:     e.target.value,
+                awardNumber: e.target.value,
+              })}
               placeholder="e.g. ERC-2021-STG-123456"
             />
           </Form.Item>
@@ -266,31 +285,21 @@ function FunderRow({ field, index, fundingData, funderList, orgData, onRemove, o
 
 export default function Funding({ form, onChange, data = {} }) {
 
-  const [funders, setFunders]         = useState(data.funding?.funders || [])
-  const [fundingData, setFundingData] = useState([])   // raw Funding.json entries
-  const [orgData, setOrgData]         = useState([])   // Organisation.json for name lookup
-  const [funderList, setFunderList]   = useState([])   // deduplicated funder list
-  const [loading, setLoading]         = useState(true)
+  const [funders,     setFunders]     = useState(data.funding?.funders || [])
+  const [fundingData, setFundingData] = useState([])
+  const [funderList,  setFunderList]  = useState([])
+  const [loading,     setLoading]     = useState(true)
 
-  // ── load KG data ────────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       try {
-        const [fundingRes, orgRes] = await Promise.all([
-          fetch('api/kginfo/funding'),        // returns { funding: [...] }
-          fetch('api/kginfo/organisations'),  // returns { organisations: [...] }
-        ])
-
-        const fundingJson = fundingRes.ok ? await fundingRes.json() : { funding: [] }
-        const orgJson     = orgRes.ok     ? await orgRes.json()     : { organisations: [] }
-
-        const rawFunding = fundingJson.funding      || []
-        const rawOrgs    = orgJson.organisations    || orgJson.organization || []
-
-        setFundingData(rawFunding)
-        setOrgData(rawOrgs)
-        setFunderList(buildFunderList(rawFunding, rawOrgs))
+        // single endpoint — backend already joins Funding.json + Funders.json
+        const res  = await fetch('api/kginfo/funding')
+        const json = res.ok ? await res.json() : { funding: [] }
+        const raw  = json.funding || []
+        setFundingData(raw)
+        setFunderList(buildFunderList(raw))
       } catch (e) {
         console.error('Error loading funding data:', e)
       } finally {
@@ -300,7 +309,6 @@ export default function Funding({ form, onChange, data = {} }) {
     load()
   }, [])
 
-  // sync with parent data (e.g. JSON import)
   useEffect(() => {
     setFunders(data.funding?.funders || [])
   }, [data])
@@ -314,8 +322,7 @@ export default function Funding({ form, onChange, data = {} }) {
   const removeFunder = (i) => emit(funders.filter((_, idx) => idx !== i))
 
   const handleFunderChange = (index, patch) => {
-    const updated = funders.map((f, i) => i === index ? { ...f, ...patch } : f)
-    emit(updated)
+    emit(funders.map((f, i) => i === index ? { ...f, ...patch } : f))
   }
 
   return (
@@ -328,10 +335,9 @@ export default function Funding({ form, onChange, data = {} }) {
       </p>
 
       <Form form={form} layout="vertical">
-
         {loading ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
-            <Spin tip="Loading funding data from KG…" />
+            <Spin tip="Loading funding data…" />
           </div>
         ) : (
           funders.map((field, index) => (
@@ -341,7 +347,6 @@ export default function Funding({ form, onChange, data = {} }) {
               index={index}
               fundingData={fundingData}
               funderList={funderList}
-              orgData={orgData}
               onRemove={removeFunder}
               onChange={handleFunderChange}
             />
