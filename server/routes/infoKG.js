@@ -26,6 +26,34 @@ const API_BASE_URL = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT = "v3/instances"
 const QUERY_PARAMS = ["stage=RELEASED", "space=common", "type=https://openminds.ebrains.eu/core/"]
 
+// server/routes/kginfo.js  — add alongside your existing routes
+
+router.get('/funding', async (req, res) => {
+  try {
+    const raw  = await readFile(path.join(DATA_DIR, 'Funding.json'), 'utf-8')
+    const data = JSON.parse(raw)
+    // file may be an array directly or wrapped in an object
+    const funding = Array.isArray(data) ? data : data.funding || []
+    res.json({ funding })
+  } catch (err) {
+    logger.error(`Error reading Funding.json: ${err.message}`)
+    res.status(500).json({ funding: [] })
+  }
+})
+
+router.get('/organisations', async (req, res) => {
+  try {
+    const raw  = await readFile(path.join(DATA_DIR, 'Organization.json'), 'utf-8')
+    const data = JSON.parse(raw)
+    const organisations = Array.isArray(data) ? data : data.organisations || data.organization || []
+    res.json({ organisations })
+  } catch (err) {
+    logger.error(`Error reading Organization.json: ${err.message}`)
+    res.status(500).json({ organisations: [] })
+  }
+})
+
+
 async function getTechniques(req, res) {
   const filePath = path.join(__dirname, '../data/techniques/techniques.json')
   try {
