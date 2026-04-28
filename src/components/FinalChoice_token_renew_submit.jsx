@@ -9,11 +9,11 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons'
 
-export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicketId }) {
+export default function FinalChoice({ uploadpythonKG, saveJsonToDrive, saveJsonToZammad, getTicketId }) {
 
-  const [status, setStatus]             = useState(null)
-  // null | 'loading' | 'success' | 'success_no_ticket' | 'error_but_json_saved' | 'error' | 'session_expired'
-  const [errorDetail, setErrorDetail]   = useState('')
+  const [status, setStatus]           = useState(null)
+  // null | 'loading' | 'success' | 'success_no_ticket' | 'error' | 'session_expired'
+  const [errorDetail, setErrorDetail] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
 
   const handleSubmit = async () => {
@@ -22,7 +22,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     setModalVisible(true)
 
     // ── step 1: fetch ticket ID silently ──────────────────────────────────────
-    // Always do this first so we have it regardless of what happens next.
     let ticketId = null
     try {
       const ticketRes  = await getTicketId()
@@ -33,80 +32,72 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     }
 
     // ── step 2: KG upload ─────────────────────────────────────────────────────
-    let kgSucceeded   = false
-    let kgErrorDetail = ''
-    let sessionExpired = false
-
+    let kgResponse
     try {
-      const kgResponse = await uploadpythonKG()
-
-      if (!kgResponse) {
-        kgErrorDetail = 'No response from the upload server.'
-      } else if (kgResponse.status === 401) {
-        // check if it is a session expiry specifically
-        try {
-          const errData = await kgResponse.json()
-          if (errData.code === 'SESSION_EXPIRED') {
-            sessionExpired = true
-          } else {
-            kgErrorDetail = errData.error || 'Authentication failed.'
-          }
-        } catch {
-          sessionExpired = true
-        }
-      } else {
-        let kgData
-        try {
-          kgData = await kgResponse.json()
-        } catch {
-          kgErrorDetail = 'Could not parse server response.'
-        }
-
-        if (kgData) {
-          if (kgResponse.ok && !kgData.error) {
-            kgSucceeded = true
-          } else {
-            kgErrorDetail = kgData.error || kgData.message || `Server error ${kgResponse.status}`
-          }
-        }
-      }
+      kgResponse = await uploadpythonKG()
     } catch (err) {
-      kgErrorDetail = err.message || 'Network error during upload.'
+      setStatus('error')
+      setErrorDetail(err.message || 'Network error during upload.')
+      return
     }
 
-    // ── step 3: save JSON to Zammad ───────────────────────────────────────────
-    // This is always attempted if a ticket ID is available — regardless of
-    // whether the KG upload succeeded, failed, or the session expired.
-    // The JSON file is written to disk by the Node route before the Python
-    // script runs, so it is always present even on KG failure or session expiry.
-    let zammadSucceeded = false
+    if (!kgResponse) {
+      setStatus('error')
+      setErrorDetail('No response from the upload server.')
+      return
+    }
+
+    // ── session expiry — check before reading body ────────────────────────────
+    if (kgResponse.status === 401) {
+      let code = 'SESSION_EXPIRED'
+      try {
+        const errData = await kgResponse.json()
+        code = errData.code || code
+      } catch { /* ignore */ }
+
+      if (code === 'SESSION_EXPIRED') {
+        setStatus('session_expired')
+        return
+      }
+      setStatus('error')
+      setErrorDetail('Authentication failed. Please reload the page.')
+      return
+    }
+
+    let kgData
+    try {
+      kgData = await kgResponse.json()
+    } catch {
+      setStatus('error')
+      setErrorDetail('Could not parse server response.')
+      return
+    }
+
+    if (!kgResponse.ok || kgData.error) {
+      setStatus('error')
+      setErrorDetail(kgData.error || kgData.message || `Server error ${kgResponse.status}`)
+      return
+    }
+
+    // ── step 3: save JSON to Zammad (best-effort) ─────────────────────────────
     if (ticketId && saveJsonToZammad) {
       try {
-        const zRes      = await saveJsonToZammad(ticketId)
-        zammadSucceeded = !!(zRes?.ok)
-        if (!zammadSucceeded) {
-          console.warn('Zammad save returned non-OK response')
+        const zRes = await saveJsonToZammad(ticketId)
+        if (!zRes || !zRes.ok) {
+          setStatus('success_no_ticket')
+          return
         }
       } catch (e) {
         console.warn('Zammad save failed:', e.message)
+        setStatus('success_no_ticket')
+        return
       }
-    }
-
-    // ── step 4: set final status ──────────────────────────────────────────────
-    // Session expired is special — show its own screen regardless of Zammad.
-    if (sessionExpired) {
-      setStatus('session_expired')
+    } else if (!ticketId) {
+      setStatus('success_no_ticket')
       return
     }
 
-    if (kgSucceeded) {
-      setStatus(zammadSucceeded ? 'success' : 'success_no_ticket')
-      return
-    }
-
-    // KG failed
-    setErrorDetail(kgErrorDetail)
-    setStatus(zammadSucceeded ? 'error_but_json_saved' : 'error')
+    setStatus('success')
   }
 
   const handleClose = () => {
@@ -117,7 +108,9 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     }
   }
 
-  const handleReload = () => window.location.reload()
+  const handleReload = () => {
+    window.location.reload()
+  }
 
   return (
     <>
@@ -142,7 +135,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
         width={540}
       >
 
-        {/* ── loading ── */}
+        {/* loading */}
         {status === 'loading' && (
           <Result
             icon={<Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />}
@@ -151,7 +144,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
           />
         )}
 
-        {/* ── full success ── */}
+        {/* full success */}
         {status === 'success' && (
           <Result
             status="success"
@@ -164,12 +157,12 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
           />
         )}
 
-        {/* ── KG succeeded but Zammad failed ── */}
+        {/* KG succeeded but Zammad failed or no ticket */}
         {status === 'success_no_ticket' && (
           <Result
             icon={<WarningOutlined style={{ color: '#faad14', fontSize: 56 }} />}
             title="Metadata uploaded successfully"
-            subTitle="Your metadata is in the Knowledge Graph, but could not be saved to your support ticket automatically."
+            subTitle="Your metadata is in the Knowledge Graph, but could not be saved to the support ticket automatically."
             extra={[
               <Button type="primary" key="close" onClick={handleClose}>Close</Button>
             ]}
@@ -180,45 +173,11 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
               message="Please send your JSON manually"
               description={
                 <span>
-                  Use the <strong>Download JSON</strong> button to save your form
-                  data, then send it to{' '}
+                  Use the <strong>Download JSON</strong> button in the header to save
+                  your form data, then send it to{' '}
                   <a href="mailto:curation-support@ebrains.eu">
                     curation-support@ebrains.eu
                   </a>
-                </span>
-              }
-            />
-          </Result>
-        )}
-
-        {/* ── KG failed but JSON saved to Zammad ── */}
-        {status === 'error_but_json_saved' && (
-          <Result
-            icon={<WarningOutlined style={{ color: '#fa8c16', fontSize: 56 }} />}
-            title="Knowledge Graph upload failed"
-            subTitle="Your metadata could not be uploaded to the Knowledge Graph, but your JSON has been saved to your support ticket so the curation team can assist you."
-            extra={[
-              <Button type="primary" key="retry" onClick={handleSubmit}>Try again</Button>,
-              <Button key="close" onClick={handleClose}>Close</Button>
-            ]}
-          >
-            <Alert
-              type="warning"
-              showIcon
-              message="The curation team has your JSON"
-              description={
-                <span>
-                  Your form data was saved to your support ticket automatically.
-                  The curation team at{' '}
-                  <a href="mailto:curation-support@ebrains.eu">
-                    curation-support@ebrains.eu
-                  </a>
-                  {' '}can complete the upload manually.
-                  {errorDetail && (
-                    <span style={{ display: 'block', marginTop: 8, color: '#888', fontSize: 12 }}>
-                      Technical details: {errorDetail}
-                    </span>
-                  )}
                 </span>
               }
             />
@@ -240,7 +199,9 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
               >
                 Reload page
               </Button>,
-              <Button key="close" onClick={handleClose}>Cancel</Button>
+              <Button key="close" onClick={handleClose}>
+                Cancel
+              </Button>
             ]}
           >
             <Alert
@@ -250,15 +211,15 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
               description={
                 <span>
                   Before reloading, use the <strong>Download JSON</strong> button
-                  to save your current form data. After logging back in, use{' '}
-                  <strong>Import JSON</strong> to restore it instantly.
+                  to save your current form data. After logging back in, you can
+                  use <strong>Import JSON</strong> to restore it instantly.
                 </span>
               }
             />
           </Result>
         )}
 
-        {/* ── both KG and Zammad failed ── */}
+        {/* error */}
         {status === 'error' && (
           <Result
             status="error"
@@ -275,8 +236,8 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
               message="Please download your JSON and send it manually"
               description={
                 <span>
-                  Use the <strong>Download JSON</strong> button to save your form
-                  data, then send it to{' '}
+                  Use the <strong>Download JSON</strong> button in the header to
+                  save your form data, then send it to{' '}
                   <a href="mailto:curation-support@ebrains.eu">
                     curation-support@ebrains.eu
                   </a>
@@ -290,7 +251,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             />
           </Result>
         )}
-
       </Modal>
     </>
   )
