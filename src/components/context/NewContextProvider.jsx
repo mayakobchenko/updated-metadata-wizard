@@ -114,6 +114,7 @@ export default function NewContextProvider({ children }) {
         const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
         dispatch({ type: 'dsvId', text: datasetVersionId })
         const skjemaInfo = {
+            ticketNumber: ticketNumber, 
             contactFirstName: nettskjemaInfo.ContactInfo[0],
             contactSurname: nettskjemaInfo.ContactInfo[1],
             contactEmail: nettskjemaInfo.ContactInfo[2],
