@@ -4,6 +4,7 @@ import { fetchLicenses } from './fetchLicenses.js'
 import fetchStudyTargets from './fetchStudyTargets.js'
 import fetchTechniques from './fetchTechniques.js'
 import fetchFunders from './fetchFunders.js'
+import { getRequestOptions } from './kgAuthentication.js'
 
 const configReleased = [
   { openMindsType: "ORCID",        typeProperties: ["identifier"] },
@@ -27,7 +28,6 @@ const configInProgress = [
   },
 ]
 
-// ── runs at startup every 24h — no personal token needed ─────────────────────
 export default async function fetchDataFromKg() {
   try {
     console.log('fetchDataFromKg: starting…')
@@ -43,18 +43,25 @@ export default async function fetchDataFromKg() {
   }
 }
 
-// ── runs once after first login — uses personal token already set ─────────────
 let _done = false
 
 export async function fetchFundingInProgress() {
   if (_done) return
   try {
     console.log('fetchFundingInProgress: fetching IN_PROGRESS funding…')
-    // fetchCoreSchemaInstances with no requestOptions argument
-    // will call getRequestOptions() internally which reads from tokenFunctions
-    // — personal token is already set at this point from auth.js
-    await fetchCoreSchemaInstances(configInProgress)
+
+    // ── explicitly get the request options NOW — token is set at this point ──
+    const requestOptions = await getRequestOptions()
+    console.log('fetchFundingInProgress: got request options, fetching…')
+
+    // ── fetch IN_PROGRESS instances using the personal token ─────────────────
+    const instances = await fetchCoreSchemaInstances(configInProgress, requestOptions)
+    console.log('fetchFundingInProgress: fetch complete')
+
+    // ── only update Funders.json if we actually got results ───────────────────
+    // This prevents wiping the RELEASED data if IN_PROGRESS returns 0
     await fetchFunders()
+
     _done = true
     console.log('fetchFundingInProgress: done')
   } catch (error) {

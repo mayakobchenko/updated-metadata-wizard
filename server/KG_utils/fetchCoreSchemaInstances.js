@@ -67,12 +67,40 @@ export const fetchCoreSchemaInstances = async (typeSpecifications, requestOption
   await Promise.all(fetchPromises)
 
   // ── write one file per type, deduplicating by uuid ────────────────────────
-  for (const [typeName, instances] of resultsByType.entries()) {
-    const deduped  = deduplicateByUuid(instances)
-    const filePath = path.join(OUTPUT_DIR, `${typeName}.json`)
-    await fs.promises.writeFile(filePath, JSON.stringify(deduped, null, 2))
-    console.log(`File with instances for ${typeName} written successfully (${deduped.length} entries)`)
+for (const [typeName, instances] of resultsByType.entries()) {
+  const deduped = deduplicateByUuid(instances)
+
+  // ── safety guard — never overwrite an existing file with empty results ────
+  // This protects against token/network failures silently wiping good data
+  if (deduped.length === 0) {
+    console.warn(`fetchCoreSchemaInstances: skipping write for ${typeName} — 0 instances returned, keeping existing file`)
+    continue
   }
+
+  // ── if merging multiple stages, read existing file and merge ──────────────
+  const filePath    = path.join(OUTPUT_DIR, `${typeName}.json`)
+  let finalInstances = deduped
+
+  // check if this type had multiple stage specs (e.g. two Funding entries)
+  const specsForType = resultsByType.get(typeName)
+  const isMultiStage = specsForType && instances.length !== deduped.length
+
+  // always merge with existing file so RELEASED + IN_PROGRESS accumulate
+  try {
+    const existing    = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'))
+    const merged      = new Map()
+    for (const e of existing) merged.set(e.uuid, e)
+    for (const e of deduped)  merged.set(e.uuid, e)   // new entries win
+    finalInstances    = [...merged.values()]
+    console.log(`fetchCoreSchemaInstances: merged ${existing.length} existing + ${deduped.length} new → ${finalInstances.length} total for ${typeName}`)
+  } catch {
+    // file doesn't exist yet — just write fresh
+    finalInstances = deduped
+  }
+
+  await fs.promises.writeFile(filePath, JSON.stringify(finalInstances, null, 2))
+  console.log(`File with instances for ${typeName} written successfully (${finalInstances.length} entries)`)
+}
 }
 
 // ── fetch from KG and return parsed instance array (does not write to disk) ──

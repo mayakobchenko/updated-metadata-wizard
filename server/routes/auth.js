@@ -158,10 +158,11 @@ async function getToken(req, res) {
       const access_token = tokenData["access_token"]
       tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
 
-      // fetch IN_PROGRESS funding in background using this personal token
-      fetchFundingInProgress().catch(err =>
-        console.warn('fetchFundingInProgress:', err.message)
-      )
+      setTimeout(() => {
+        fetchFundingInProgress().catch(err =>
+          console.warn('fetchFundingInProgress:', err.message)
+        )
+      }, 500)
 
       //console.log('outbound fetch for userinfo')
 
