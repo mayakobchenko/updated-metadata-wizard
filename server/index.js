@@ -11,7 +11,7 @@ import zammadInfo from './routes/getTicketNettskjemaInfo.js'
 import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
-import fetchDataFromKg, { resetFundingInProgressFlag } from './KG_utils/fetchDataFromKG.js'
+import { resetFundingInProgressFlag } from './KG_utils/fetchDataFromKG.js'
 
 
 dotenv.config({ path: '../.env' })
