@@ -24,7 +24,7 @@ const configObject = [
     },
     {
         openMindsType: "Funding",
-        typeProperties: ["awardTitle", "awardNumber", "funder"]
+        typeProperties: ["identifier", "awardTitle", "awardNumber", "revision", "funder"]
     },
 ]
 

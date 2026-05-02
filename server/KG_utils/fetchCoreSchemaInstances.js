@@ -70,6 +70,10 @@ async function parseAndSaveData(data, typeName, propertyNameList) {
                         if (findOrcid !== undefined) {newInstance["orcid"] = findOrcid["identifier"]}
                       } else {newInstance[propertyName] = thisInstance[vocabName]} 
                     //newInstance[propertyName] = thisInstance[vocabName]
+                    if (typeName === 'Funding') {
+                        const revisionKey = 'https://core.kg.ebrains.eu/vocab/meta/revision'
+                        if (thisInstance[revisionKey]) {
+                            newInstance['revision'] = thisInstance[revisionKey]}}
                 }
             }
             if (!isEmpty) {

@@ -31,10 +31,9 @@ router.get('/funding', async (req, res) => {
   const fundersPath = path.join(__dirname, '../data/kg-instances/Funders.json')
 
   try {
-    // read both files in parallel
     const [rawFunding, rawFunders] = await Promise.all([
       readFile(fundingPath, 'utf-8'),
-      readFile(fundersPath, 'utf-8').catch(() => '[]'),  // non-fatal if missing
+      readFile(fundersPath, 'utf-8').catch(() => '[]'),
     ])
 
     const funding = JSON.parse(rawFunding)
@@ -46,10 +45,14 @@ router.get('/funding', async (req, res) => {
       if (f.id && f.name) funderLookup[f.id] = f.name
     }
 
-    // attach resolved name to each funding entry
+    // attach funderName to each funding entry
     const enriched = funding.map(f => ({
-      ...f,
-      funderName: funderLookup[f.funder?.['@id']] || f.funder?.['@id'] || 'Unknown funder'
+      uuid:        f.uuid        || '',
+      awardTitle:  f.awardTitle  || '',
+      awardNumber: f.awardNumber || '',
+      revision:    f.revision    || '',
+      funder:      f.funder      || {},
+      funderName:  funderLookup[f.funder?.['@id']] || f.funder?.['@id'] || 'Unknown funder',
     }))
 
     res.status(200).json({ funding: enriched })

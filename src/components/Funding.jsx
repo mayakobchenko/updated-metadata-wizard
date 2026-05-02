@@ -14,13 +14,14 @@ const newFunder = () => ({
   funderName:        '',
   awardTitle:        '',
   awardNumber:       '',
+  revision:          '',
   // custom mode only
   customFunderName:  '',
   grantId:           '',
 })
 
-// build deduplicated funder list directly from enriched funding entries
-// (funderName is already resolved by the backend)
+// build deduplicated funder list from enriched funding entries
+// returns [{ id, name }] sorted alphabetically by name
 const buildFunderList = (fundingData) => {
   const seen = new Map()
   for (const f of fundingData) {
@@ -47,7 +48,9 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
   useEffect(() => {
     if (!selectedFunder) { setAwardsForFunder([]); return }
     setAwardsForFunder(
-      fundingData.filter(f => f.funder?.['@id'] === selectedFunder && f.uuid)
+      fundingData.filter(f =>
+        f.funder?.['@id'] === selectedFunder && f.uuid
+      )
     )
   }, [selectedFunder, fundingData])
 
@@ -71,6 +74,7 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
       funderName:        '',
       awardTitle:        '',
       awardNumber:       '',
+      revision:          '',
       customFunderName:  '',
       grantId:           '',
     })
@@ -87,6 +91,7 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
       funderName:        funder?.name || '',
       awardTitle:        '',
       awardNumber:       '',
+      revision:          '',
     })
   }
 
@@ -98,14 +103,17 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
         selectedFundingId: uuid,
         awardTitle:        award.awardTitle  || '',
         awardNumber:       award.awardNumber || '',
+        revision:          award.revision    || '',
       })
     }
   }
 
+  // filter awards by search across title, number and revision
   const filteredAwards = awardsForFunder.filter(a =>
     !awardSearch ||
     (a.awardTitle  || '').toLowerCase().includes(awardSearch.toLowerCase()) ||
-    (a.awardNumber || '').toLowerCase().includes(awardSearch.toLowerCase())
+    (a.awardNumber || '').toLowerCase().includes(awardSearch.toLowerCase()) ||
+    (a.revision    || '').toLowerCase().includes(awardSearch.toLowerCase())
   )
 
   const labelStyle = { fontSize: 12, color: '#555' }
@@ -117,9 +125,14 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
     }}>
 
       {/* header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 14
+      }}>
         <span style={{ fontWeight: 600, fontSize: 14 }}>Funder {index + 1}</span>
-        <Button type="text" danger size="small" onClick={() => onRemove(index)}>Remove</Button>
+        <Button type="text" danger size="small" onClick={() => onRemove(index)}>
+          Remove
+        </Button>
       </div>
 
       {/* manual toggle */}
@@ -132,7 +145,7 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
       {/* ── KG mode ── */}
       {!isCustom && (
         <>
-          {/* step 1 — funder */}
+          {/* step 1 — funder name */}
           <Form.Item
             label={<span style={labelStyle}>Step 1 — Select funder organisation</span>}
             style={{ marginBottom: 12 }}
@@ -141,7 +154,7 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
               showSearch
               allowClear
               value={selectedFunder || undefined}
-              placeholder="Type to search funder…"
+              placeholder="Type to search funder by name…"
               optionFilterProp="label"
               onChange={handleFunderSelect}
               onClear={() => {
@@ -154,6 +167,7 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
                   funderName:        '',
                   awardTitle:        '',
                   awardNumber:       '',
+                  revision:          '',
                 })
               }}
               style={{ width: '100%' }}
@@ -171,7 +185,7 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
             </Select>
           </Form.Item>
 
-          {/* step 2 — award (only after funder selected) */}
+          {/* step 2 — award (only shown after funder selected) */}
           {selectedFunder && (
             <Form.Item
               label={<span style={labelStyle}>Step 2 — Select award / grant</span>}
@@ -180,34 +194,58 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
               {awardsForFunder.length === 0 ? (
                 <div style={{ color: '#888', fontSize: 12, padding: '4px 0' }}>
                   No awards found for this funder in the KG.
-                  Please use the manual entry checkbox above to enter the grant details.
+                  Please use the manual entry checkbox above.
                 </div>
               ) : (
                 <Select
                   showSearch
                   allowClear
                   value={selectedFunding || undefined}
-                  placeholder="Type award title or number…"
+                  placeholder="Type award title, number or revision…"
                   filterOption={false}
                   onSearch={setAwardSearch}
                   onChange={handleAwardSelect}
                   onClear={() => {
                     setSelectedFunding('')
                     setAwardSearch('')
-                    onChange(index, { selectedFundingId: '', awardTitle: '', awardNumber: '' })
+                    onChange(index, {
+                      selectedFundingId: '',
+                      awardTitle:        '',
+                      awardNumber:       '',
+                      revision:          '',
+                    })
                   }}
                   style={{ width: '100%' }}
+                  optionLabelProp="label"
                 >
                   {filteredAwards.map(a => (
-                    <Option key={a.uuid} value={a.uuid}>
-                      <span style={{ fontWeight: 500 }}>
-                        {a.awardTitle || <em style={{ color: '#aaa' }}>No title</em>}
-                      </span>
-                      {a.awardNumber && (
-                        <Tag color="blue" style={{ marginLeft: 8, fontSize: 11 }}>
-                          {a.awardNumber}
-                        </Tag>
-                      )}
+                    <Option
+                      key={a.uuid}
+                      value={a.uuid}
+                      label={a.awardTitle || a.awardNumber || a.uuid}
+                    >
+                      <div style={{ lineHeight: 1.4 }}>
+                        {/* award title — main line */}
+                        <div style={{ fontWeight: 500 }}>
+                          {a.awardTitle
+                            ? a.awardTitle
+                            : <em style={{ color: '#aaa' }}>No title</em>
+                          }
+                        </div>
+                        {/* award number + revision — secondary line */}
+                        <div style={{ marginTop: 2 }}>
+                          {a.awardNumber && (
+                            <Tag color="blue" style={{ fontSize: 11 }}>
+                              #{a.awardNumber}
+                            </Tag>
+                          )}
+                          {a.revision && (
+                            <Tag color="default" style={{ fontSize: 11 }}>
+                              rev: {a.revision}
+                            </Tag>
+                          )}
+                        </div>
+                      </div>
                     </Option>
                   ))}
                 </Select>
@@ -216,16 +254,34 @@ function FunderRow({ field, index, fundingData, funderList, onRemove, onChange }
           )}
 
           {/* selected award preview */}
-          {selectedFunding && field.awardTitle && (
+          {selectedFunding && (field.awardTitle || field.awardNumber) && (
             <div style={{
               background: '#e6f4ff', border: '1px solid #91caff',
               borderRadius: 6, padding: '8px 12px', fontSize: 12
             }}>
-              <span style={{ color: '#1677ff', fontWeight: 500 }}>Selected: </span>
-              <span>{field.awardTitle}</span>
-              {field.awardNumber && (
-                <span style={{ marginLeft: 8, color: '#555' }}>#{field.awardNumber}</span>
+              <div style={{ color: '#1677ff', fontWeight: 500, marginBottom: 4 }}>
+                Selected award:
+              </div>
+              {field.awardTitle && (
+                <div style={{ marginBottom: 2 }}>{field.awardTitle}</div>
               )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {field.awardNumber && (
+                  <Tag color="blue" style={{ fontSize: 11 }}>
+                    #{field.awardNumber}
+                  </Tag>
+                )}
+                {field.revision && (
+                  <Tag color="default" style={{ fontSize: 11 }}>
+                    rev: {field.revision}
+                  </Tag>
+                )}
+                {field.funderName && (
+                  <Tag color="green" style={{ fontSize: 11 }}>
+                    {field.funderName}
+                  </Tag>
+                )}
+              </div>
             </div>
           )}
         </>
@@ -294,7 +350,6 @@ export default function Funding({ form, onChange, data = {} }) {
     const load = async () => {
       setLoading(true)
       try {
-        // single endpoint — backend already joins Funding.json + Funders.json
         const res  = await fetch('api/kginfo/funding')
         const json = res.ok ? await res.json() : { funding: [] }
         const raw  = json.funding || []
