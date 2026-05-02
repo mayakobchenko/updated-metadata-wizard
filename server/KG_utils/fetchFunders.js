@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getRequestOptions } from './KG_utils/kgAuthentication.js'
+import { getRequestOptions } from './kgAuthentication.js'
 
 const __filename   = fileURLToPath(import.meta.url)
 const __dirname    = path.dirname(__filename)
