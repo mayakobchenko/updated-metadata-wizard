@@ -11,6 +11,8 @@ import zammadInfo from './routes/getTicketNettskjemaInfo.js'
 import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
+import fetchDataFromKg, { resetFundingInProgressFlag } from './KG_utils/fetchDataFromKG.js'
+
 
 dotenv.config({ path: '../.env' })
 const PORT = process.env.PORT_SERVER || 4000
@@ -33,11 +35,14 @@ app.use(cors({
 //     app.use(cors());
 // }
 
-// Schedule fetching data from KG every 15 minutes (900000 ms), 24 hours (86400000 ms)
-setInterval(fetchDataFromKg, 86400000)
-
 // Fetch initially when the server starts
 fetchDataFromKg()
+
+// Schedule fetching data from KG every 15 minutes (900000 ms), 24 hours (86400000 ms)
+setInterval(() => {
+  resetFundingInProgressFlag()  // ← allow re-fetch next login
+  fetchDataFromKg()
+}, 86400000)
 
 app.use('/api/', formRoutes)
 app.use('/api/auth/', authRoutes)

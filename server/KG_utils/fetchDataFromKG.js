@@ -4,9 +4,7 @@ import { fetchLicenses } from './fetchLicenses.js'
 import fetchStudyTargets from './fetchStudyTargets.js'
 import fetchTechniques from './fetchTechniques.js'
 import fetchFunders from './fetchFunders.js'
-import { getServiceToken } from './serviceTokenManager.js'
 
-// ── RELEASED config — works with any token ────────────────────────────────────
 const configReleased = [
   { openMindsType: "ORCID",        typeProperties: ["identifier"] },
   { openMindsType: "Person",       typeProperties: ["familyName", "givenName", "digitalIdentifier"] },
@@ -20,7 +18,6 @@ const configReleased = [
   },
 ]
 
-// ── IN_PROGRESS config — requires personal token ──────────────────────────────
 const configInProgress = [
   {
     openMindsType:  "Funding",
@@ -30,38 +27,41 @@ const configInProgress = [
   },
 ]
 
-// ── build request options using service credentials ───────────────────────────
-async function buildServiceRequestOptions() {
-  const token = await getServiceToken()
-  return {
-    method:  'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept':        'application/json',
-    }
-  }
-}
-
-// ── main export — called from index.js every 24h ──────────────────────────────
+// ── runs at startup every 24h — no personal token needed ─────────────────────
 export default async function fetchDataFromKg() {
   try {
-    console.log('fetchDataFromKg: starting full data refresh…')
-
-    // get service token once for the whole refresh cycle
-    const requestOptions = await buildServiceRequestOptions()
-
-    // fetch all RELEASED data + IN_PROGRESS funding in one pass
-    const fullConfig = [...configReleased, ...configInProgress]
-
+    console.log('fetchDataFromKg: starting…')
     await fetchLicenses()
-    await fetchCoreSchemaInstances(fullConfig, requestOptions)
+    await fetchCoreSchemaInstances(configReleased)
     await fetchControlledTerms()
     await fetchStudyTargets()
     await fetchTechniques()
     await fetchFunders()
-
-    console.log('fetchDataFromKg: full data refresh complete')
+    console.log('fetchDataFromKg: complete')
   } catch (error) {
-    console.error('fetchDataFromKg: error during refresh:', error.message)
+    console.error('fetchDataFromKg error:', error.message)
   }
+}
+
+// ── runs once after first login — uses personal token already set ─────────────
+let _done = false
+
+export async function fetchFundingInProgress() {
+  if (_done) return
+  try {
+    console.log('fetchFundingInProgress: fetching IN_PROGRESS funding…')
+    // fetchCoreSchemaInstances with no requestOptions argument
+    // will call getRequestOptions() internally which reads from tokenFunctions
+    // — personal token is already set at this point from auth.js
+    await fetchCoreSchemaInstances(configInProgress)
+    await fetchFunders()
+    _done = true
+    console.log('fetchFundingInProgress: done')
+  } catch (error) {
+    console.error('fetchFundingInProgress error:', error.message)
+  }
+}
+
+export function resetFundingInProgressFlag() {
+  _done = false
 }

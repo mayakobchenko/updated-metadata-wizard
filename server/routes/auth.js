@@ -3,6 +3,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import crypto from 'crypto'
 import tokenFunctions from './tokenManager.js'
+import { fetchFundingInProgress } from '../KG_utils/fetchDataFromKG.js'
 dotenv.config()
 
 const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
@@ -157,7 +158,12 @@ async function getToken(req, res) {
       const access_token = tokenData["access_token"]
       tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
 
-      console.log('outbound fetch for userinfo')
+      // fetch IN_PROGRESS funding in background using this personal token
+      fetchFundingInProgress().catch(err =>
+        console.warn('fetchFundingInProgress:', err.message)
+      )
+
+      //console.log('outbound fetch for userinfo')
 
       const userResponse = await fetch(`${USER_INFO_URL}`, {
         headers: {
