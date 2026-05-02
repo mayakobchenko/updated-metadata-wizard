@@ -1,12 +1,13 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getRequestOptions } from './kgAuthentication.js'
 
-const __filename   = fileURLToPath(import.meta.url)
-const __dirname    = path.dirname(__filename)
-const FUNDING_PATH = path.join(__dirname, 'data/kg-instances/Funding.json')
-const OUTPUT_PATH  = path.join(__dirname, 'data/kg-instances/Funders.json')
+const __filename      = fileURLToPath(import.meta.url)
+const __dirname       = path.dirname(__filename)
+const FUNDING_PATH    = path.join(__dirname, 'data/kg-instances/Funding.json')
+const ORG_PATH        = path.join(__dirname, 'data/kg-instances/Organization.json')
+const CONSORTIUM_PATH = path.join(__dirname, 'data/kg-instances/Consortium.json')
+const OUTPUT_PATH     = path.join(__dirname, 'data/kg-instances/Funders.json')
 
 export default async function fetchFunders() {
   console.log('fetchFunders: starting…')
@@ -17,95 +18,77 @@ export default async function fetchFunders() {
     const raw = await readFile(FUNDING_PATH, 'utf-8')
     funding   = JSON.parse(raw)
     console.log(`fetchFunders: loaded ${funding.length} funding entries`)
-    // debug: show what funder field actually looks like
-    console.log('fetchFunders: sample funder fields:',
-      funding.slice(0, 3).map(f => f.funder)
-    )
   } catch (err) {
     console.error('fetchFunders: could not read Funding.json:', err.message)
     return
   }
 
-  // ── 2. collect unique funder @ids ─────────────────────────────────────────
-  // funder field may be stored as {"@id": "..."} or as a plain string
-  // handle both cases
-  const extractFunderId = (f) => {
-    const funder = f.funder
-    if (!funder) return null
-    if (typeof funder === 'string') return funder
-    if (typeof funder === 'object') return funder['@id'] || null
-    return null
+  // ── 2. read Organization.json and Consortium.json ─────────────────────────
+  // These are already written by fetchCoreSchemaInstances — no KG call needed.
+  let orgs = []
+  try {
+    const raw = await readFile(ORG_PATH, 'utf-8')
+    orgs      = JSON.parse(raw)
+    console.log(`fetchFunders: loaded ${orgs.length} organisations`)
+  } catch (err) {
+    console.warn('fetchFunders: could not read Organization.json:', err.message)
   }
 
+  let consortia = []
+  try {
+    const raw = await readFile(CONSORTIUM_PATH, 'utf-8')
+    consortia  = JSON.parse(raw)
+    console.log(`fetchFunders: loaded ${consortia.length} consortia`)
+  } catch (err) {
+    console.warn('fetchFunders: could not read Consortium.json:', err.message)
+  }
+
+  // ── 3. build lookup: full URL → name ─────────────────────────────────────
+  // uuid in Organization.json is the full URL:
+  // "https://kg.ebrains.eu/api/instances/524884fe-..."
+  const nameLookup = new Map()
+
+  for (const entry of [...orgs, ...consortia]) {
+    const id   = entry.uuid     || ''
+    const name = entry.fullName || entry.name || ''
+    if (id && name) {
+      nameLookup.set(id, name)
+      console.log(`fetchFunders: lookup ${id.split('/').pop()} → "${name}"`)
+    }
+  }
+
+  console.log(`fetchFunders: lookup has ${nameLookup.size} entries`)
+
+  // ── 4. collect unique funder @ids from Funding.json ───────────────────────
   const uniqueFunderIds = [...new Set(
-    funding.map(extractFunderId).filter(Boolean)
+    funding
+      .map(f => f.funder?.['@id'])
+      .filter(Boolean)
   )]
 
-  console.log(`fetchFunders: found ${uniqueFunderIds.length} unique funder IDs:`, uniqueFunderIds)
+  console.log(`fetchFunders: ${uniqueFunderIds.length} unique funder IDs:`, uniqueFunderIds)
 
-  if (uniqueFunderIds.length === 0) {
-    console.warn('fetchFunders: no funder IDs found in Funding.json')
-    return
-  }
-
-  // ── 3. fetch each funder from KG ─────────────────────────────────────────
-  const requestOptions = await getRequestOptions()
-
-  const results = await Promise.allSettled(
-    uniqueFunderIds.map(async (funderUrl) => {
-      const uuid   = funderUrl.split('/').pop()
-      const apiUrl = `https://core.kg.ebrains.eu/v3/instances/${uuid}?stage=RELEASED`
-
-      try {
-        const resp = await fetch(apiUrl, requestOptions)
-
-        if (!resp.ok) {
-          console.warn(`fetchFunders: ${uuid} → HTTP ${resp.status}`)
-          // still include in output with null name so we know it exists
-          return { id: funderUrl, uuid, name: null }
-        }
-
-        const data = await resp.json()
-
-        // log the full data object to debug name extraction
-        console.log(`fetchFunders: raw data for ${uuid}:`,
-          JSON.stringify(data.data).slice(0, 300)
-        )
-
-        // fullName is a plain string in this KG — not wrapped in an object
-        const name =
-          data.data?.['https://openminds.om-i.org/props/fullName']  ||
-          data.data?.['https://openminds.ebrains.eu/vocab/fullName'] ||
-          data.data?.['https://openminds.om-i.org/props/shortName']  ||
-          null
-
-        console.log(`fetchFunders: ${uuid} → name="${name}"`)
-        return { id: funderUrl, uuid, name }
-
-      } catch (err) {
-        console.error(`fetchFunders: error fetching ${uuid}:`, err.message)
-        return { id: funderUrl, uuid, name: null }
+  // ── 5. resolve name for each funder ──────────────────────────────────────
+  const funders = uniqueFunderIds
+    .map(funderUrl => {
+      const name = nameLookup.get(funderUrl) || null
+      const uuid = funderUrl.split('/').pop()
+      if (!name) {
+        console.warn(`fetchFunders: no name found for ${uuid} — not in Organization.json or Consortium.json`)
+      }
+      return {
+        id:   funderUrl,
+        uuid,
+        name: name || `Unknown funder (${uuid.slice(0, 8)}…)`,
       }
     })
-  )
-
-  // ── 4. save ALL funders — including those with null name ─────────────────
-  // Previously we filtered out null-name entries which caused missing funders.
-  // Now we keep all of them and fall back to a shortened UUID for display.
-  const funders = results
-    .filter(r => r.status === 'fulfilled' && r.value)
-    .map(r => ({
-      id:   r.value.id,
-      uuid: r.value.uuid,
-      // if name is null, use a readable fallback instead of the full URL
-      name: r.value.name || `Unknown funder (${r.value.uuid.slice(0, 8)}…)`,
-    }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  console.log(`fetchFunders: saving ${funders.length} funders:`,
-    funders.map(f => `${f.uuid.slice(0,8)} → "${f.name}"`)
+  console.log('fetchFunders: resolved:',
+    funders.map(f => `${f.uuid.slice(0, 8)} → "${f.name}"`)
   )
 
+  // ── 6. write Funders.json ─────────────────────────────────────────────────
   try {
     await mkdir(path.dirname(OUTPUT_PATH), { recursive: true })
     await writeFile(OUTPUT_PATH, JSON.stringify(funders, null, 2), 'utf-8')
