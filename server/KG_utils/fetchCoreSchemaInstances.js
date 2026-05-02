@@ -38,9 +38,9 @@ export const fetchCoreSchemaInstances = async (typeSpecifications) => {
   const resultsByType = new Map()
 
   const fetchPromises = otherSpecs.map(async (typeSpecification) => {
-    const spaceName   = typeSpecification.space ?? "common"
-    const stageName   = typeSpecification.stage ?? "RELEASED"
-    const TYPE_NAME   = typeSpecification.openMindsType
+    const spaceName = typeSpecification.space ?? "common"
+    const stageName = typeSpecification.stage ?? "RELEASED"
+    const TYPE_NAME = typeSpecification.openMindsType
     const QUERY_PARAMS = [
       `stage=${stageName}`,
       `space=${spaceName}`,
@@ -48,12 +48,15 @@ export const fetchCoreSchemaInstances = async (typeSpecifications) => {
     ]
     const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
 
+    console.log(`Fetching ${TYPE_NAME} stage=${stageName} space=${spaceName}…`)
+
     try {
-      const instances = await fetchAndParseInstances(
-        queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties
-      )
-      if (!resultsByType.has(TYPE_NAME)) resultsByType.set(TYPE_NAME, [])
-      resultsByType.get(TYPE_NAME).push(...instances)
+    const instances = await fetchAndParseInstances(
+      queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties
+    )
+    console.log(`  → ${instances.length} instances for ${TYPE_NAME} (${stageName})`)
+    if (!resultsByType.has(TYPE_NAME)) resultsByType.set(TYPE_NAME, [])
+    resultsByType.get(TYPE_NAME).push(...instances)
     } catch (error) {
       console.error(`Error fetching ${TYPE_NAME} (${stageName}):`, error)
     }
@@ -92,18 +95,15 @@ async function parseInstances(data, typeName, propertyNameList) {
   try {
     let orcidData
     if (typeName === "Person") {
-      // ORCID.json is guaranteed to exist at this point
       orcidData = await loadJsonFile(path.join(OUTPUT_DIR, 'ORCID.json'))
     }
 
     for (const thisInstance of data.data) {
       const newInstance = { uuid: thisInstance["@id"] }
-      let isEmpty = true
 
       for (const propertyName of propertyNameList) {
         const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
         if (thisInstance[vocabName] !== undefined) {
-          isEmpty = false
           if (typeName === "Person" && propertyName === "digitalIdentifier") {
             const findOrcid = orcidData?.find(
               entry => entry.uuid === thisInstance[`${OPENMINDS_VOCAB}/digitalIdentifier`]?.["@id"]
@@ -117,13 +117,16 @@ async function parseInstances(data, typeName, propertyNameList) {
         }
       }
 
-      // capture revision — lives under a different vocab namespace
+      // capture revision separately — different vocab namespace
       const revisionKey = 'https://core.kg.ebrains.eu/vocab/meta/revision'
       if (thisInstance[revisionKey]) {
         newInstance['revision'] = thisInstance[revisionKey]
       }
 
-      if (!isEmpty) typeInstanceList.push(newInstance)
+      // ── always keep the entry if it has a uuid ────────────────────────────
+      // Previously isEmpty check dropped entries with only funder + no title.
+      // Now we keep everything that has a valid @id.
+      typeInstanceList.push(newInstance)
     }
   } catch (error) {
     console.error(`Error while parsing data for ${typeName}:`, error)

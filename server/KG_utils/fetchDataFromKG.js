@@ -13,13 +13,15 @@ const configObject = [
   // ── Funding fetched from both stages, merged into one Funding.json ──────────
   {
     openMindsType:  "Funding",
-    typeProperties: ["identifier", "awardTitle", "awardNumber", "revision", "funder"],
-    stage:          "RELEASED",
+    typeProperties: ["awardTitle", "awardNumber", "funder"],
+    stage: "RELEASED",
+    space: "common",
   },
   {
     openMindsType:  "Funding",
-    typeProperties: ["identifier", "awardTitle", "awardNumber", "revision", "funder"],
-    stage:          "IN_PROGRESS",
+    typeProperties: ["awardTitle", "awardNumber", "funder"],
+    stage: "IN_PROGRESS",
+    space: "common",
   },
 ]
 
