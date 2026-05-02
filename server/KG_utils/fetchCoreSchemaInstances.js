@@ -1,138 +1,143 @@
-// typeSpecification object should contain the following properties:
-// - openMindsType // short name for the openminds type, e.g: "Person"
-// - typeProperties // list of properties to save for this type, e.g: ["familyName", "givenName"]
-// - space // Optional, defaults to "common" (KG space to search for instances)
-// https://core.kg.ebrains.eu/swagger-ui
-
 import fs from 'fs'
 import path from 'path'
-import {getRequestOptions} from './kgAuthentication.js'
+import { getRequestOptions } from './kgAuthentication.js'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __dirname  = path.dirname(__filename)
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'kg-instances')
 const OPENMINDS_VOCAB = "https://openminds.om-i.org/props"
-const API_BASE_URL = "https://core.kg.ebrains.eu/"
-const API_ENDPOINT = "v3/instances"
+const API_BASE_URL    = "https://core.kg.ebrains.eu/"
+const API_ENDPOINT    = "v3/instances"
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
-    if (err) {
-        if (err.code === 'EEXIST') {console.log("Directory already exists.")} 
-        else {console.log(err)}
-    } else {console.log("New directory successfully created.")}})
+  if (err) {
+    if (err.code === 'EEXIST') { console.log("Directory already exists.") }
+    else { console.log(err) }
+  } else { console.log("New directory successfully created.") }
+})
 
 export const fetchCoreSchemaInstances = async (typeSpecifications) => {
-    const requestOptions = await getRequestOptions()
+  const requestOptions = await getRequestOptions()
 
-    const fetchPromises = typeSpecifications.map(async (typeSpecification) => {
-        const spaceName = typeSpecification.space !== undefined ? typeSpecification.space : "common"
-        const QUERY_PARAMS = ["stage=RELEASED", `space=${spaceName}`, "type=https://openminds.om-i.org/types/"]
-        const TYPE_NAME = typeSpecification.openMindsType
-        const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
-        try {
-            await fetchInstances(queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties)
-        } catch (error) {
-            console.error(`Error fetching instances for ${TYPE_NAME}:`, error)
-        }
-    });
-    await Promise.all(fetchPromises)
-}
+  // ── group specs by output filename so we can merge multiple fetches ────────
+  // e.g. two Funding specs (RELEASED + IN_PROGRESS) both write to Funding.json
+  const resultsByFile = new Map()   // filename → accumulated instance array
 
-async function fetchInstances(apiQueryUrl, requestOptions, typeName, propertyNames) {
+  const fetchPromises = typeSpecifications.map(async (typeSpecification) => {
+    const spaceName = typeSpecification.space ?? "common"
+    const stageName = typeSpecification.stage ?? "RELEASED"   // ← new, default RELEASED
+    const TYPE_NAME = typeSpecification.openMindsType
+    const QUERY_PARAMS = [
+      `stage=${stageName}`,
+      `space=${spaceName}`,
+      "type=https://openminds.om-i.org/types/"
+    ]
+    const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
+
     try {
-        const response = await fetch(apiQueryUrl, requestOptions)
-        if (response.status === 200) {
-            const data = await response.json()
-            await parseAndSaveData(data, typeName, propertyNames)
-        } else { throw new Error('Error fetching instances for ' + typeName + '. Status code: ' + response.status)}
+      const instances = await fetchAndParseInstances(
+        queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties
+      )
+      // accumulate into the map keyed by type name (= output filename)
+      if (!resultsByFile.has(TYPE_NAME)) {
+        resultsByFile.set(TYPE_NAME, [])
+      }
+      resultsByFile.get(TYPE_NAME).push(...instances)
     } catch (error) {
-        console.log(`Error fetching instances for ${typeName}:`, error)
+      console.error(`Error fetching instances for ${TYPE_NAME} (${stageName}):`, error)
     }
+  })
+
+  await Promise.all(fetchPromises)
+
+  // ── write one file per type, deduplicating by uuid ─────────────────────────
+  for (const [typeName, instances] of resultsByFile.entries()) {
+    const deduped  = deduplicateByUuid(instances)
+    const jsonStr  = JSON.stringify(deduped, null, 2)
+    const filePath = path.join(OUTPUT_DIR, `${typeName}.json`)
+    await fs.promises.writeFile(filePath, jsonStr)
+    console.log(`File with instances for ${typeName} written successfully (${deduped.length} entries)`)
+  }
 }
 
-async function parseAndSaveData(data, typeName, propertyNameList) {
-    let typeInstanceList = []
-    try {
-        let orcidData
-        if (typeName == "Person") {
-           orcidData = await loadJsonFile(path.join(OUTPUT_DIR, `ORCID.json`))
-        }
-        for (let thisInstance of data.data) {
-            let newInstance = { "uuid": thisInstance["@id"] }
-            let isEmpty = true
-            for (let propertyName of propertyNameList) {
-                const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
-                if (thisInstance[vocabName] !== undefined) {
-                    isEmpty = false
-                    if (typeName == "Person" && propertyName == "digitalIdentifier") {
-                        const findOrcid = orcidData.find(entry => entry.uuid === thisInstance[`${OPENMINDS_VOCAB}/digitalIdentifier`]["@id"])
-                        if (findOrcid !== undefined) {newInstance["orcid"] = findOrcid["identifier"]}
-                      } else {newInstance[propertyName] = thisInstance[vocabName]} 
-                    //newInstance[propertyName] = thisInstance[vocabName]
-                    if (typeName === 'Funding') {
-                        const revisionKey = 'https://core.kg.ebrains.eu/vocab/meta/revision'
-                        if (thisInstance[revisionKey]) {
-                            newInstance['revision'] = thisInstance[revisionKey]}}
-                }
+// ── returns parsed instances array without writing to disk ────────────────────
+async function fetchAndParseInstances(apiQueryUrl, requestOptions, typeName, propertyNames) {
+  try {
+    const response = await fetch(apiQueryUrl, requestOptions)
+    if (response.status === 200) {
+      const data = await response.json()
+      return await parseInstances(data, typeName, propertyNames)
+    } else {
+      throw new Error(`Error fetching instances for ${typeName}. Status: ${response.status}`)
+    }
+  } catch (error) {
+    console.log(`Error fetching instances for ${typeName}:`, error)
+    return []
+  }
+}
+
+// ── parse raw KG response into a flat array of instance objects ───────────────
+async function parseInstances(data, typeName, propertyNameList) {
+  const typeInstanceList = []
+  try {
+    let orcidData
+    if (typeName === "Person") {
+      orcidData = await loadJsonFile(path.join(OUTPUT_DIR, `ORCID.json`))
+    }
+
+    for (const thisInstance of data.data) {
+      const newInstance = { "uuid": thisInstance["@id"] }
+      let isEmpty = true
+
+      for (const propertyName of propertyNameList) {
+        const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
+        if (thisInstance[vocabName] !== undefined) {
+          isEmpty = false
+          if (typeName === "Person" && propertyName === "digitalIdentifier") {
+            const findOrcid = orcidData?.find(
+              entry => entry.uuid === thisInstance[`${OPENMINDS_VOCAB}/digitalIdentifier`]["@id"]
+            )
+            if (findOrcid !== undefined) {
+              newInstance["orcid"] = findOrcid["identifier"]
             }
-            if (!isEmpty) {
-                typeInstanceList.push(newInstance)}
+          } else {
+            newInstance[propertyName] = thisInstance[vocabName]
+          }
         }
-        const jsonStr = JSON.stringify(typeInstanceList, null, 2);
-        const filename = `${typeName}.json`
-        const filePath = path.join(OUTPUT_DIR, filename)
-        await fs.promises.writeFile(filePath, jsonStr)
-        console.log('File with instances for ' + typeName + ' written successfully')
-    } catch (error) {
-        console.error(`Error while parsing and saving data for ${typeName}:`, error)}
+      }
+
+      // also capture revision — it lives under a different vocab namespace
+      const revisionKey = 'https://core.kg.ebrains.eu/vocab/meta/revision'
+      if (thisInstance[revisionKey]) {
+        newInstance['revision'] = thisInstance[revisionKey]
+      }
+
+      if (!isEmpty) {
+        typeInstanceList.push(newInstance)
+      }
+    }
+  } catch (error) {
+    console.error(`Error while parsing data for ${typeName}:`, error)
+  }
+  return typeInstanceList
+}
+
+// ── deduplicate by uuid — last entry wins (IN_PROGRESS overrides RELEASED) ────
+function deduplicateByUuid(instances) {
+  const byUuid = new Map()
+  for (const instance of instances) {
+    byUuid.set(instance.uuid, instance)
+  }
+  return [...byUuid.values()]
 }
 
 async function loadJsonFile(filePath) {
-    try {
-        const data = await fs.promises.readFile(filePath, 'utf8')
-        const jsonData = JSON.parse(data)
-        return jsonData
-    } catch (err) {
-        console.error('Error reading the file:', err)
-        throw err
-    }
-}
-
-/*
-async function getORCID() {
-    const TYPE_NAME = "ORCID"
-    const QUERY_PARAMS = ["stage=RELEASED", "space=common", "type=https://openminds.ebrains.eu/core/"]
-    const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
-    const properties = ["identifier"]
-    try {
-        let orcidKG =[]
-        const requestOptions = await getRequestOptions()
-        const response = await fetch(queryUrl, requestOptions)
-        if (response.status === 200) {
-            const data = await response.json()
-            let typeInstanceList = []
-            for (let thisInstance of data.data) {
-                let newInstance = { "uuid": thisInstance["@id"] }
-                let isEmpty = true
-                for (let propertyName of properties) {
-                    const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
-                    if (thisInstance[vocabName] !== undefined) {
-                      isEmpty = false
-                      if (propertyName == "digitalIdentifier") {
-                        newInstance["orcid_uuid"] = thisInstance[vocabName]["@id"]
-                      } else {newInstance[propertyName] = thisInstance[vocabName]}              
-                    }
-                }
-                if (!isEmpty) {
-                    typeInstanceList.push(newInstance)
-                }
-            }
-            orcidKG.push(typeInstanceList)
-        } else { throw new Error('Error fetching instances for contributors. Status code: ' + response.status)}
-      //console.log(orcidKG)
-    } catch (error) {
-      console.error('Error:', error.message)
-    }
+  try {
+    const data = await fs.promises.readFile(filePath, 'utf8')
+    return JSON.parse(data)
+  } catch (err) {
+    console.error('Error reading the file:', err)
+    throw err
   }
-  */
+}
