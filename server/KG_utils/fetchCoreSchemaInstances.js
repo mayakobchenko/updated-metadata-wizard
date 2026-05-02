@@ -15,8 +15,10 @@ fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
   else { console.log("New directory successfully created.") }
 })
 
-export const fetchCoreSchemaInstances = async (typeSpecifications) => {
-  const requestOptions = await getRequestOptions()
+export const fetchCoreSchemaInstances = async (typeSpecifications, requestOptions = null) => {
+  if (!requestOptions) {
+    requestOptions = await getRequestOptions()
+  }
 
   // ── ORCID must be fetched first because Person depends on it ──────────────
   const orcidSpec = typeSpecifications.find(s => s.openMindsType === 'ORCID')
