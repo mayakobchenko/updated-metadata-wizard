@@ -12,19 +12,24 @@ export async function getServiceToken() {
     return _serviceToken
   }
 
-  const username = process.env.EBRAINS_SERVICE_USERNAME
-  const password = process.env.EBRAINS_SERVICE_PASSWORD
-  const clientId = process.env.WIZARD_OIDC_CLIENT_ID
+  const username     = process.env.EBRAINS_SERVICE_USERNAME
+  const password     = process.env.EBRAINS_SERVICE_PASSWORD
+  const clientId     = process.env.WIZARD_OIDC_CLIENT_ID
+  const clientSecret = process.env.WIZARD_OIDC_CLIENT_SECRET  // ← add this
 
-  if (!username || !password || !clientId) {
-    throw new Error('EBRAINS_SERVICE_USERNAME, EBRAINS_SERVICE_PASSWORD and WIZARD_OIDC_CLIENT_ID must be set')
+  if (!username || !password || !clientId || !clientSecret) {
+    throw new Error(
+      'EBRAINS_SERVICE_USERNAME, EBRAINS_SERVICE_PASSWORD, ' +
+      'WIZARD_OIDC_CLIENT_ID and WIZARD_OIDC_CLIENT_SECRET must all be set'
+    )
   }
 
   console.log(`serviceTokenManager: fetching token for ${username}…`)
 
   const params = new URLSearchParams({
-    grant_type: 'password',
-    client_id:  clientId,
+    grant_type:    'password',
+    client_id:     clientId,
+    client_secret: clientSecret,   // ← add this
     username,
     password,
   })
@@ -40,21 +45,10 @@ export async function getServiceToken() {
     throw new Error(`serviceTokenManager: token fetch failed ${resp.status}: ${body.slice(0, 200)}`)
   }
 
-  const data   = await resp.json()
+  const data    = await resp.json()
   _serviceToken = data.access_token
   _tokenExpiry  = Date.now() + (data.expires_in || 300) * 1000
 
   console.log(`serviceTokenManager: token obtained, expires in ${data.expires_in}s`)
   return _serviceToken
-}
-
-export function getServiceRequestOptions() {
-  if (!_serviceToken) throw new Error('serviceTokenManager: no token available yet')
-  return {
-    method:  'GET',
-    headers: {
-      'Authorization': `Bearer ${_serviceToken}`,
-      'Accept':        'application/json',
-    }
-  }
 }
