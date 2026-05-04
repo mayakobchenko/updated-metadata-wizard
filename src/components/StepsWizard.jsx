@@ -36,6 +36,7 @@ const readJsonFile = (file) =>
 // ── deep merge helper ─────────────────────────────────────────────────────────
 // Merges imported JSON into existing form data so fields not present in the
 // imported file keep their current values (e.g. pre-filled from Nettskjema).
+/*
 const deepMerge = (base, incoming) => {
   if (!incoming || typeof incoming !== 'object') return base
   const result = { ...base }
@@ -56,6 +57,8 @@ const deepMerge = (base, incoming) => {
   }
   return result
 }
+*/
+const deepMerge = (base, incoming) => incoming
 
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const skjemaInfo = useAuthContext()
