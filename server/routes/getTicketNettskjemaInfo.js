@@ -135,6 +135,7 @@ async function getZammadInfo(req, res) {
       ? searchData.tickets[0]
       : searchData.tickets
 
+    logger.info(`zammad ticket id : ${ticketId}`)
     const ticketInfo = searchData.assets?.Ticket?.[ticketId]
     if (!ticketInfo) {
       throw new Error(`Ticket ${ticketNumber} not found in Zammad`)
