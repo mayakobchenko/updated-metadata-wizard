@@ -63,7 +63,6 @@ except Exception as e:
     print(f"DEBUG could not load Person.json: {e}", file=sys.stderr)
 
 # ── load ORCID list ───────────────────────────────────────────────────────────
-
 _orcid_path = os.path.join(_server_dir, 'data', 'kg-instances', 'ORCID.json')
 
 try:
@@ -75,6 +74,27 @@ except Exception as e:
     print(f"DEBUG could not load ORCID.json: {e}", file=sys.stderr)
 
 # ── KG helpers ────────────────────────────────────────────────────────────────
+
+"""  old function
+def KG_patch(entry_id, attr):
+    try:
+        payload = {**VOCAB, **attr}
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token,
+            "Content-Type":  "application/json; charset=utf-8"
+        }
+        url = f'{KG_API}{entry_id.split("/")[-1]}?space=collab-d-{dsv_id}'
+        resp = rq.patch(url=url, headers=headers,
+                        data=json.dumps(payload, indent=4))
+        print(f"DEBUG PATCH {url} → {resp.status_code}", file=sys.stderr)
+        if not resp.ok:
+            print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
+            return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
+        return {"patched": entry_id, "status": resp.status_code}
+    except Exception as e:
+        return {"error": str(e)}
+"""
 
 
 def KG_patch(entry_id, attr):
@@ -91,6 +111,7 @@ def KG_patch(entry_id, attr):
                         data=json.dumps(payload, indent=4))
         print(f"DEBUG PATCH {url} → {resp.status_code}", file=sys.stderr)
 
+        # ── if instance doesn't exist yet, try POST instead ───────────────────
         if resp.status_code == 404:
             print(f"DEBUG PATCH 404 — instance not found, trying POST",
                   file=sys.stderr)
@@ -158,18 +179,44 @@ def as_id_list(values):
         return [{"@id": v} for v in flat if v]
     return []
 
-# ── species/strain helpers ────────────────────────────────────────────────────
+
+def as_single_or_list(values):
+    items = as_id_list(values)
+    if not items:
+        return None
+    return items[0] if len(items) == 1 else items
+
+# ── species/strain helper ─────────────────────────────────────────────────────
+# The KG Subject/TissueSample node has only ONE field: "species"
+# Rule:
+#   strain present  → write strain @id into "species" field (strain implies species,
+#                     strain @id is unique and resolves to the correct species)
+#   no strain       → write species @id into "species" field as a list
+#   neither         → omit the field entirely (new instance, nothing to clear)
+#
+# For groups/collections we always write a list into "species" containing
+# all unique strain @ids (for members with strain) and species @ids (for members without).
 
 
 def apply_strain_species(node, strain_val, species_val):
+    """
+    Write strain OR species into the single 'species' field.
+    Strain is written as a single @id (not a list) matching the KG editor behaviour.
+    Species is written as a list.
+    """
     strain = nonempty(strain_val)
     species = nonempty(species_val)
+
     print(f"DEBUG strain={strain!r} species={species!r}", file=sys.stderr)
+
     if strain:
+        # strain @id goes directly into species field as single value
+        # this matches what the KG editor stores
         node["species"] = {"@id": strain}
         print(
             f"DEBUG → writing strain into species field: {strain}", file=sys.stderr)
     elif species:
+        # no strain — write species as list
         node["species"] = [{"@id": species}]
         print(f"DEBUG → writing species: {species}", file=sys.stderr)
     else:
@@ -177,22 +224,34 @@ def apply_strain_species(node, strain_val, species_val):
 
 
 def apply_strain_species_group(node, subjects_or_samples):
+    """
+    For SubjectGroup and TissueSampleCollection:
+    collect all unique strain @ids and species @ids across members,
+    write them all into the 'species' field as a list.
+    Strain @ids are preferred and included directly.
+    """
     ids_for_species_field = set()
+
     for s in subjects_or_samples:
         strain = nonempty(s.get("strain",  ""))
         species = nonempty(s.get("species", ""))
         if strain:
+            # strain @id stands in for species
             ids_for_species_field.add(strain)
         elif species:
             ids_for_species_field.add(species)
-    node["species"] = [{"@id": i} for i in ids_for_species_field]
+
+    species_list = [{"@id": i} for i in ids_for_species_field]
+    # [] clears stale values if no members have species/strain
+    node["species"] = species_list
     print(
         f"DEBUG group/collection species field: {list(ids_for_species_field)}", file=sys.stderr)
 
-# ── ORCID helpers ─────────────────────────────────────────────────────────────
+# ── person helpers ────────────────────────────────────────────────────────────
 
 
 def normalize_orcid(orcid_val):
+    """Ensure ORCID is always a full URL."""
     orc = nonempty(orcid_val)
     if not orc:
         return None
@@ -200,56 +259,65 @@ def normalize_orcid(orcid_val):
         return orc
     if orc.startswith("http://orcid.org/"):
         return orc.replace("http://", "https://")
+    # bare ORCID like 0000-0003-3809-0630 → add prefix
     return f"https://orcid.org/{orc}"
 
 
-def create_orcid_instance(orcid_url):
-    orc = normalize_orcid(orcid_url)
-    if not orc:
-        return None
+"""
+def find_person_uuid(first_name, family_name, orcid=None):
+    fn = nonempty(first_name) or ""
+    fam = nonempty(family_name) or ""
+    orc = nonempty(orcid) or ""
 
-    # check ORCID.json first
-    for entry in _orcid_list:
-        if nonempty(entry.get('identifier', '')) == orc:
-            print(
-                f"DEBUG found existing ORCID in common space: {entry['uuid']}", file=sys.stderr)
-            return entry['uuid']
+    if orc:
+        for p in _persons_list:
+            p_orc = nonempty(p.get('orcid', '')) or ""
+            if p_orc.lower() == orc.lower():
+                print(
+                    f"DEBUG person found by ORCID: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}", file=sys.stderr)
+                return p['uuid']
+        print(f"DEBUG ORCID '{orc}' not found, trying name", file=sys.stderr)
 
-    # create in common space
-    orcid_uuid = str(uuid4())
-    orcid_node = {"@type": [f"{T}ORCID"], "identifier": orc}
+    if fn or fam:
+        for p in _persons_list:
+            p_given = nonempty(p.get('givenName',  '')) or ""
+            p_family = nonempty(p.get('familyName', '')) or ""
+            if p_given.lower() == fn.lower() and p_family.lower() == fam.lower():
+                print(
+                    f"DEBUG person found by name: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}", file=sys.stderr)
+                return p['uuid']
+
     print(
-        f"DEBUG creating ORCID instance in common space for {orc}", file=sys.stderr)
-    try:
-        payload = {**VOCAB, **orcid_node}
-        headers = {
-            "accept":        "*/*",
-            "Authorization": "Bearer " + personal_token,
-            "Content-Type":  "application/json; charset=utf-8"
-        }
-        url = f'{KG_API}{orcid_uuid}?space=common'
-        resp = rq.post(url=url, headers=headers,
-                       data=json.dumps(payload, indent=4))
-        print(
-            f"DEBUG POST ORCID to common space {url} → {resp.status_code}", file=sys.stderr)
-        if not resp.ok:
-            print(
-                f"DEBUG FAILED to create ORCID: {resp.text[:200]}", file=sys.stderr)
-            return None
-        orcid_kg_url = KG_PREFIX + orcid_uuid
-        print(f"DEBUG new ORCID instance → {orcid_kg_url}", file=sys.stderr)
-        return orcid_kg_url
-    except Exception as e:
-        print(f"DEBUG error creating ORCID: {e}", file=sys.stderr)
-        return None
+        f"DEBUG person NOT found: '{fn}' '{fam}' orcid='{orc}'", file=sys.stderr)
+    return None
 
-# ── person helpers ────────────────────────────────────────────────────────────
+def create_person(first_name, family_name, orcid=None):
+    person_uuid = str(uuid4())
+    person_node = {
+        "@type":      [f"{T}Person"],
+        "givenName":  safe_trim(first_name or ""),
+        "familyName": safe_trim(family_name or ""),
+    }
+    if nonempty(orcid):
+        person_node["digitalIdentifier"] = [{"@id": nonempty(orcid)}]
+
+    print(
+        f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
+    new_url = KG_post(person_uuid, person_node)
+    if new_url:
+        print(f"DEBUG new Person → {new_url}", file=sys.stderr)
+    else:
+        print(
+            f"DEBUG FAILED to create Person: {first_name} {family_name}", file=sys.stderr)
+    return new_url   # plain URL string or None
+
+"""
 
 
 def find_person_uuid(first_name, family_name, orcid=None):
     fn = nonempty(first_name) or ""
     fam = nonempty(family_name) or ""
-    orc = normalize_orcid(orcid)
+    orc = normalize_orcid(orcid)   # ← normalize before lookup
 
     if orc:
         for p in _persons_list:
@@ -274,6 +342,7 @@ def find_person_uuid(first_name, family_name, orcid=None):
     return None
 
 
+"""
 def create_person(first_name, family_name, orcid=None):
     person_uuid = str(uuid4())
     person_node = {
@@ -283,6 +352,90 @@ def create_person(first_name, family_name, orcid=None):
     }
     orc = normalize_orcid(orcid)
     if orc:
+        person_node["digitalIdentifier"] = [{"@id": orc}]
+
+    print(
+        f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
+    result = KG_post(person_uuid, person_node)
+
+    if isinstance(result, dict) and "error" in result:
+        print(
+            f"DEBUG FAILED to create Person: {first_name} {family_name} → {result}", file=sys.stderr)
+        return None
+
+    # KG_post succeeded — return the KG URL for this new person
+    person_url = KG_PREFIX + person_uuid
+    print(f"DEBUG new Person → {person_url}", file=sys.stderr)
+    return person_url
+"""
+
+
+def create_orcid_instance(orcid_url):
+    """
+    Create an ORCID instance in the COMMON space (not collab space)
+    and return its KG URL. Then reference it from the Person node.
+    """
+    orc = normalize_orcid(orcid_url)
+    if not orc:
+        return None
+
+    # ── check ORCID.json first (already fetched from common space) ────────────
+    for entry in _orcid_list:
+        if nonempty(entry.get('identifier', '')) == orc:
+            print(
+                f"DEBUG found existing ORCID in common space: {entry['uuid']}", file=sys.stderr)
+            return entry['uuid']
+
+    # ── not found — create new ORCID instance in COMMON space ────────────────
+    orcid_uuid = str(uuid4())
+    orcid_node = {
+        "@type":      [f"{T}ORCID"],
+        "identifier": orc,
+    }
+
+    print(
+        f"DEBUG creating ORCID instance in common space for {orc}", file=sys.stderr)
+
+    try:
+        payload = {**VOCAB, **orcid_node}
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token,
+            "Content-Type":  "application/json; charset=utf-8"
+        }
+        # ── POST to common space, NOT collab space ────────────────────────────
+        url = f'{KG_API}{orcid_uuid}?space=common'
+        resp = rq.post(url=url, headers=headers,
+                       data=json.dumps(payload, indent=4))
+        print(
+            f"DEBUG POST ORCID to common space {url} → {resp.status_code}", file=sys.stderr)
+
+        if not resp.ok:
+            print(
+                f"DEBUG FAILED to create ORCID in common space: {resp.text[:200]}", file=sys.stderr)
+            return None
+
+        orcid_kg_url = KG_PREFIX + orcid_uuid
+        print(
+            f"DEBUG new ORCID instance in common space → {orcid_kg_url}", file=sys.stderr)
+        return orcid_kg_url
+
+    except Exception as e:
+        print(f"DEBUG error creating ORCID instance: {e}", file=sys.stderr)
+        return None
+
+
+def create_person(first_name, family_name, orcid=None):
+    person_uuid = str(uuid4())
+    person_node = {
+        "@type":      [f"{T}Person"],
+        "givenName":  safe_trim(first_name or ""),
+        "familyName": safe_trim(family_name or ""),
+    }
+
+    orc = normalize_orcid(orcid)
+    if orc:
+        # ── create or find ORCID instance first, then reference it ────────────
         orcid_instance_url = create_orcid_instance(orc)
         if orcid_instance_url:
             person_node["digitalIdentifier"] = [{"@id": orcid_instance_url}]
@@ -290,59 +443,82 @@ def create_person(first_name, family_name, orcid=None):
                 f"DEBUG linking ORCID instance {orcid_instance_url} to new Person", file=sys.stderr)
         else:
             print(
-                f"DEBUG could not create ORCID — Person created without ORCID", file=sys.stderr)
+                f"DEBUG could not create ORCID instance — Person will be created without ORCID", file=sys.stderr)
 
     print(
         f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
     result = KG_post(person_uuid, person_node)
+
     if isinstance(result, dict) and "error" in result:
         print(
             f"DEBUG FAILED to create Person: {first_name} {family_name} → {result}", file=sys.stderr)
         return None
+
     person_url = KG_PREFIX + person_uuid
     print(f"DEBUG new Person → {person_url}", file=sys.stderr)
     return person_url
 
 
 def check_person_exists_in_collab(first_name, family_name, orcid=None):
+    """
+    Check if a Person with this name or ORCID already exists
+    in the collab space (IN_PROGRESS). Prevents duplicate creation
+    on re-submission.
+    """
     try:
         headers = {"accept": "*/*",
                    "Authorization": "Bearer " + personal_token}
         from_offset = 0
         page_size = 100
+
         while True:
             url = (
                 f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
+                f"?stage=IN_PROGRESS"
+                f"&space=collab-d-{dsv_id}"
                 f"&type=https://openminds.om-i.org/types/Person"
-                f"&size={page_size}&from={from_offset}"
+                f"&size={page_size}"
+                f"&from={from_offset}"
             )
             resp = rq.get(url=url, headers=headers)
             if not resp.ok:
+                print(
+                    f"DEBUG check_person_exists_in_collab: KG returned {resp.status_code}", file=sys.stderr)
                 return None
-            items = resp.json().get("data", [])
+
+            body = resp.json()
+            items = body.get("data", [])
+
             orc = normalize_orcid(orcid)
+
             for item in items:
+                # match by ORCID first — most reliable
                 if orc:
-                    item_ids = item.get(f"{V}digitalIdentifier", [])
-                    if isinstance(item_ids, dict):
-                        item_ids = [item_ids]
-                    for ident in item_ids:
+                    item_identifiers = item.get(f"{V}digitalIdentifier", [])
+                    if isinstance(item_identifiers, dict):
+                        item_identifiers = [item_identifiers]
+                    for ident in item_identifiers:
                         if isinstance(ident, dict) and ident.get("@id", "").lower() == orc.lower():
                             print(
                                 f"DEBUG found existing Person in collab by ORCID: {item['@id']}", file=sys.stderr)
                             return item["@id"]
+
+                # fall back to name match
                 item_given = item.get(f"{V}givenName",  "") or ""
                 item_family = item.get(f"{V}familyName", "") or ""
                 fn = nonempty(first_name) or ""
                 fam = nonempty(family_name) or ""
-                if fn and fam and item_given.lower() == fn.lower() and item_family.lower() == fam.lower():
+                if (fn and fam and
+                    item_given.lower() == fn.lower() and
+                        item_family.lower() == fam.lower()):
                     print(
                         f"DEBUG found existing Person in collab by name: {item['@id']}", file=sys.stderr)
                     return item["@id"]
+
             if len(items) < page_size:
                 return None
             from_offset += page_size
+
     except Exception as e:
         print(
             f"DEBUG check_person_exists_in_collab error: {e}", file=sys.stderr)
@@ -350,57 +526,97 @@ def check_person_exists_in_collab(first_name, family_name, orcid=None):
 
 
 def ensure_person_has_orcid(person_url, orcid_url):
+    """
+    Check if the person already has a digitalIdentifier.
+    If not, create the ORCID instance and patch the person.
+    """
     orc = normalize_orcid(orcid_url)
     if not orc:
         return
+
     try:
         person_uuid = person_url.split('/')[-1]
-        headers = {"accept": "*/*",
-                   "Authorization": "Bearer " + personal_token}
-        resp = rq.get(
-            f"https://core.kg.ebrains.eu/v3/instances/{person_uuid}?stage=IN_PROGRESS", headers=headers)
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token
+        }
+        # fetch the existing person instance
+        url = f"https://core.kg.ebrains.eu/v3/instances/{person_uuid}?stage=IN_PROGRESS"
+        resp = rq.get(url=url, headers=headers)
         if not resp.ok:
+            print(
+                f"DEBUG ensure_person_has_orcid: could not fetch person {person_uuid}", file=sys.stderr)
             return
+
         person_data = resp.json().get("data", {})
         existing_orcid_ids = person_data.get(f"{V}digitalIdentifier", [])
         if isinstance(existing_orcid_ids, dict):
             existing_orcid_ids = [existing_orcid_ids]
+
         if existing_orcid_ids:
             print(
                 f"DEBUG Person {person_uuid} already has digitalIdentifier — skipping ORCID update", file=sys.stderr)
             return
+
+        # no digitalIdentifier — create ORCID instance and patch person
         print(
             f"DEBUG Person {person_uuid} has no ORCID — creating and linking {orc}", file=sys.stderr)
         orcid_instance_url = create_orcid_instance(orc)
         if not orcid_instance_url:
+            print(
+                f"DEBUG could not create ORCID instance — skipping patch", file=sys.stderr)
             return
-        patch_payload = {**VOCAB, "@type": [f"{T}Person"],
-                         "digitalIdentifier": [{"@id": orcid_instance_url}]}
-        patch_resp = rq.patch(
-            f"{KG_API}{person_uuid}?space=collab-d-{dsv_id}",
-            headers={**headers, "Content-Type": "application/json; charset=utf-8"},
-            data=json.dumps(patch_payload, indent=4)
-        )
+
+        patch_payload = {
+            **VOCAB,
+            "@type":             [f"{T}Person"],
+            "digitalIdentifier": [{"@id": orcid_instance_url}]
+        }
+        patch_url = f"{KG_API}{person_uuid}?space=collab-d-{dsv_id}"
+        patch_resp = rq.patch(url=patch_url, headers={
+            **headers,
+            "Content-Type": "application/json; charset=utf-8"
+        }, data=json.dumps(patch_payload, indent=4))
         print(
-            f"DEBUG PATCH Person ORCID → {patch_resp.status_code}", file=sys.stderr)
+            f"DEBUG PATCH Person ORCID {patch_url} → {patch_resp.status_code}", file=sys.stderr)
+
     except Exception as e:
         print(f"DEBUG ensure_person_has_orcid error: {e}", file=sys.stderr)
 
 
+"""
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
     url = find_person_uuid(first_name, family_name, orcid)
     if url:
         return url
+    if create_if_missing and (nonempty(first_name) or nonempty(family_name)):
+        return create_person(first_name, family_name, orcid)
+    return None
+"""
+
+
+def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
+    # 1. check common space (Person.json)
+    url = find_person_uuid(first_name, family_name, orcid)
+    if url:
+        return url
+
+    # 2. check collab space
     collab_url = check_person_exists_in_collab(first_name, family_name, orcid)
     if collab_url:
         print(
             f"DEBUG person found in collab space: {collab_url}", file=sys.stderr)
+        # ── ensure ORCID is linked even if person was created without it ──────
         if nonempty(orcid):
             ensure_person_has_orcid(collab_url, orcid)
         return collab_url
+
+    # 3. not found anywhere — create new
     if create_if_missing and (nonempty(first_name) or nonempty(family_name)):
         return create_person(first_name, family_name, orcid)
+
     return None
+
 
 # ── extract dataset fields ────────────────────────────────────────────────────
 
@@ -425,9 +641,9 @@ support_channels = [
 
 experiments = data.get("experiments", {})
 experimental_approach = experiments.get("experimentalApproach", [])
-techniques = experiments.get("techniques",        [])
-preparation_types = experiments.get("preparationTypes",  [])
-study_targets = experiments.get("studyTargets",      [])
+techniques = experiments.get("techniques",            [])
+preparation_types = experiments.get("preparationTypes",      [])
+study_targets = experiments.get("studyTargets",          [])
 
 # ── resolve authors ───────────────────────────────────────────────────────────
 
@@ -519,6 +735,7 @@ def build_contribution_nodes(data):
     contributions = []
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
         person_url = nonempty(entry.get("selectedOtherContr", ""))
+
         if not person_url and entry.get("isCustom"):
             person_url = resolve_person(
                 entry.get("firstName", ""),
@@ -526,12 +743,18 @@ def build_contribution_nodes(data):
                 normalize_orcid(entry.get("orcid", "")),
                 create_if_missing=True
             )
+
         if not person_url or not isinstance(person_url, str) or not person_url.startswith("http"):
             print(f"DEBUG skipping contribution — no valid person URL",
                   file=sys.stderr)
             continue
-        contribution_types = entry.get(
-            "selectedTypeContr") or entry.get("contributionTypes") or []
+
+        contribution_types = (
+            entry.get("selectedTypeContr") or
+            entry.get("contributionTypes") or
+            []
+        )
+
         contrib_uuid = str(uuid4())
         contrib_node = {
             "@type":            [f"{T}Contribution"],
@@ -557,7 +780,34 @@ if contribution_ids:
 dsv_result = KG_patch(dsv_id, dsv_attributes)
 results.append({"datasetVersion": dsv_result})
 
-# ── 3. subject helpers ────────────────────────────────────────────────────────
+# ── 3. subjects ───────────────────────────────────────────────────────────────
+
+"""
+def check_subject_exists(lookup_label):
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        url = (
+            f"https://core.kg.ebrains.eu/v3/instances"
+            f"?stage=IN_PROGRESS"
+            f"&space=collab-d-{dsv_id}"
+            f"&type=https://openminds.om-i.org/types/Subject"
+            f"&size=100"
+        )
+        resp = rq.get(url=url, headers=headers)
+        if not resp.ok:
+            return None
+        vocab_label = "https://openminds.om-i.org/props/lookupLabel"
+        for item in resp.json().get("data", []):
+            if item.get(vocab_label) == lookup_label:
+                print(
+                    f"DEBUG found existing Subject '{lookup_label}' → {item['@id']}", file=sys.stderr)
+                return item["@id"]
+        return None
+    except Exception as e:
+        print(f"DEBUG check_subject_exists error: {e}", file=sys.stderr)
+        return None
+"""
 
 
 def check_subject_exists(lookup_label):
@@ -569,20 +819,24 @@ def check_subject_exists(lookup_label):
         while True:
             url = (
                 f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
+                f"?stage=IN_PROGRESS"
+                f"&space=collab-d-{dsv_id}"
                 f"&type=https://openminds.om-i.org/types/Subject"
-                f"&size={page_size}&from={from_offset}"
+                f"&size={page_size}"
+                f"&from={from_offset}"
             )
             resp = rq.get(url=url, headers=headers)
             if not resp.ok:
                 return None
-            items = resp.json().get("data", [])
+            body = resp.json()
+            items = body.get("data", [])
             vocab_label = "https://openminds.om-i.org/props/lookupLabel"
             for item in items:
                 if item.get(vocab_label) == lookup_label:
                     print(
                         f"DEBUG found existing Subject '{lookup_label}' → {item['@id']}", file=sys.stderr)
                     return item["@id"]
+            # if we got fewer results than page_size we have reached the end
             if len(items) < page_size:
                 return None
             from_offset += page_size
@@ -592,58 +846,49 @@ def check_subject_exists(lookup_label):
 
 
 def check_state_exists(lookup_label, state_type):
+    """
+    Check if a SubjectState or TissueSampleState with this lookupLabel
+    already exists in the collab space. Returns the @id URL if found.
+    state_type should be 'SubjectState' or 'TissueSampleState'
+    """
     try:
         headers = {"accept": "*/*",
                    "Authorization": "Bearer " + personal_token}
         from_offset = 0
         page_size = 100
+
         while True:
             url = (
                 f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
+                f"?stage=IN_PROGRESS"
+                f"&space=collab-d-{dsv_id}"
                 f"&type=https://openminds.om-i.org/types/{state_type}"
-                f"&size={page_size}&from={from_offset}"
+                f"&size={page_size}"
+                f"&from={from_offset}"
             )
             resp = rq.get(url=url, headers=headers)
             if not resp.ok:
                 return None
-            items = resp.json().get("data", [])
+
+            body = resp.json()
+            items = body.get("data", [])
             vocab_label = "https://openminds.om-i.org/props/lookupLabel"
+
             for item in items:
                 if item.get(vocab_label) == lookup_label:
                     print(
-                        f"DEBUG found existing {state_type} '{lookup_label}' → {item['@id']}", file=sys.stderr)
+                        f"DEBUG found existing {state_type} '{lookup_label}' → {item['@id']}",
+                        file=sys.stderr
+                    )
                     return item["@id"]
+
             if len(items) < page_size:
                 return None
             from_offset += page_size
+
     except Exception as e:
         print(f"DEBUG check_state_exists error: {e}", file=sys.stderr)
         return None
-
-
-def post_or_patch_subject(subject_uuid, subject_node, subject_id_str):
-    existing_id = check_subject_exists(subject_id_str)
-    if existing_id:
-        existing_uuid = existing_id.split("/")[-1]
-        result = KG_patch(existing_uuid, subject_node)
-        print(
-            f"DEBUG updated existing Subject '{subject_id_str}'", file=sys.stderr)
-        return existing_uuid, result
-    result = KG_post(subject_uuid, subject_node)
-    return subject_uuid, result
-
-
-def post_or_patch_state(state_uuid, state_node, lookup_label, state_type):
-    existing_url = check_state_exists(lookup_label, state_type)
-    if existing_url:
-        existing_uuid = existing_url.split("/")[-1]
-        result = KG_patch(existing_uuid, state_node)
-        print(
-            f"DEBUG updated existing {state_type} '{lookup_label}'", file=sys.stderr)
-        return existing_uuid, result
-    result = KG_post(state_uuid, state_node)
-    return state_uuid, result
 
 
 def build_subject_instance(subject, group_uuid=None):
@@ -655,15 +900,19 @@ def build_subject_instance(subject, group_uuid=None):
         "@type":              [f"{T}Subject"],
         "lookupLabel":        subject_id_str,
         "internalIdentifier": subject_id_str,
-        # placeholder — updated after state resolution
         "studiedState":       {"@id": KG_PREFIX + state_uuid},
     }
 
     if subject.get("bioSex"):
         subject_node["biologicalSex"] = {"@id": subject["bioSex"]}
 
-    apply_strain_species(subject_node, subject.get(
-        "strain", ""), subject.get("species", ""))
+    # strain → written into "species" field as single @id
+    # species → written into "species" field as list
+    apply_strain_species(
+        subject_node,
+        subject.get("strain",  ""),
+        subject.get("species", "")
+    )
 
     if group_uuid:
         subject_node["isPartOf"] = {"@id": KG_PREFIX + group_uuid}
@@ -691,7 +940,10 @@ def build_subject_instance(subject, group_uuid=None):
         if d:
             pathology_ids.append({"@id": d})
     state_node["pathology"] = pathology_ids
-    state_node["attribute"] = as_id_list(subject.get("subjectAttribute") or [])
+
+    attrs = as_id_list(subject.get("subjectAttribute") or [])
+    state_node["attribute"] = attrs
+
     if remarks:
         state_node["additionalRemarks"] = remarks
 
@@ -710,7 +962,36 @@ def build_subject_instance(subject, group_uuid=None):
 
     return (subject_uuid, subject_node), (state_uuid, state_node)
 
-# ── 4. process subjects ───────────────────────────────────────────────────────
+
+def post_or_patch_subject(subject_uuid, subject_node, subject_id_str):
+    existing_id = check_subject_exists(subject_id_str)
+    if existing_id:
+        existing_uuid = existing_id.split("/")[-1]
+        result = KG_patch(existing_uuid, subject_node)
+        print(
+            f"DEBUG updated existing Subject '{subject_id_str}'", file=sys.stderr)
+        return existing_uuid, result
+    result = KG_post(subject_uuid, subject_node)
+    return subject_uuid, result
+
+
+def post_or_patch_state(state_uuid, state_node, lookup_label, state_type):
+    """
+    Reuse existing state if found, otherwise create new one.
+    Returns the final UUID (existing or new) and the KG result.
+    """
+    existing_url = check_state_exists(lookup_label, state_type)
+    if existing_url:
+        existing_uuid = existing_url.split("/")[-1]
+        result = KG_patch(existing_uuid, state_node)
+        print(
+            f"DEBUG updated existing {state_type} '{lookup_label}'",
+            file=sys.stderr
+        )
+        return existing_uuid, result
+
+    result = KG_post(state_uuid, state_node)
+    return state_uuid, result
 
 
 subject_metadata = data.get("subjectMetadata", {})
@@ -728,22 +1009,15 @@ if subject_metadata.get("subjectGroups"):
                 subject, group_uuid=group_uuid_placeholder
             )
             subject_id_str = safe_trim(subject.get("subjectID", subj_uuid))
-            state_label = subject_id_str + "_state"
 
-            # ── resolve state (reuse existing or create new) ──────────────────
-            final_state_uuid, state_result = post_or_patch_state(
-                state_uuid, state_node, state_label, "SubjectState"
-            )
+            state_result = KG_post(state_uuid, state_node)
             results.append({"subjectState": state_result})
-
-            # ── update subject node to reference correct state UUID ───────────
-            subj_node["studiedState"] = {"@id": KG_PREFIX + final_state_uuid}
 
             final_uuid, subj_result = post_or_patch_subject(
                 subj_uuid, subj_node, subject_id_str)
             results.append({"subject": subj_result})
 
-            group_state_uuids.append(final_state_uuid)   # ← correct UUID
+            group_state_uuids.append(state_uuid)
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
 
@@ -756,9 +1030,13 @@ if subject_metadata.get("subjectGroups"):
             "quantity":           len(subjects),
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
+
+        # use shared helper — collects strain @ids and species @ids into one list
         apply_strain_species_group(group_node, subjects)
+
         if all_bio_sex:
             group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
+
         remarks = nonempty(group.get("additionalRemarks", ""))
         if remarks:
             group_node["additionalRemarks"] = remarks
@@ -767,23 +1045,19 @@ if subject_metadata.get("subjectGroups"):
         results.append({"subjectGroup": group_result})
         specimen_list.append({"@id": KG_PREFIX + group_uuid_placeholder})
         print(
-            f"DEBUG posted SubjectGroup '{group.get('name')}' with {len(subjects)} subjects", file=sys.stderr)
+            f"DEBUG posted SubjectGroup {group_uuid_placeholder} "
+            f"'{group.get('name')}' with {len(subjects)} subjects",
+            file=sys.stderr
+        )
 
 elif subject_metadata.get("subjects"):
     for subject in subject_metadata["subjects"]:
         (subj_uuid, subj_node), (state_uuid,
                                  state_node) = build_subject_instance(subject)
         subject_id_str = safe_trim(subject.get("subjectID", subj_uuid))
-        state_label = subject_id_str + "_state"
 
-        # ── resolve state (reuse existing or create new) ──────────────────────
-        final_state_uuid, state_result = post_or_patch_state(
-            state_uuid, state_node, state_label, "SubjectState"
-        )
+        state_result = KG_post(state_uuid, state_node)
         results.append({"subjectState": state_result})
-
-        # ── update subject node to reference correct state UUID ───────────────
-        subj_node["studiedState"] = {"@id": KG_PREFIX + final_state_uuid}
 
         final_uuid, subj_result = post_or_patch_subject(
             subj_uuid, subj_node, subject_id_str)
@@ -791,7 +1065,7 @@ elif subject_metadata.get("subjects"):
         specimen_list.append({"@id": KG_PREFIX + final_uuid})
         sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
 
-# ── 5. tissue samples ─────────────────────────────────────────────────────────
+# ── 4. tissue samples ─────────────────────────────────────────────────────────
 
 
 def build_tissue_sample_instance(sample, collection_uuid=None):
@@ -803,11 +1077,18 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
         "@type":              [f"{T}TissueSample"],
         "lookupLabel":        sample_id_str,
         "internalIdentifier": sample_id_str,
-        "studiedState":       {"@id": KG_PREFIX + state_uuid},  # placeholder
+        "studiedState":       {"@id": KG_PREFIX + state_uuid},
     }
 
     if sample.get("type"):
         sample_node["type"] = {"@id": sample["type"]}
+
+    apply_strain_species(
+        sample_node,
+        sample.get("strain",  ""),
+        sample.get("species", "")
+    )
+
     if sample.get("biologicalSex"):
         sample_node["biologicalSex"] = {"@id": sample["biologicalSex"]}
     if sample.get("laterality"):
@@ -816,9 +1097,6 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
         sample_node["origin"] = {"@id": sample["origin"]}
     if collection_uuid:
         sample_node["isPartOf"] = {"@id": KG_PREFIX + collection_uuid}
-
-    apply_strain_species(sample_node, sample.get(
-        "strain", ""), sample.get("species", ""))
 
     linked_subj_id = sample.get("linkedSubjectId")
     if linked_subj_id and linked_subj_id in sample_id_to_kg_uuid:
@@ -833,9 +1111,14 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
         "@type":              [f"{T}TissueSampleState"],
         "lookupLabel":        sample_id_str + "_state",
         "internalIdentifier": sample_id_str + "_state",
-        "pathology":          [{"@id": p} for p in (sample.get("pathology") or []) if p],
-        "attribute":          as_id_list(sample.get("tissueSampleAttribute") or []),
     }
+
+    pathology_ids = [{"@id": p} for p in (sample.get("pathology") or []) if p]
+    state_node["pathology"] = pathology_ids
+
+    attrs = as_id_list(sample.get("tissueSampleAttribute") or [])
+    state_node["attribute"] = attrs
+
     if remarks:
         state_node["additionalRemarks"] = remarks
 
@@ -854,20 +1137,13 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
 
     return (sample_uuid, sample_node), (state_uuid, state_node)
 
-# ── flat tissue samples ───────────────────────────────────────────────────────
 
+# ── flat tissue samples ───────────────────────────────────────────────────────
 
 for sample in subject_metadata.get("tissueSamples", []):
     (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(sample)
-    sample_id_str = safe_trim(sample.get("sampleID", s_uuid))
-    state_label = sample_id_str + "_state"
-
-    final_st_uuid, st_result = post_or_patch_state(
-        st_uuid, st_node, state_label, "TissueSampleState")
-    results.append({"tissueSampleState": st_result})
-
-    s_node["studiedState"] = {"@id": KG_PREFIX + final_st_uuid}
-    results.append({"tissueSample": KG_post(s_uuid, s_node)})
+    results.append({"tissueSampleState": KG_post(st_uuid, st_node)})
+    results.append({"tissueSample":      KG_post(s_uuid,  s_node)})
     specimen_list.append({"@id": KG_PREFIX + s_uuid})
 
 # ── tissue sample collections ─────────────────────────────────────────────────
@@ -875,6 +1151,7 @@ for sample in subject_metadata.get("tissueSamples", []):
 for collection in subject_metadata.get("tissueCollections", []):
     collection_uuid = str(uuid4())
     coll_id_str = safe_trim(collection.get("collectionID", collection_uuid))
+
     collection_state_uuids = []
     collection_bio_sex = []
     collection_types = []
@@ -885,16 +1162,9 @@ for collection in subject_metadata.get("tissueCollections", []):
         (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(
             sample, collection_uuid=collection_uuid
         )
-        sample_id_str = safe_trim(sample.get("sampleID", s_uuid))
-        state_label = sample_id_str + "_state"
-
-        final_st_uuid, st_result = post_or_patch_state(
-            st_uuid, st_node, state_label, "TissueSampleState")
-        results.append({"tissueSampleState": st_result})
-
-        s_node["studiedState"] = {"@id": KG_PREFIX + final_st_uuid}
-        results.append({"tissueSample": KG_post(s_uuid, s_node)})
-        collection_state_uuids.append(final_st_uuid)   # ← correct UUID
+        results.append({"tissueSampleState": KG_post(st_uuid, st_node)})
+        results.append({"tissueSample":      KG_post(s_uuid,  s_node)})
+        collection_state_uuids.append(st_uuid)
         specimen_list.append({"@id": KG_PREFIX + s_uuid})
 
         if nonempty(sample.get("biologicalSex", "")):
@@ -913,19 +1183,23 @@ for collection in subject_metadata.get("tissueCollections", []):
         "quantity":           len(collection.get("samples", [])),
         "studiedState":       [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
     }
+
+    # use shared helper for species field — same logic as SubjectGroup
     apply_strain_species_group(collection_node, collection.get("samples", []))
 
-    if collection_bio_sex:
-        collection_node["biologicalSex"] = [
-            {"@id": s} for s in set(collection_bio_sex)]
-    if collection_types:
-        collection_node["type"] = [{"@id": t} for t in set(collection_types)]
-    if collection_lats:
-        collection_node["laterality"] = [{"@id": l}
-                                         for l in set(collection_lats)]
-    if collection_origins:
-        collection_node["origin"] = [{"@id": o}
-                                     for o in set(collection_origins)]
+    unique_sex = list(set(collection_bio_sex))
+    unique_types = list(set(collection_types))
+    unique_lats = list(set(collection_lats))
+    unique_origins = list(set(collection_origins))
+
+    if unique_sex:
+        collection_node["biologicalSex"] = [{"@id": s} for s in unique_sex]
+    if unique_types:
+        collection_node["type"] = [{"@id": t} for t in unique_types]
+    if unique_lats:
+        collection_node["laterality"] = [{"@id": l} for l in unique_lats]
+    if unique_origins:
+        collection_node["origin"] = [{"@id": o} for o in unique_origins]
 
     coll_remarks = nonempty(collection.get("additionalRemarks", ""))
     if coll_remarks:
@@ -935,9 +1209,12 @@ for collection in subject_metadata.get("tissueCollections", []):
     results.append({"tissueSampleCollection": coll_result})
     specimen_list.append({"@id": KG_PREFIX + collection_uuid})
     print(
-        f"DEBUG posted TissueSampleCollection '{coll_id_str}' with {len(collection.get('samples', []))} samples", file=sys.stderr)
+        f"DEBUG posted TissueSampleCollection {collection_uuid} "
+        f"'{coll_id_str}' with {len(collection.get('samples', []))} samples",
+        file=sys.stderr
+    )
 
-# ── 6. attach all specimen to DatasetVersion ──────────────────────────────────
+# ── 5. attach all specimen to DatasetVersion ──────────────────────────────────
 
 if specimen_list:
     attach_result = KG_patch(dsv_id, {"studiedSpecimen": specimen_list})
