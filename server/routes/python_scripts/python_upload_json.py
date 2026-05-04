@@ -62,6 +62,17 @@ except Exception as e:
     _persons_list = []
     print(f"DEBUG could not load Person.json: {e}", file=sys.stderr)
 
+# ── load ORCID list ───────────────────────────────────────────────────────────
+_orcid_path = os.path.join(_server_dir, 'data', 'kg-instances', 'ORCID.json')
+
+try:
+    with open(_orcid_path, 'r', encoding='utf-8') as _f:
+        _orcid_list = json.load(_f)
+    print(f"DEBUG loaded {len(_orcid_list)} ORCID entries", file=sys.stderr)
+except Exception as e:
+    _orcid_list = []
+    print(f"DEBUG could not load ORCID.json: {e}", file=sys.stderr)
+
 # ── KG helpers ────────────────────────────────────────────────────────────────
 
 """  old function
@@ -331,6 +342,7 @@ def find_person_uuid(first_name, family_name, orcid=None):
     return None
 
 
+"""
 def create_person(first_name, family_name, orcid=None):
     person_uuid = str(uuid4())
     person_node = {
@@ -355,8 +367,147 @@ def create_person(first_name, family_name, orcid=None):
     person_url = KG_PREFIX + person_uuid
     print(f"DEBUG new Person → {person_url}", file=sys.stderr)
     return person_url
+"""
 
 
+def create_orcid_instance(orcid_url):
+    """
+    Create an ORCID instance in the collab space and return its KG URL.
+    The ORCID instance is of type https://openminds.om-i.org/types/ORCID
+    with an identifier field containing the ORCID URL.
+    """
+    orc = normalize_orcid(orcid_url)
+    if not orc:
+        return None
+
+    # first check if an ORCID instance with this identifier already exists
+    # in the common space (from ORCID.json)
+    for entry in _orcid_list:
+        if nonempty(entry.get('identifier', '')) == orc:
+            print(
+                f"DEBUG found existing ORCID instance in common space: {entry['uuid']}", file=sys.stderr)
+            return entry['uuid']
+
+    # not found in common space — create a new one in the collab space
+    orcid_uuid = str(uuid4())
+    orcid_node = {
+        "@type":      [f"{T}ORCID"],
+        "identifier": orc,
+    }
+    print(f"DEBUG creating ORCID instance for {orc}", file=sys.stderr)
+    result = KG_post(orcid_uuid, orcid_node)
+
+    if isinstance(result, dict) and "error" in result:
+        print(
+            f"DEBUG FAILED to create ORCID instance: {result}", file=sys.stderr)
+        return None
+
+    orcid_kg_url = KG_PREFIX + orcid_uuid
+    print(f"DEBUG new ORCID instance → {orcid_kg_url}", file=sys.stderr)
+    return orcid_kg_url
+
+
+def create_person(first_name, family_name, orcid=None):
+    person_uuid = str(uuid4())
+    person_node = {
+        "@type":      [f"{T}Person"],
+        "givenName":  safe_trim(first_name or ""),
+        "familyName": safe_trim(family_name or ""),
+    }
+
+    orc = normalize_orcid(orcid)
+    if orc:
+        # ── create or find ORCID instance first, then reference it ────────────
+        orcid_instance_url = create_orcid_instance(orc)
+        if orcid_instance_url:
+            person_node["digitalIdentifier"] = [{"@id": orcid_instance_url}]
+            print(
+                f"DEBUG linking ORCID instance {orcid_instance_url} to new Person", file=sys.stderr)
+        else:
+            print(
+                f"DEBUG could not create ORCID instance — Person will be created without ORCID", file=sys.stderr)
+
+    print(
+        f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
+    result = KG_post(person_uuid, person_node)
+
+    if isinstance(result, dict) and "error" in result:
+        print(
+            f"DEBUG FAILED to create Person: {first_name} {family_name} → {result}", file=sys.stderr)
+        return None
+
+    person_url = KG_PREFIX + person_uuid
+    print(f"DEBUG new Person → {person_url}", file=sys.stderr)
+    return person_url
+
+
+def check_person_exists_in_collab(first_name, family_name, orcid=None):
+    """
+    Check if a Person with this name or ORCID already exists
+    in the collab space (IN_PROGRESS). Prevents duplicate creation
+    on re-submission.
+    """
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        from_offset = 0
+        page_size = 100
+
+        while True:
+            url = (
+                f"https://core.kg.ebrains.eu/v3/instances"
+                f"?stage=IN_PROGRESS"
+                f"&space=collab-d-{dsv_id}"
+                f"&type=https://openminds.om-i.org/types/Person"
+                f"&size={page_size}"
+                f"&from={from_offset}"
+            )
+            resp = rq.get(url=url, headers=headers)
+            if not resp.ok:
+                print(
+                    f"DEBUG check_person_exists_in_collab: KG returned {resp.status_code}", file=sys.stderr)
+                return None
+
+            body = resp.json()
+            items = body.get("data", [])
+
+            orc = normalize_orcid(orcid)
+
+            for item in items:
+                # match by ORCID first — most reliable
+                if orc:
+                    item_identifiers = item.get(f"{V}digitalIdentifier", [])
+                    if isinstance(item_identifiers, dict):
+                        item_identifiers = [item_identifiers]
+                    for ident in item_identifiers:
+                        if isinstance(ident, dict) and ident.get("@id", "").lower() == orc.lower():
+                            print(
+                                f"DEBUG found existing Person in collab by ORCID: {item['@id']}", file=sys.stderr)
+                            return item["@id"]
+
+                # fall back to name match
+                item_given = item.get(f"{V}givenName",  "") or ""
+                item_family = item.get(f"{V}familyName", "") or ""
+                fn = nonempty(first_name) or ""
+                fam = nonempty(family_name) or ""
+                if (fn and fam and
+                    item_given.lower() == fn.lower() and
+                        item_family.lower() == fam.lower()):
+                    print(
+                        f"DEBUG found existing Person in collab by name: {item['@id']}", file=sys.stderr)
+                    return item["@id"]
+
+            if len(items) < page_size:
+                return None
+            from_offset += page_size
+
+    except Exception as e:
+        print(
+            f"DEBUG check_person_exists_in_collab error: {e}", file=sys.stderr)
+        return None
+
+
+"""
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
     url = find_person_uuid(first_name, family_name, orcid)
     if url:
@@ -364,7 +515,27 @@ def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
     if create_if_missing and (nonempty(first_name) or nonempty(family_name)):
         return create_person(first_name, family_name, orcid)
     return None
+"""
 
+
+def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
+    # 1. check common space (Person.json — already fetched)
+    url = find_person_uuid(first_name, family_name, orcid)
+    if url:
+        return url
+
+    # 2. check collab space (IN_PROGRESS) — prevents duplicates on re-submission
+    collab_url = check_person_exists_in_collab(first_name, family_name, orcid)
+    if collab_url:
+        print(
+            f"DEBUG person found in collab space: {collab_url}", file=sys.stderr)
+        return collab_url
+
+    # 3. not found anywhere — create new
+    if create_if_missing and (nonempty(first_name) or nonempty(family_name)):
+        return create_person(first_name, family_name, orcid)
+
+    return None
 # ── extract dataset fields ────────────────────────────────────────────────────
 
 
