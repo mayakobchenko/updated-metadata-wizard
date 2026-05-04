@@ -372,39 +372,57 @@ def create_person(first_name, family_name, orcid=None):
 
 def create_orcid_instance(orcid_url):
     """
-    Create an ORCID instance in the collab space and return its KG URL.
-    The ORCID instance is of type https://openminds.om-i.org/types/ORCID
-    with an identifier field containing the ORCID URL.
+    Create an ORCID instance in the COMMON space (not collab space)
+    and return its KG URL. Then reference it from the Person node.
     """
     orc = normalize_orcid(orcid_url)
     if not orc:
         return None
 
-    # first check if an ORCID instance with this identifier already exists
-    # in the common space (from ORCID.json)
+    # ── check ORCID.json first (already fetched from common space) ────────────
     for entry in _orcid_list:
         if nonempty(entry.get('identifier', '')) == orc:
             print(
-                f"DEBUG found existing ORCID instance in common space: {entry['uuid']}", file=sys.stderr)
+                f"DEBUG found existing ORCID in common space: {entry['uuid']}", file=sys.stderr)
             return entry['uuid']
 
-    # not found in common space — create a new one in the collab space
+    # ── not found — create new ORCID instance in COMMON space ────────────────
     orcid_uuid = str(uuid4())
     orcid_node = {
         "@type":      [f"{T}ORCID"],
         "identifier": orc,
     }
-    print(f"DEBUG creating ORCID instance for {orc}", file=sys.stderr)
-    result = KG_post(orcid_uuid, orcid_node)
 
-    if isinstance(result, dict) and "error" in result:
+    print(
+        f"DEBUG creating ORCID instance in common space for {orc}", file=sys.stderr)
+
+    try:
+        payload = {**VOCAB, **orcid_node}
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token,
+            "Content-Type":  "application/json; charset=utf-8"
+        }
+        # ── POST to common space, NOT collab space ────────────────────────────
+        url = f'{KG_API}{orcid_uuid}?space=common'
+        resp = rq.post(url=url, headers=headers,
+                       data=json.dumps(payload, indent=4))
         print(
-            f"DEBUG FAILED to create ORCID instance: {result}", file=sys.stderr)
-        return None
+            f"DEBUG POST ORCID to common space {url} → {resp.status_code}", file=sys.stderr)
 
-    orcid_kg_url = KG_PREFIX + orcid_uuid
-    print(f"DEBUG new ORCID instance → {orcid_kg_url}", file=sys.stderr)
-    return orcid_kg_url
+        if not resp.ok:
+            print(
+                f"DEBUG FAILED to create ORCID in common space: {resp.text[:200]}", file=sys.stderr)
+            return None
+
+        orcid_kg_url = KG_PREFIX + orcid_uuid
+        print(
+            f"DEBUG new ORCID instance in common space → {orcid_kg_url}", file=sys.stderr)
+        return orcid_kg_url
+
+    except Exception as e:
+        print(f"DEBUG error creating ORCID instance: {e}", file=sys.stderr)
+        return None
 
 
 def create_person(first_name, family_name, orcid=None):
