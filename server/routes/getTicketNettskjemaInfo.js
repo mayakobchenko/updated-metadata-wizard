@@ -141,6 +141,7 @@ async function getZammadInfo(req, res) {
     }
 
     const articleIds = ticketInfo.article_ids || []
+    logger.info(`found articles ids in the zammad ticket : ${articleIds}`)
 
     // ── extract collab/dataset version ID from first article body ─────────────
     let collabId         = null
@@ -154,6 +155,8 @@ async function getZammadInfo(req, res) {
       }
       const articleData = await articleResp.json()
       collabId          = articleData.body
+      
+      logger.info(`Extracted collab id: ${collabId}`)
 
       const matchCollab = collabId?.match(/d-([0-9a-fA-F-]{36})/)
       if (matchCollab) {

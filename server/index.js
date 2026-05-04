@@ -40,7 +40,7 @@ fetchDataFromKg()
 
 // Schedule fetching data from KG every 15 minutes (900000 ms), 24 hours (86400000 ms)
 setInterval(() => {
-  resetFundingInProgressFlag()  // ← allow re-fetch next login
+  //resetFundingInProgressFlag()  // ← allow re-fetch next login
   fetchDataFromKg()
 }, 86400000)
 
