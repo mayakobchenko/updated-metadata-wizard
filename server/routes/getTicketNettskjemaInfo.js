@@ -141,7 +141,8 @@ async function getZammadInfo(req, res) {
       throw new Error(`Ticket ${ticketNumber} not found in Zammad`)
     }
 
-    const articleIds = ticketInfo.article_ids || []
+    //const articleIds = ticketInfo.article_ids || []
+    const articleIds = (ticketInfo.article_ids || []).sort((a, b) => a - b)
     logger.info(`found articles ids in the zammad ticket : ${articleIds}`)
 
     // ── extract collab/dataset version ID from first article body ─────────────
