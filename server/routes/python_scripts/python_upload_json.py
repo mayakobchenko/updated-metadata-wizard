@@ -64,7 +64,7 @@ except Exception as e:
 
 # ── KG helpers ────────────────────────────────────────────────────────────────
 
-
+"""  old function
 def KG_patch(entry_id, attr):
     try:
         payload = {**VOCAB, **attr}
@@ -77,6 +77,38 @@ def KG_patch(entry_id, attr):
         resp = rq.patch(url=url, headers=headers,
                         data=json.dumps(payload, indent=4))
         print(f"DEBUG PATCH {url} → {resp.status_code}", file=sys.stderr)
+        if not resp.ok:
+            print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
+            return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
+        return {"patched": entry_id, "status": resp.status_code}
+    except Exception as e:
+        return {"error": str(e)}
+"""
+
+
+def KG_patch(entry_id, attr):
+    try:
+        payload = {**VOCAB, **attr}
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token,
+            "Content-Type":  "application/json; charset=utf-8"
+        }
+        instance_uuid = entry_id.split("/")[-1]
+        url = f'{KG_API}{instance_uuid}?space=collab-d-{dsv_id}'
+        resp = rq.patch(url=url, headers=headers,
+                        data=json.dumps(payload, indent=4))
+        print(f"DEBUG PATCH {url} → {resp.status_code}", file=sys.stderr)
+
+        # ── if instance doesn't exist yet, try POST instead ───────────────────
+        if resp.status_code == 404:
+            print(f"DEBUG PATCH 404 — instance not found, trying POST",
+                  file=sys.stderr)
+            resp = rq.post(url=url, headers=headers,
+                           data=json.dumps(payload, indent=4))
+            print(
+                f"DEBUG POST (fallback) {url} → {resp.status_code}", file=sys.stderr)
+
         if not resp.ok:
             print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
             return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
@@ -207,6 +239,20 @@ def apply_strain_species_group(node, subjects_or_samples):
 # ── person helpers ────────────────────────────────────────────────────────────
 
 
+def normalize_orcid(orcid_val):
+    """Ensure ORCID is always a full URL."""
+    orc = nonempty(orcid_val)
+    if not orc:
+        return None
+    if orc.startswith("https://orcid.org/"):
+        return orc
+    if orc.startswith("http://orcid.org/"):
+        return orc.replace("http://", "https://")
+    # bare ORCID like 0000-0003-3809-0630 → add prefix
+    return f"https://orcid.org/{orc}"
+
+
+"""
 def find_person_uuid(first_name, family_name, orcid=None):
     fn = nonempty(first_name) or ""
     fam = nonempty(family_name) or ""
@@ -234,7 +280,6 @@ def find_person_uuid(first_name, family_name, orcid=None):
         f"DEBUG person NOT found: '{fn}' '{fam}' orcid='{orc}'", file=sys.stderr)
     return None
 
-
 def create_person(first_name, family_name, orcid=None):
     person_uuid = str(uuid4())
     person_node = {
@@ -254,6 +299,58 @@ def create_person(first_name, family_name, orcid=None):
         print(
             f"DEBUG FAILED to create Person: {first_name} {family_name}", file=sys.stderr)
     return new_url   # plain URL string or None
+
+"""
+
+
+def find_person_uuid(first_name, family_name, orcid=None):
+    fn = nonempty(first_name) or ""
+    fam = nonempty(family_name) or ""
+    orc = normalize_orcid(orcid)   # ← normalize before lookup
+
+    if orc:
+        for p in _persons_list:
+            p_orc = normalize_orcid(p.get('orcid', '')) or ""
+            if p_orc.lower() == orc.lower():
+                print(
+                    f"DEBUG person found by ORCID: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}", file=sys.stderr)
+                return p['uuid']
+        print(f"DEBUG ORCID '{orc}' not found, trying name", file=sys.stderr)
+
+    if fn or fam:
+        for p in _persons_list:
+            p_given = nonempty(p.get('givenName',  '')) or ""
+            p_family = nonempty(p.get('familyName', '')) or ""
+            if p_given.lower() == fn.lower() and p_family.lower() == fam.lower():
+                print(
+                    f"DEBUG person found by name: {p.get('givenName')} {p.get('familyName')} → {p['uuid']}", file=sys.stderr)
+                return p['uuid']
+
+    print(
+        f"DEBUG person NOT found: '{fn}' '{fam}' orcid='{orc}'", file=sys.stderr)
+    return None
+
+
+def create_person(first_name, family_name, orcid=None):
+    person_uuid = str(uuid4())
+    person_node = {
+        "@type":      [f"{T}Person"],
+        "givenName":  safe_trim(first_name or ""),
+        "familyName": safe_trim(family_name or ""),
+    }
+    orc = normalize_orcid(orcid)   # ← normalize before storing in KG
+    if orc:
+        person_node["digitalIdentifier"] = [{"@id": orc}]
+
+    print(
+        f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
+    new_url = KG_post(person_uuid, person_node)
+    if new_url:
+        print(f"DEBUG new Person → {new_url}", file=sys.stderr)
+    else:
+        print(
+            f"DEBUG FAILED to create Person: {first_name} {family_name}", file=sys.stderr)
+    return new_url
 
 
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
@@ -302,7 +399,7 @@ for entry in data.get("contribution", {}).get("authors", []):
         person_url = resolve_person(
             entry.get("firstName", ""),
             entry.get("lastName",  ""),
-            entry.get("orcid",     ""),
+            normalize_orcid(entry.get("orcid", "")),
             create_if_missing=True
         )
         if person_url and isinstance(person_url, str) and person_url.startswith("http"):
@@ -315,7 +412,7 @@ custodian_data = data.get("custodian", {})
 custodian_url = resolve_person(
     first_name=custodian_data.get("firstName",  ""),
     family_name=custodian_data.get("familyName", ""),
-    orcid=custodian_data.get("orcid",      ""),
+    orcid=normalize_orcid(custodian_data.get("orcid", "")),
     create_if_missing=True
 )
 if custodian_url:
