@@ -525,6 +525,65 @@ def check_person_exists_in_collab(first_name, family_name, orcid=None):
         return None
 
 
+def ensure_person_has_orcid(person_url, orcid_url):
+    """
+    Check if the person already has a digitalIdentifier.
+    If not, create the ORCID instance and patch the person.
+    """
+    orc = normalize_orcid(orcid_url)
+    if not orc:
+        return
+
+    try:
+        person_uuid = person_url.split('/')[-1]
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token
+        }
+        # fetch the existing person instance
+        url = f"https://core.kg.ebrains.eu/v3/instances/{person_uuid}?stage=IN_PROGRESS"
+        resp = rq.get(url=url, headers=headers)
+        if not resp.ok:
+            print(
+                f"DEBUG ensure_person_has_orcid: could not fetch person {person_uuid}", file=sys.stderr)
+            return
+
+        person_data = resp.json().get("data", {})
+        existing_orcid_ids = person_data.get(f"{V}digitalIdentifier", [])
+        if isinstance(existing_orcid_ids, dict):
+            existing_orcid_ids = [existing_orcid_ids]
+
+        if existing_orcid_ids:
+            print(
+                f"DEBUG Person {person_uuid} already has digitalIdentifier — skipping ORCID update", file=sys.stderr)
+            return
+
+        # no digitalIdentifier — create ORCID instance and patch person
+        print(
+            f"DEBUG Person {person_uuid} has no ORCID — creating and linking {orc}", file=sys.stderr)
+        orcid_instance_url = create_orcid_instance(orc)
+        if not orcid_instance_url:
+            print(
+                f"DEBUG could not create ORCID instance — skipping patch", file=sys.stderr)
+            return
+
+        patch_payload = {
+            **VOCAB,
+            "@type":             [f"{T}Person"],
+            "digitalIdentifier": [{"@id": orcid_instance_url}]
+        }
+        patch_url = f"{KG_API}{person_uuid}?space=collab-d-{dsv_id}"
+        patch_resp = rq.patch(url=patch_url, headers={
+            **headers,
+            "Content-Type": "application/json; charset=utf-8"
+        }, data=json.dumps(patch_payload, indent=4))
+        print(
+            f"DEBUG PATCH Person ORCID {patch_url} → {patch_resp.status_code}", file=sys.stderr)
+
+    except Exception as e:
+        print(f"DEBUG ensure_person_has_orcid error: {e}", file=sys.stderr)
+
+
 """
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
     url = find_person_uuid(first_name, family_name, orcid)
@@ -537,16 +596,19 @@ def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
 
 
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
-    # 1. check common space (Person.json — already fetched)
+    # 1. check common space (Person.json)
     url = find_person_uuid(first_name, family_name, orcid)
     if url:
         return url
 
-    # 2. check collab space (IN_PROGRESS) — prevents duplicates on re-submission
+    # 2. check collab space
     collab_url = check_person_exists_in_collab(first_name, family_name, orcid)
     if collab_url:
         print(
             f"DEBUG person found in collab space: {collab_url}", file=sys.stderr)
+        # ── ensure ORCID is linked even if person was created without it ──────
+        if nonempty(orcid):
+            ensure_person_has_orcid(collab_url, orcid)
         return collab_url
 
     # 3. not found anywhere — create new
@@ -554,6 +616,8 @@ def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
         return create_person(first_name, family_name, orcid)
 
     return None
+
+
 # ── extract dataset fields ────────────────────────────────────────────────────
 
 
