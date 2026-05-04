@@ -338,19 +338,23 @@ def create_person(first_name, family_name, orcid=None):
         "givenName":  safe_trim(first_name or ""),
         "familyName": safe_trim(family_name or ""),
     }
-    orc = normalize_orcid(orcid)   # ← normalize before storing in KG
+    orc = normalize_orcid(orcid)
     if orc:
         person_node["digitalIdentifier"] = [{"@id": orc}]
 
     print(
         f"DEBUG creating new Person: {first_name} {family_name}", file=sys.stderr)
-    new_url = KG_post(person_uuid, person_node)
-    if new_url:
-        print(f"DEBUG new Person → {new_url}", file=sys.stderr)
-    else:
+    result = KG_post(person_uuid, person_node)
+
+    if isinstance(result, dict) and "error" in result:
         print(
-            f"DEBUG FAILED to create Person: {first_name} {family_name}", file=sys.stderr)
-    return new_url
+            f"DEBUG FAILED to create Person: {first_name} {family_name} → {result}", file=sys.stderr)
+        return None
+
+    # KG_post succeeded — return the KG URL for this new person
+    person_url = KG_PREFIX + person_uuid
+    print(f"DEBUG new Person → {person_url}", file=sys.stderr)
+    return person_url
 
 
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
@@ -483,7 +487,7 @@ def build_contribution_nodes(data):
             person_url = resolve_person(
                 entry.get("firstName", ""),
                 entry.get("lastName",  ""),
-                entry.get("orcid",     ""),
+                normalize_orcid(entry.get("orcid", "")),
                 create_if_missing=True
             )
 
@@ -525,7 +529,7 @@ results.append({"datasetVersion": dsv_result})
 
 # ── 3. subjects ───────────────────────────────────────────────────────────────
 
-
+"""
 def check_subject_exists(lookup_label):
     try:
         headers = {"accept": "*/*",
@@ -547,6 +551,42 @@ def check_subject_exists(lookup_label):
                     f"DEBUG found existing Subject '{lookup_label}' → {item['@id']}", file=sys.stderr)
                 return item["@id"]
         return None
+    except Exception as e:
+        print(f"DEBUG check_subject_exists error: {e}", file=sys.stderr)
+        return None
+"""
+
+
+def check_subject_exists(lookup_label):
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        from_offset = 0
+        page_size = 100
+        while True:
+            url = (
+                f"https://core.kg.ebrains.eu/v3/instances"
+                f"?stage=IN_PROGRESS"
+                f"&space=collab-d-{dsv_id}"
+                f"&type=https://openminds.om-i.org/types/Subject"
+                f"&size={page_size}"
+                f"&from={from_offset}"
+            )
+            resp = rq.get(url=url, headers=headers)
+            if not resp.ok:
+                return None
+            body = resp.json()
+            items = body.get("data", [])
+            vocab_label = "https://openminds.om-i.org/props/lookupLabel"
+            for item in items:
+                if item.get(vocab_label) == lookup_label:
+                    print(
+                        f"DEBUG found existing Subject '{lookup_label}' → {item['@id']}", file=sys.stderr)
+                    return item["@id"]
+            # if we got fewer results than page_size we have reached the end
+            if len(items) < page_size:
+                return None
+            from_offset += page_size
     except Exception as e:
         print(f"DEBUG check_subject_exists error: {e}", file=sys.stderr)
         return None
