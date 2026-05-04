@@ -48,22 +48,22 @@ let _done = false
 export async function fetchFundingInProgress() {
   if (_done) return
   try {
-    console.log('fetchFundingInProgress: fetching IN_PROGRESS funding…')
+    //console.log('fetchFundingInProgress: fetching IN_PROGRESS funding…')
 
     // ── explicitly get the request options NOW — token is set at this point ──
     const requestOptions = await getRequestOptions()
-    console.log('fetchFundingInProgress: got request options, fetching…')
+    //console.log('fetchFundingInProgress: got request options, fetching…')
 
     // ── fetch IN_PROGRESS instances using the personal token ─────────────────
     const instances = await fetchCoreSchemaInstances(configInProgress, requestOptions)
-    console.log('fetchFundingInProgress: fetch complete')
+    //console.log('fetchFundingInProgress: fetch complete')
 
     // ── only update Funders.json if we actually got results ───────────────────
     // This prevents wiping the RELEASED data if IN_PROGRESS returns 0
     await fetchFunders()
 
     _done = true
-    console.log('fetchFundingInProgress: done')
+    //console.log('fetchFundingInProgress: done')
   } catch (error) {
     console.error('fetchFundingInProgress error:', error.message)
   }

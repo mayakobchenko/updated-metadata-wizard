@@ -142,6 +142,7 @@ async function getZammadInfo(req, res) {
     }
 
     //const articleIds = ticketInfo.article_ids || []
+    //need to sort articles ids 
     const articleIds = (ticketInfo.article_ids || []).sort((a, b) => a - b)
     logger.info(`found articles ids in the zammad ticket : ${articleIds}`)
 

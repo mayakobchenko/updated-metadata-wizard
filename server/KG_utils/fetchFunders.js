@@ -14,15 +14,15 @@ const CONSORTIUM_PATH = path.join(DATA_DIR, 'Consortium.json')
 const OUTPUT_PATH     = path.join(DATA_DIR, 'Funders.json')
 
 export default async function fetchFunders() {
-  console.log('fetchFunders: starting…')
-  console.log('fetchFunders: looking for Funding.json at:', FUNDING_PATH)
+ // console.log('fetchFunders: starting…')
+ // console.log('fetchFunders: looking for Funding.json at:', FUNDING_PATH)
 
   // ── 1. read Funding.json ──────────────────────────────────────────────────
   let funding = []
   try {
     const raw = await readFile(FUNDING_PATH, 'utf-8')
     funding   = JSON.parse(raw)
-    console.log(`fetchFunders: loaded ${funding.length} funding entries`)
+   // console.log(`fetchFunders: loaded ${funding.length} funding entries`)
   } catch (err) {
     console.error('fetchFunders: could not read Funding.json:', err.message)
     return
@@ -33,7 +33,7 @@ export default async function fetchFunders() {
   try {
     const raw = await readFile(ORG_PATH, 'utf-8')
     orgs      = JSON.parse(raw)
-    console.log(`fetchFunders: loaded ${orgs.length} organisations`)
+   // console.log(`fetchFunders: loaded ${orgs.length} organisations`)
   } catch (err) {
     console.warn('fetchFunders: could not read Organization.json:', err.message)
   }
@@ -42,7 +42,7 @@ export default async function fetchFunders() {
   try {
     const raw = await readFile(CONSORTIUM_PATH, 'utf-8')
     consortia  = JSON.parse(raw)
-    console.log(`fetchFunders: loaded ${consortia.length} consortia`)
+    //console.log(`fetchFunders: loaded ${consortia.length} consortia`)
   } catch (err) {
     console.warn('fetchFunders: could not read Consortium.json:', err.message)
   }
@@ -56,13 +56,13 @@ export default async function fetchFunders() {
       nameLookup.set(id, name)
     }
   }
-  console.log(`fetchFunders: lookup has ${nameLookup.size} entries`)
+  //console.log(`fetchFunders: lookup has ${nameLookup.size} entries`)
 
   // ── 4. collect unique funder @ids ─────────────────────────────────────────
   const uniqueFunderIds = [...new Set(
     funding.map(f => f.funder?.['@id']).filter(Boolean)
   )]
-  console.log(`fetchFunders: ${uniqueFunderIds.length} unique funder IDs`)
+  //console.log(`fetchFunders: ${uniqueFunderIds.length} unique funder IDs`)
 
   // ── 5. resolve names ──────────────────────────────────────────────────────
   const funders = uniqueFunderIds
@@ -80,7 +80,7 @@ export default async function fetchFunders() {
     })
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  console.log('fetchFunders: resolved:', funders.map(f => `"${f.name}"`))
+  //console.log('fetchFunders: resolved:', funders.map(f => `"${f.name}"`))
 
   // ── 6. write Funders.json ─────────────────────────────────────────────────
   try {
