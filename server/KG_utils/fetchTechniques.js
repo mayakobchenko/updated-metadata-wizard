@@ -45,6 +45,30 @@ export default async function fetchTechniques() {
         })
 
     const filePath = path.join(OUTPUT_DIR, 'techniques.json')
+
+    // ── only overwrite if new result is not empty ─────────────────────────────
+    // If all fetches failed, merged will be [] — keep the last good file instead.
+    if (merged.length === 0) {
+        console.warn('fetchTechniques: all fetches returned empty — keeping existing techniques.json')
+        return []
+    }
+
+    // ── optional: only overwrite if new result is not suspiciously smaller ────
+// A sudden drop of >50% suggests a partial failure — keep the old file.
+    try {
+        const existing    = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'))
+        const threshold   = existing.length * 0.5
+        if (merged.length < threshold) {
+            console.warn(
+                `fetchTechniques: new result (${merged.length}) is much smaller than ` +
+                `existing (${existing.length}) — keeping existing file to be safe`
+            )
+            return existing
+        }
+    } catch {
+        // file doesn't exist yet — write fresh
+    }
+
     await writeFile(filePath, JSON.stringify(merged, null, 2))
     console.log(`Techniques file written: ${merged.length} entries across ${Techniques.length} types`)
     return merged

@@ -46,6 +46,23 @@ export default async function fetchStudyTargets() {
         })
 
     const filePath = path.join(OUTPUT_DIR, 'studyTargets.json')
+    if (merged.length === 0) {
+    console.warn('fetchStudyTargets: all fetches returned empty — keeping existing studyTargets.json')
+    return
+    }
+    try {
+    const existing  = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'))
+    const threshold = existing.length * 0.5
+    if (merged.length < threshold) {
+        console.warn(
+            `fetchStudyTargets: new result (${merged.length}) is much smaller than ` +
+            `existing (${existing.length}) — keeping existing file to be safe`
+        )
+        return
+    }
+    } catch {
+        // file doesn't exist yet — write fresh
+    }
     await writeFile(filePath, JSON.stringify(merged, null, 2))
     console.log(`Study targets file written: ${merged.length} entries across ${allTerms.length} types`)
 }

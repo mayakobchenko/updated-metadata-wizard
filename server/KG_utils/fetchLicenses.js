@@ -36,6 +36,7 @@ export async function fetchLicenses () {
         console.error(`Error fetching licenses from KG:`, error)}
 }
 
+/*
 async function parseAndSaveData(data, propertyNameList) {
     let LicensesList = []
     try {
@@ -57,4 +58,43 @@ async function parseAndSaveData(data, propertyNameList) {
         console.log('File with licenses written successfully');
     } catch (error) {
         console.error(`Error while parsing and saving data for licenses`, error)}
+} */
+
+async function parseAndSaveData(data, propertyNameList) {
+  let LicensesList = []
+  try {
+    for (let thisInstance of data.data) {
+      let newInstance = { "identifier": thisInstance["@id"] }
+      let isEmpty = true
+      for (let propertyName of propertyNameList) {
+        const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
+        if (thisInstance[vocabName] !== undefined) {
+          isEmpty = false
+          newInstance[propertyName] = thisInstance[vocabName]
+        }
+      }
+      if (!isEmpty) LicensesList.push(newInstance)
+    }
+
+    // ── safety guard ──────────────────────────────────────────────────────
+    if (LicensesList.length === 0) {
+      console.warn('fetchLicenses: fetch returned 0 licenses — keeping existing Licenses.json')
+      return
+    }
+
+    const filePath = path.join(OUTPUT_DIR, 'Licenses.json')
+    try {
+      const existing = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'))
+      if (LicensesList.length < existing.length * 0.5) {
+        console.warn(`fetchLicenses: new result (${LicensesList.length}) much smaller than existing (${existing.length}) — keeping existing file`)
+        return
+      }
+    } catch { /* file doesn't exist yet — write fresh */ }
+
+    await fs.promises.writeFile(filePath, JSON.stringify(LicensesList, null, 2))
+    console.log('File with licenses written successfully')
+
+  } catch (error) {
+    console.error('Error while parsing and saving data for licenses', error)
+  }
 }

@@ -83,7 +83,7 @@ async function fetchInstances(apiQueryUrl, requestOptions, controlledTerm) {
         throw new Error(`Error fetching instances for ${controlledTerm}. Status code: ${response.status}`)
     }
 }
-
+/*
 async function parseAndSaveData(data, instanceName) {
     let instanceList = []
     try {
@@ -92,13 +92,11 @@ async function parseAndSaveData(data, instanceName) {
         if (instanceName === "Strain") {
             speciesData = await loadJsonFile(path.join(OUTPUT_DIR, 'Species.json'))
         }
-
         for (let thisInstance of data.data) {
             let newInstance = {
                 identifier: thisInstance["@id"],
                 name: thisInstance[`${OPENMINDS_VOCAB}/name`]
             }
-
             if (instanceName === "preparationType") { 
                 console.log("preparationType:", thisInstance)
             }
@@ -113,7 +111,6 @@ async function parseAndSaveData(data, instanceName) {
                     }
                 }
             }
-
             instanceList.push(newInstance)
         }
 
@@ -121,10 +118,62 @@ async function parseAndSaveData(data, instanceName) {
         const filePath = path.join(OUTPUT_DIR, `${instanceName}.json`)
         await writeFile(filePath, JSON.stringify(instanceList, null, 2))
         console.log(`File with instances for ${instanceName} written successfully`)
-
     } catch (error) {
         console.error(`Error while parsing and saving data for ${instanceName}:`, error)
     }
+}
+*/
+async function parseAndSaveData(data, instanceName) {
+  let instanceList = []
+  try {
+    let speciesData
+    if (instanceName === "Strain") {
+      speciesData = await loadJsonFile(path.join(OUTPUT_DIR, 'Species.json'))
+    }
+
+    for (let thisInstance of data.data) {
+      let newInstance = {
+        identifier: thisInstance["@id"],
+        name:       thisInstance[`${OPENMINDS_VOCAB}/name`]
+      }
+
+      if (instanceName === "Strain") {
+        const speciesRef = thisInstance[`${OPENMINDS_VOCAB}/species`]
+        if (speciesRef !== undefined) {
+          const speciesId      = speciesRef["@id"]
+          const matchedSpecies = speciesData.find(s => s.identifier === speciesId)
+          if (matchedSpecies !== undefined) {
+            newInstance["species"] = matchedSpecies.identifier
+          }
+        }
+      }
+
+      instanceList.push(newInstance)
+    }
+
+    // ── safety guard ──────────────────────────────────────────────────────
+    if (instanceList.length === 0) {
+      console.warn(`fetchControlledTerms: fetch returned 0 entries for ${instanceName} — keeping existing file`)
+      return
+    }
+
+    instanceList.sort((a, b) => a.name.localeCompare(b.name))
+    const filePath = path.join(OUTPUT_DIR, `${instanceName}.json`)
+
+    try {
+      const existing = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'))
+      if (instanceList.length < existing.length * 0.5) {
+        console.warn(`fetchControlledTerms: new result (${instanceList.length}) much smaller than existing (${existing.length}) for ${instanceName} — keeping existing file`)
+        return
+      }
+    } catch { /* file doesn't exist yet — write fresh */ }
+
+    await writeFile(filePath, JSON.stringify(instanceList, null, 2))
+    console.log(`File with instances for ${instanceName} written successfully`)
+
+  } catch (error) {
+    console.error(`Error while parsing and saving data for ${instanceName}:`, error)
+  }
 }
 
 async function loadJsonFile(filePath) {

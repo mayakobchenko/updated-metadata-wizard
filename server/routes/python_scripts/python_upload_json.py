@@ -203,6 +203,7 @@ def normalize_orcid(orcid_val):
     return f"https://orcid.org/{orc}"
 
 
+"""
 def create_orcid_instance(orcid_url):
     orc = normalize_orcid(orcid_url)
     if not orc:
@@ -242,7 +243,96 @@ def create_orcid_instance(orcid_url):
     except Exception as e:
         print(f"DEBUG error creating ORCID: {e}", file=sys.stderr)
         return None
+"""
 
+
+def create_orcid_instance(orcid_url):
+    """
+    Find or create an ORCID instance and return its KG URL.
+    Search order:
+      1. ORCID.json (common space, already fetched)
+      2. collab space (IN_PROGRESS) — check before creating to avoid duplicates
+      3. Create new in collab space
+    """
+    orc = normalize_orcid(orcid_url)
+    if not orc:
+        return None
+
+    # ── 1. check ORCID.json (common space) ───────────────────────────────────
+    for entry in _orcid_list:
+        if nonempty(entry.get('identifier', '')) == orc:
+            print(
+                f"DEBUG found existing ORCID in common space: {entry['uuid']}", file=sys.stderr)
+            return entry['uuid']
+
+    # ── 2. check collab space to avoid duplicates on re-submission ───────────
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        from_offset = 0
+        page_size = 100
+        while True:
+            url = (
+                f"https://core.kg.ebrains.eu/v3/instances"
+                f"?stage=IN_PROGRESS"
+                f"&space=collab-d-{dsv_id}"
+                f"&type=https://openminds.om-i.org/types/ORCID"
+                f"&size={page_size}&from={from_offset}"
+            )
+            resp = rq.get(url=url, headers=headers)
+            if resp.ok:
+                items = resp.json().get("data", [])
+                vocab_ident = f"{V}identifier"
+                for item in items:
+                    item_orc = item.get(vocab_ident, "")
+                    if isinstance(item_orc, str) and item_orc.lower() == orc.lower():
+                        print(
+                            f"DEBUG found existing ORCID in collab space: {item['@id']}", file=sys.stderr)
+                        return item["@id"]
+                if len(items) < page_size:
+                    break
+                from_offset += page_size
+            else:
+                print(
+                    f"DEBUG could not search ORCID in collab space: {resp.status_code}", file=sys.stderr)
+                break
+    except Exception as e:
+        print(
+            f"DEBUG error searching ORCID in collab space: {e}", file=sys.stderr)
+
+    # ── 3. not found anywhere — create in collab space ────────────────────────
+    orcid_uuid = str(uuid4())
+    orcid_node = {"@type": [f"{T}ORCID"], "identifier": orc}
+
+    print(
+        f"DEBUG creating ORCID instance in collab space for {orc}", file=sys.stderr)
+    try:
+        payload = {**VOCAB, **orcid_node}
+        headers = {
+            "accept":        "*/*",
+            "Authorization": "Bearer " + personal_token,
+            "Content-Type":  "application/json; charset=utf-8"
+        }
+        # ── POST to collab space──────────────────────────────────
+        url = f'{KG_API}{orcid_uuid}?space=collab-d-{dsv_id}'
+        resp = rq.post(url=url, headers=headers,
+                       data=json.dumps(payload, indent=4))
+        print(
+            f"DEBUG POST ORCID to collab space → {resp.status_code}", file=sys.stderr)
+
+        if not resp.ok:
+            print(
+                f"DEBUG FAILED to create ORCID in collab space: {resp.text[:200]}", file=sys.stderr)
+            return None
+
+        orcid_kg_url = KG_PREFIX + orcid_uuid
+        print(
+            f"DEBUG new ORCID instance in collab space → {orcid_kg_url}", file=sys.stderr)
+        return orcid_kg_url
+
+    except Exception as e:
+        print(f"DEBUG error creating ORCID instance: {e}", file=sys.stderr)
+        return None
 # ── person helpers ────────────────────────────────────────────────────────────
 
 
