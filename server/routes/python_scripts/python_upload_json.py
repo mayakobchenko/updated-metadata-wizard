@@ -604,7 +604,7 @@ results = []
 
 # ── 1. contributions ──────────────────────────────────────────────────────────
 
-
+"""
 def build_contribution_nodes(data):
     contributions = []
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
@@ -626,7 +626,7 @@ def build_contribution_nodes(data):
         contrib_node = {
             "@type":            [f"{T}Contribution"],
             "contributor":      {"@id": person_url},
-            "contributionType": [{"@id": ct} for ct in contribution_types if ct],
+            "type": [{"@id": ct} for ct in contribution_types if ct],
         }
         contributions.append((contrib_uuid, contrib_node))
     return contributions
@@ -641,6 +641,75 @@ for contrib_uuid, contrib_node in contribution_nodes:
 
 if contribution_ids:
     dsv_attributes["otherContribution"] = contribution_ids
+"""
+# ── 1. contributions ──────────────────────────────────────────────────────────
+
+
+def build_contribution_nodes(data):
+    contributions = []
+    for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
+        person_url = nonempty(entry.get("selectedOtherContr", ""))
+        if not person_url and entry.get("isCustom"):
+            person_url = resolve_person(
+                entry.get("firstName", ""),
+                entry.get("lastName",  ""),
+                normalize_orcid(entry.get("orcid", "")),
+                create_if_missing=True
+            )
+        if not person_url or not isinstance(person_url, str) or not person_url.startswith("http"):
+            print(f"DEBUG skipping contribution — no valid person URL",
+                  file=sys.stderr)
+            continue
+
+        contribution_types = (
+            entry.get("selectedTypeContr") or
+            entry.get("contributionTypes") or
+            []
+        )
+
+        print(
+            f"DEBUG contribution: person={person_url} types={contribution_types}", file=sys.stderr)
+
+        # ── try as a separate instance first, fall back to inline if it fails ──
+        contrib_uuid = str(uuid4())
+        contrib_node = {
+            "@type":       [f"{T}Contribution"],
+            "contributor": {"@id": person_url},
+            "type":        [{"@id": ct} for ct in contribution_types if ct],
+        }
+        contributions.append((contrib_uuid, contrib_node))
+    return contributions
+
+
+contribution_nodes = build_contribution_nodes(data)
+contribution_ids = []
+inline_contributions = []
+
+for contrib_uuid, contrib_node in contribution_nodes:
+    result = KG_post(contrib_uuid, contrib_node)
+    results.append({"contribution": result})
+
+    if isinstance(result, dict) and "error" in result:
+        # ── KG rejected as separate instance — embed inline instead ──────────
+        print(
+            f"DEBUG contribution POST failed, will embed inline: {result}", file=sys.stderr)
+        inline_contributions.append({
+            "@type":       contrib_node["@type"],
+            "contributor": contrib_node["contributor"],
+            "type":        contrib_node["type"],
+        })
+    else:
+        contribution_ids.append({"@id": KG_PREFIX + contrib_uuid})
+
+# ── attach to DatasetVersion — use whichever worked ───────────────────────────
+if contribution_ids:
+    dsv_attributes["otherContribution"] = contribution_ids
+    print(
+        f"DEBUG using {len(contribution_ids)} separate Contribution instances", file=sys.stderr)
+elif inline_contributions:
+    dsv_attributes["otherContribution"] = inline_contributions
+    print(
+        f"DEBUG using {len(inline_contributions)} inline embedded contributions", file=sys.stderr)
 
 # ── 2. patch DatasetVersion ───────────────────────────────────────────────────
 

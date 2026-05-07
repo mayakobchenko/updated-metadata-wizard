@@ -374,6 +374,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       />
 
       {/* ── JSON import button — visible on every step ── */}
+      {/*}
       <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 16px 0' }}>
         <Upload
           accept=".json"
@@ -389,6 +390,55 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
           </Button>
         </Upload>
       </div>
+       */}
+      
+      {/* ── JSON import / export toolbar — visible on every step ── */}
+      <div style={{
+        display:        'flex',
+        justifyContent: 'space-between',
+        alignItems:     'center',
+        padding:        '6px 16px 4px',
+        background:     '#f0f7ff',
+        border:         '1px solid #bae0ff',
+        borderRadius:   6,
+        margin:         '8px 16px 4px',
+        gap:            12,
+      }}>
+        {/* ── hint text ── */}
+        <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
+          💾 Want to save your progress and continue later?{' '}
+          <strong>Download JSON</strong> to save your current form data,
+          then use <strong>Import JSON</strong> next time to restore it instantly.
+        </span>
+
+        {/* ── action buttons ── */}
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          {/* download current form data */}
+          <Button
+            size="small"
+            onClick={downloadJson}
+            title="Download your current form data as a JSON file to continue later"
+          >
+            Download JSON
+          </Button>
+
+          {/* import previously saved file */}
+          <Upload
+            accept=".json"
+            showUploadList={false}
+            beforeUpload={handleJsonUpload}
+          >
+            <Button
+              size="small"
+              icon={<FileTextOutlined />}
+              title="Import a previously downloaded Metadata Wizard JSON file to pre-fill the form"
+            >
+              Import JSON
+            </Button>
+          </Upload>
+        </div>
+      </div>
+
 
       {/* ── JSON import preview modal ── */}
       <Modal
