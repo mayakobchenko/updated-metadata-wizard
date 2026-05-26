@@ -1,25 +1,53 @@
 // ── metadataLookups.js ────────────────────────────────────────────────────────
 
-async function fetchJson(url) {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    return res.json()
-  } catch { return null }
-}
+const KG_PREFIX = 'https://kg.ebrains.eu/api/instances/'
 
-// normalise any KG URL or bare UUID to just the UUID for consistent map keys
 function toUuid(id) {
   if (!id) return ''
   return String(id).split('/').pop()
 }
 
+async function fetchJson(url) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`metadataLookups: ${url} returned ${res.status}`)
+      return null
+    }
+    return res.json()
+  } catch (err) {
+    console.warn(`metadataLookups: failed to fetch ${url}:`, err.message)
+    return null
+  }
+}
+
 export async function buildLookups() {
+
+  // ── fetch everything in parallel ──────────────────────────────────────────
+  // Response key names are taken directly from infoKG.js and infoSubjects.js
   const [
-    licensesRes, dataTypesRes, techniquesRes, studyTargetsRes,
-    approachesRes, prepTypesRes, contribTypesRes, contributorsRes, fundingRes,
-    bioSexRes, ageCatRes, handednessRes, speciesRes, strainRes,
-    diseaseRes, subjectAttrRes, tissueAttrRes, organRes,
+    licensesRes,       // { license: [...] }            — getLicense
+    dataTypesRes,      // { dataTypes: [...] }           — getSemanticDataTypes
+    techniquesRes,     // { techniques: [...] }          — getTechniques
+    studyTargetsRes,   // { studyTargets: [...] }        — getStudyTargets
+    approachesRes,     // { expApproach: [...] }         — getExperimentalApproaches
+    prepTypesRes,      // { prepType: [...] }            — getPreparationTypes
+    contribTypesRes,   // { typecontribution: [...] }    — getTypeContribution
+    personsRes,        // { person: [...] }              — getContributorsfile
+    fundingRes,        // { funding: [...] }             — /funding route
+    // subject controlled terms — keys from infoSubjects.js fetcher calls
+    bioSexRes,         // { biosex: [...] }
+    ageCatRes,         // { age_cat: [...] }
+    handednessRes,     // { handedness: [...] }
+    speciesRes,        // { species: [...] }
+    strainRes,         // { strain: [...] }
+    diseaseRes,        // { disease: [...] }
+    diseaseModelRes,   // { diseaseModel: [...] }
+    subjectAttrRes,    // { subjectAttribute: [...] }
+    tissueAttrRes,     // { tissueSampleAttribute: [...] }
+    tissueSampleTypeRes, // { tissueSampleType: [...] }
+    lateralityRes,     // { laterality: [...] }
+    organRes,          // { origin: [...] }  ← note: key is 'origin' not 'organ'
   ] = await Promise.all([
     fetchJson('/api/kginfo/license'),
     fetchJson('/api/kginfo/datatypes'),
@@ -28,21 +56,23 @@ export async function buildLookups() {
     fetchJson('/api/kginfo/experimentalapproaches'),
     fetchJson('/api/kginfo/preparationtypes'),
     fetchJson('/api/kginfo/typecontribution'),
-    fetchJson('/api/kginfo/contributorsfile'),
+    fetchJson('/api/kginfo/contributorsfile'),   // returns { person: [...] }
     fetchJson('/api/kginfo/funding'),
-    // controlled terms needed for subject details
-    fetchJson('/api/subjects/biologicalsex'),
+    fetchJson('/api/subjects/sex'),
     fetchJson('/api/subjects/agecategory'),
     fetchJson('/api/subjects/handedness'),
     fetchJson('/api/subjects/species'),
     fetchJson('/api/subjects/strain'),
     fetchJson('/api/subjects/disease'),
+    fetchJson('/api/subjects/diseasemodel'),
     fetchJson('/api/subjects/subjectattribute'),
     fetchJson('/api/subjects/tissuesampleattribute'),
-    fetchJson('/api/subjects/organ'),
+    fetchJson('/api/subjects/tissuesampletype'),
+    fetchJson('/api/subjects/laterality'),
+    fetchJson('/api/subjects/origin'),
   ])
 
-  // build map keyed by BOTH full URL and bare UUID so either form resolves
+  // ── map builder — keys both full URL and bare UUID ────────────────────────
   function makeMap(arr, idKey = 'identifier', nameKey = 'name') {
     const m = new Map()
     if (!Array.isArray(arr)) return m
@@ -50,27 +80,32 @@ export async function buildLookups() {
       const id   = item[idKey]
       const name = item[nameKey]
       if (!id || !name) return
-      m.set(id,          name)   // full URL key
-      m.set(toUuid(id),  name)   // bare UUID key
+      m.set(id,         name)
+      m.set(toUuid(id), name)
     })
     return m
   }
 
-  // contributors: keyed by uuid AND full URL
+  // ── persons — from getContributorsfile: { person: [...] } ─────────────────
+  // Each entry has: uuid (full KG URL like https://kg.../uuid), givenName, familyName
   const contributorMap = new Map()
-  const contributors   = contributorsRes?.persons || contributorsRes || []
-  if (Array.isArray(contributors)) {
-    contributors.forEach(p => {
+  const persons = personsRes?.person || []
+  if (Array.isArray(persons)) {
+    persons.forEach(p => {
+      // Person.json stores uuid as the full KG URL
       if (!p.uuid) return
       const name = `${p.givenName || ''} ${p.familyName || ''}`.trim()
-      contributorMap.set(p.uuid, name)
-      contributorMap.set(KG_PREFIX + p.uuid, name)
+      if (!name) return
+      contributorMap.set(p.uuid,              name)   // full URL as stored
+      contributorMap.set(toUuid(p.uuid),      name)   // bare UUID
+      contributorMap.set(KG_PREFIX + toUuid(p.uuid), name)  // KG_PREFIX + bare UUID
     })
   }
 
-  // licenses
+  // ── licenses — from getLicense: { license: [...] } ───────────────────────
+  // Each entry has: identifier (full URL), shortName, fullName
   const licenseMap = new Map()
-  const licenses   = licensesRes?.licenses || licensesRes || []
+  const licenses = licensesRes?.license || []
   if (Array.isArray(licenses)) {
     licenses.forEach(l => {
       if (!l.identifier) return
@@ -80,46 +115,77 @@ export async function buildLookups() {
     })
   }
 
-  // funders
+  // ── funders — from /funding: { funding: [...] } ───────────────────────────
+  // Each enriched entry has: uuid, awardTitle, awardNumber, funder {@id}, funderName
   const funderMap  = new Map()
-  const fundingArr = fundingRes?.funding || fundingRes || []
+  // For the download we want to resolve funder @id → funderName
+  // The funding array has funder: { '@id': fullUrl } and funderName string
+  const fundingArr = fundingRes?.funding || []
   if (Array.isArray(fundingArr)) {
     fundingArr.forEach(f => {
-      if (!f.id) return
-      const name = f.funderName || f.name || f.id
-      funderMap.set(f.id,          name)
-      funderMap.set(toUuid(f.id),  name)
+      const funderId = f.funder?.['@id']
+      const name     = f.funderName
+      if (!funderId || !name || name === 'Unknown funder') return
+      funderMap.set(funderId,         name)
+      funderMap.set(toUuid(funderId), name)
     })
   }
 
+  // ── data types — from getSemanticDataTypes: { dataTypes: [...] } ──────────
+  // Each entry has: identifier, name
+  const dataTypeMap = makeMap(dataTypesRes?.dataTypes || [], 'identifier', 'name')
+
+  // ── techniques — from getTechniques: { techniques: [...] } ───────────────
+  // Each entry has: identifier, name, type
+  const techniqueMap = makeMap(techniquesRes?.techniques || [], 'identifier', 'name')
+
+  // ── study targets — from getStudyTargets: { studyTargets: [...] } ─────────
+  const studyTargetMap = makeMap(studyTargetsRes?.studyTargets || [], 'identifier', 'name')
+
+  // ── experimental approaches — from getExperimentalApproaches: { expApproach: [...] } ──
+  const approachMap = makeMap(approachesRes?.expApproach || [], 'identifier', 'name')
+
+  // ── preparation types — from getPreparationTypes: { prepType: [...] } ────
+  const prepTypeMap = makeMap(prepTypesRes?.prepType || [], 'identifier', 'name')
+
+  // ── contribution types — from getTypeContribution: { typecontribution: [...] } ──
+  const contribTypeMap = makeMap(contribTypesRes?.typecontribution || [], 'identifier', 'name')
+
+  // ── subject controlled terms ──────────────────────────────────────────────
+  // Keys match what Subjects.jsx fetches and the response shape from infoSubjects.js
+
   return {
+    // dataset fields
     licenseMap,
-    dataTypeMap:    makeMap(dataTypesRes?.dataTypes                     || [], 'identifier', 'name'),
-    techniqueMap:   makeMap(techniquesRes?.techniques || techniquesRes  || [], 'identifier', 'name'),
-    studyTargetMap: makeMap(studyTargetsRes?.studyTargets || studyTargetsRes || [], 'identifier', 'name'),
-    approachMap:    makeMap(approachesRes?.experimentalApproaches || approachesRes || [], 'identifier', 'name'),
-    prepTypeMap:    makeMap(prepTypesRes?.preparationTypes || prepTypesRes || [], 'identifier', 'name'),
-    contribTypeMap: makeMap(contribTypesRes?.contributionTypes || contribTypesRes || [], 'identifier', 'name'),
+    dataTypeMap,
+    techniqueMap,
+    studyTargetMap,
+    approachMap,
+    prepTypeMap,
+    contribTypeMap,
     contributorMap,
     funderMap,
-    // subject controlled terms
-    bioSexMap:       makeMap(bioSexRes?.biologicalSex    || bioSexRes    || [], 'identifier', 'name'),
-    ageCatMap:       makeMap(ageCatRes?.ageCategory      || ageCatRes    || [], 'identifier', 'name'),
-    handednessMap:   makeMap(handednessRes?.handedness   || handednessRes|| [], 'identifier', 'name'),
-    speciesMap:      makeMap(speciesRes?.species         || speciesRes   || [], 'identifier', 'name'),
-    strainMap:       makeMap(strainRes?.strain           || strainRes    || [], 'identifier', 'name'),
-    diseaseMap:      makeMap(diseaseRes?.disease         || diseaseRes   || [], 'identifier', 'name'),
-    subjectAttrMap:  makeMap(subjectAttrRes?.subjectAttribute || subjectAttrRes || [], 'identifier', 'name'),
-    tissueAttrMap:   makeMap(tissueAttrRes?.tissueSampleAttribute || tissueAttrRes || [], 'identifier', 'name'),
-    organMap:        makeMap(organRes?.organ             || organRes     || [], 'identifier', 'name'),
+    // subject fields
+    bioSexMap:       makeMap(bioSexRes?.biosex                || [], 'identifier', 'name'),
+    ageCatMap:       makeMap(ageCatRes?.age_cat               || [], 'identifier', 'name'),
+    handednessMap:   makeMap(handednessRes?.handedness         || [], 'identifier', 'name'),
+    speciesMap:      makeMap(speciesRes?.species               || [], 'identifier', 'name'),
+    strainMap:       makeMap(strainRes?.strain                 || [], 'identifier', 'name'),
+    diseaseMap:      makeMap([
+                       ...(diseaseRes?.disease       || []),
+                       ...(diseaseModelRes?.diseaseModel || []),
+                     ], 'identifier', 'name'),
+    subjectAttrMap:  makeMap(subjectAttrRes?.subjectAttribute   || [], 'identifier', 'name'),
+    tissueAttrMap:   makeMap(tissueAttrRes?.tissueSampleAttribute|| [], 'identifier', 'name'),
+    tissueSampleTypeMap: makeMap(tissueSampleTypeRes?.tissueSampleType || [], 'identifier', 'name'),
+    lateralityMap:   makeMap(lateralityRes?.laterality         || [], 'identifier', 'name'),
+    organMap:        makeMap(organRes?.origin                  || [], 'identifier', 'name'),
   }
 }
 
-const KG_PREFIX = 'https://kg.ebrains.eu/api/instances/'
-
 export function resolve(idOrIds, map, fallback = '') {
   if (!idOrIds) return fallback
-  const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds]
+  const ids   = Array.isArray(idOrIds) ? idOrIds : [idOrIds]
   const names = ids.map(id => {
     if (!id) return null
     return map.get(id) || map.get(toUuid(id)) || null
