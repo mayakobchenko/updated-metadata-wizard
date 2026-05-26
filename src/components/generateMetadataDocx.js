@@ -36,10 +36,10 @@ export async function generateMetadataDocx(formData) {
       children: [
         new TableCell({
           children: [new Paragraph({
-            children: [new TextRun({ text: label, bold: true, size: 18, color: '00539C' })]
+            children: [new TextRun({ text: label, bold: true, size: 18, color: '00C959' })]
           })],
           width: { size: 30, type: WidthType.PERCENTAGE },
-          shading: { type: ShadingType.SOLID, color: 'E8F2FC' },
+          shading: { type: ShadingType.SOLID, color: 'E6FAF0' },
           margins: { top: 60, bottom: 60, left: 80, right: 80 },
         }),
         new TableCell({
@@ -80,7 +80,7 @@ export async function generateMetadataDocx(formData) {
 
   // title
   push(new Paragraph({
-    children: [new TextRun({ text: 'EBRAINS Metadata Summary', bold: true, size: 32, color: '00539C' })],
+    children: [new TextRun({ text: 'EBRAINS Metadata Summary', bold: true, size: 32, color: '00C959' })],
     alignment: AlignmentType.CENTER,
     spacing: { after: 80 },
   }))
@@ -231,7 +231,7 @@ export async function generateMetadataDocx(formData) {
       headers: {
         default: new Header({
           children: [new Paragraph({
-            children: [new TextRun({ text: 'EBRAINS Metadata Wizard', bold: true, color: '00539C', size: 16 })],
+            children: [new TextRun({ text: 'EBRAINS Metadata Wizard', bold: true, color: '00C959', size: 16 })],
           })]
         })
       },
