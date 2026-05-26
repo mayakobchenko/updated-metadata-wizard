@@ -1,36 +1,38 @@
-//to keep ticket number when redirecting: Use the OIDC state parameter 
 import express from 'express'
 import dotenv from 'dotenv'
 import crypto from 'crypto'
 import tokenFunctions from './tokenManager.js'
-import { fetchFundingInProgress } from '../KG_utils/fetchDataFromKG.js'
 dotenv.config()
 
 const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
-const TOKEN_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/token"
-const AUTH_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/auth"
-const LOGOUT_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/logout"
-//const USERINFO_ENDPOINT = EBRAINS_IAM_SERVER + "/protocol/openid-connect/userinfo"
-const USER_INFO_URL = "https://core.kg.ebrains.eu/v3/users/me"
-const userMap = {
+const TOKEN_ENDPOINT     = EBRAINS_IAM_SERVER + "/protocol/openid-connect/token"
+const AUTH_ENDPOINT      = EBRAINS_IAM_SERVER + "/protocol/openid-connect/auth"
+const LOGOUT_ENDPOINT    = EBRAINS_IAM_SERVER + "/protocol/openid-connect/logout"
+
+// ── fallback: KG user endpoint if id_token parsing fails ─────────────────────
+const KG_USER_URL = "https://core.kg.ebrains.eu/v3/users/me"
+const KG_USER_MAP = {
   username: 'http://schema.org/alternateName',
-  fullname: 'http://schema.org/name',
-  email: 'http://schema.org/email'
+  fullname:  'http://schema.org/name',
+  email:     'http://schema.org/email'
 }
 
-const router = express.Router()
+const REDIRECT_URI = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
+                  || 'https://metadata-wizard-dev.apps.ebrains.eu/'
 
+const router     = express.Router()
 const stateStore = new Map()
-const STATE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const STATE_TTL_MS = 5 * 60 * 1000   // 5 minutes
+
+// ── state helpers ─────────────────────────────────────────────────────────────
 
 function genState() {
-  return crypto.randomBytes(32).toString('hex') 
+  return crypto.randomBytes(32).toString('hex')
 }
 
 function storeState(state, payload) {
   const expiresAt = Date.now() + STATE_TTL_MS
   stateStore.set(state, { payload, expiresAt })
-  // cleanup 
   setTimeout(() => {
     const entry = stateStore.get(state)
     if (entry && entry.expiresAt <= Date.now()) stateStore.delete(state)
@@ -40,76 +42,122 @@ function storeState(state, payload) {
 function consumeState(state) {
   const entry = stateStore.get(state)
   if (!entry) return null
-  if (Date.now() > entry.expiresAt) {
-    stateStore.delete(state)
-    return null
-  }
+  if (Date.now() > entry.expiresAt) { stateStore.delete(state); return null }
   stateStore.delete(state)
   return entry.payload
 }
 
-router.get('/loginurl', getLoginUrl)
-router.get('/logouturl', getLogOutUrl)
-//router.get('/user', getUser)
-router.get('/token', getToken)
-router.get('/hello', helloAuth)
+// ── JWT helpers — decode id_token without verifying signature ─────────────────
+// The token came directly from the IAM server over HTTPS so we trust it.
+// We only need the payload claims, not signature verification.
 
-async function helloAuth (req, res) {
-  res.json({ message: 'Hello from auth route' })
-  console.log(`${req.method} ${req.url}`)
+function decodeJwtPayload(jwt) {
+  try {
+    const parts = jwt.split('.')
+    if (parts.length !== 3) return null
+    // base64url → base64 → Buffer → JSON
+    const padded  = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const decoded = Buffer.from(padded, 'base64').toString('utf-8')
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
 }
 
-// REDIRECT_URI must exactly match the one registered in the OIDC client.
-const REDIRECT_URI = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL || 'https://metadata-wizard-dev.apps.ebrains.eu/'
+function extractUserFromIdToken(idToken) {
+  const claims = decodeJwtPayload(idToken)
+  if (!claims) return null
+
+  // EBRAINS id_token standard claims:
+  // sub, name, preferred_username, given_name, family_name, email
+  const fullname  = claims.name              || ''
+  const username  = claims.preferred_username|| ''
+  const email     = claims.email             || ''
+  const firstName = claims.given_name        || ''
+  const lastName  = claims.family_name       || ''
+
+  if (!username && !email && !fullname) return null
+
+  console.log(`User from id_token: ${fullname} <${email}> (@${username})`)
+  return { username, fullname, email, firstName, lastName }
+}
+
+// ── fallback: fetch user from KG endpoint ─────────────────────────────────────
+
+async function fetchUserFromKG(accessToken, signal) {
+  try {
+    const resp = await fetch(KG_USER_URL, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      signal
+    })
+    if (!resp.ok) {
+      console.warn(`KG user endpoint returned ${resp.status} — skipping`)
+      return null
+    }
+    const body = await resp.json()
+    const data = body.data || {}
+    const userInfo = {}
+    Object.keys(KG_USER_MAP).forEach(key => { userInfo[key] = data[KG_USER_MAP[key]] })
+    console.log('User from KG endpoint:', userInfo)
+    return userInfo
+  } catch (err) {
+    if (err.name === 'AbortError') throw err
+    console.warn('KG user endpoint failed:', err.message)
+    return null
+  }
+}
+
+// ── routes ────────────────────────────────────────────────────────────────────
+
+router.get('/loginurl',  getLoginUrl)
+router.get('/logouturl', getLogOutUrl)
+router.get('/token',     getToken)
+router.get('/hello',     (req, res) => res.json({ message: 'Hello from auth route' }))
+
+// ── GET /loginurl ─────────────────────────────────────────────────────────────
 
 async function getLoginUrl(req, res) {
   try {
     const clientId = process.env.WIZARD_OIDC_CLIENT_ID
-    if (!REDIRECT_URI || !clientId) { throw new Error('Missing redirect url and client ID') }
+    if (!REDIRECT_URI || !clientId) throw new Error('Missing redirect url and client ID')
+
     const payload = {}
-    if (req.query) {
-      if (req.query.TicketNumber) payload.ticket = req.query.TicketNumber
-      //if (req.query.ticket) payload.ticket = req.query.ticket
-    }
+    if (req.query?.TicketNumber) payload.ticket = req.query.TicketNumber
 
     const state = genState()
     storeState(state, payload)
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: clientId,
-      scope: 'openid',
-      redirect_uri: REDIRECT_URI,
+      client_id:     clientId,
+      scope:         'openid',
+      redirect_uri:  REDIRECT_URI,
       state,
-      login: 'true'
+      login:         'true'
     })
 
-    //console.log('Auth URL params:', params.toString())
     res.status(200).send(AUTH_ENDPOINT + '?' + params.toString())
   } catch (error) {
-    console.error('Error fetching IAM url from backend', error.message)
+    console.error('Error building login URL:', error.message)
     res.status(500).send('Internal server error')
   }
 }
 
+// ── GET /token ────────────────────────────────────────────────────────────────
+
 async function getToken(req, res) {
   const controller = new AbortController()
-  const onClose = () => {
-    console.warn('Client disconnected, aborting request to iam')
-    controller.abort()
-  }
+  const onClose    = () => { console.warn('Client disconnected'); controller.abort() }
   req.on('close', onClose)
 
   try {
-    const authorizationCode = req.query.code
-    const state = req.query.state
+    const { code: authorizationCode, state } = req.query
 
-    if (!authorizationCode) {
-      throw new Error('Missing authorization code.')
-    }
-    if (!state) {
-      throw new Error('Missing state parameter.')
-    }
+    if (!authorizationCode) throw new Error('Missing authorization code.')
+    if (!state)             throw new Error('Missing state parameter.')
 
     const storedPayload = consumeState(state)
     if (!storedPayload) {
@@ -117,117 +165,106 @@ async function getToken(req, res) {
       return res.status(400).send({ error: 'Invalid or expired state' })
     }
 
-    const clientId = process.env.WIZARD_OIDC_CLIENT_ID
+    const clientId     = process.env.WIZARD_OIDC_CLIENT_ID
     const clientSecret = process.env.WIZARD_OIDC_CLIENT_SECRET
-    if (!clientId || !clientSecret) {
-      throw new Error('Missing client credentials.')
-    }
+    if (!clientId || !clientSecret) throw new Error('Missing client credentials.')
 
-    // redirect_uri must match the one used in getLoginUrl.
+    // ── 1. exchange code for tokens ───────────────────────────────────────────
     const params = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code: authorizationCode,
-      client_id: clientId,
+      grant_type:    'authorization_code',
+      code:          authorizationCode,
+      client_id:     clientId,
       client_secret: clientSecret,
-      redirect_uri: REDIRECT_URI
+      redirect_uri:  REDIRECT_URI
     })
 
-    console.log('Exchanging code at token endpoint (auth.js), personal token')
-    const requestOptions = {
-      method: 'post',
+    console.log('Exchanging code at token endpoint…')
+    const tokenResponse = await fetch(TOKEN_ENDPOINT, {
+      method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-      signal: controller.signal
-    }
+      body:    params.toString(),
+      signal:  controller.signal
+    })
 
-    const tokenResponse = await fetch(TOKEN_ENDPOINT, requestOptions)
     const text = await tokenResponse.text().catch(() => null)
-
     if (!tokenResponse.ok) {
-      console.error('Token endpoint returned error', tokenResponse.status, text)
-      return res.status(502).send({ error: 'Failed to fetch personal token from IAM', details: text })
+      console.error('Token endpoint error:', tokenResponse.status, text)
+      return res.status(502).send({ error: 'Failed to fetch token from IAM', details: text })
     }
 
     const tokenData = JSON.parse(text)
-    console.log('token expires in:', tokenData["expires_in"])
+    const { access_token, id_token, expires_in, refresh_token, refresh_expires_in } = tokenData
 
-    if (tokenData) {
-      const expiresIn = tokenData.expires_in
-      const refresh_token = tokenData.refresh_token
-      const refresh_token_exp = tokenData.refresh_expires_in
-      const access_token = tokenData["access_token"]
-      tokenFunctions.setAccessToken(clientId, clientSecret, access_token, expiresIn, refresh_token, refresh_token_exp)
+    console.log(`Token received — expires in ${expires_in}s`)
 
-      setTimeout(() => {
-        fetchFundingInProgress().catch(err =>
-          console.warn('fetchFundingInProgress:', err.message)
-        )
-      }, 500)
+    // ── store token for background KG fetches ─────────────────────────────────
+    tokenFunctions.setAccessToken(
+      clientId, clientSecret,
+      access_token, expires_in,
+      refresh_token, refresh_expires_in
+    )
 
-      //console.log('outbound fetch for userinfo')
+    // ── 2. extract user info — id_token first, KG endpoint as fallback ────────
+    let userInfo = null
 
-      const userResponse = await fetch(`${USER_INFO_URL}`, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          'Content-Type': 'application/json'
-        }, signal: controller.signal})
-      //if (!userResponse.ok) {throw new Error(`Failed to get user, status: ${userResponse.status}`)}
-      if (!userResponse.ok) {
-        console.log('backend failed to fetch user from the iam end point, status:', userResponse.status)
-        const server_response = {
-          success: false,
-          user: null,
-          ticket: null
-        }
-        return res.status(200).send(server_response)
+    if (id_token) {
+      userInfo = extractUserFromIdToken(id_token)
+      if (userInfo) {
+        console.log('User info resolved from id_token — no extra network call needed')
       }
-
-      const responseData = await userResponse.json()
-      const data = responseData.data
-      let userInfo = {}
-      Object.keys(userMap).forEach(key => {userInfo[key] = data[userMap[key]]})
-      console.log('user info from KG endpoint:', userInfo)
-
-      const result = {
-        success: true,
-        user: userInfo,
-        ticket: storedPayload.ticket 
-      }
-      return res.status(200).send(result)
-
-      
-      //res.status(userResponse.status).send(result)
-    } else {
-      throw new Error('Could not fetch personal token')
     }
+
+    if (!userInfo) {
+      console.log('id_token parsing failed or missing — falling back to KG user endpoint')
+      userInfo = await fetchUserFromKG(access_token, controller.signal)
+    }
+
+    if (!userInfo) {
+      // ── cannot identify the user but auth succeeded — let the frontend
+      // decide what to do (it can show a reload prompt)
+      console.warn('Could not resolve user info from either id_token or KG endpoint')
+      return res.status(200).send({
+        success: false,
+        user:    null,
+        ticket:  storedPayload.ticket,
+        message: 'Authenticated but user info unavailable — please reload'
+      })
+    }
+
+    return res.status(200).send({
+      success: true,
+      user:    userInfo,
+      ticket:  storedPayload.ticket
+    })
+
   } catch (error) {
-    if (error && error.name === 'AbortError') {
-      console.log('Outbound token fetch aborted due to client disconnect.')
-      if (!res.headersSent) {
-        try { res.status(499).end() } catch (e) { /* ignore */ }
-      }
+    if (error?.name === 'AbortError') {
+      console.log('Token fetch aborted — client disconnected')
+      if (!res.headersSent) { try { res.status(499).end() } catch { /* ignore */ } }
       return
     }
-    console.error('Error fetching personal token from IAM:', error && error.message ? error.message : error)
-    if (!res.headersSent) return res.status(500).send('Backend server error')
+    console.error('Error in getToken:', error?.message ?? error)
+    if (!res.headersSent) res.status(500).send('Backend server error')
   } finally {
     req.off('close', onClose)
   }
 }
 
+// ── GET /logouturl ────────────────────────────────────────────────────────────
+
 async function getLogOutUrl(req, res) {
   try {
     let redirectUrl = REDIRECT_URI
-    if (!redirectUrl) { throw new Error('Missing redirect url') }
+    if (!redirectUrl) throw new Error('Missing redirect url')
     if (req.query && Object.keys(req.query).length > 0) {
       const searchParamString = new URLSearchParams(req.query).toString()
       if (searchParamString) redirectUrl += '?' + searchParamString
     }
-    const params = new URLSearchParams({ redirect_uri: redirectUrl })
+    const params    = new URLSearchParams({ redirect_uri: redirectUrl })
     const logoutUrl = LOGOUT_ENDPOINT + '?' + params.toString()
     res.status(200).send(logoutUrl)
   } catch (error) {
-    console.error('Error occurred while fetching logout url from backend:', error.message)
+    console.error('Error building logout URL:', error.message)
     res.status(500).send('Internal server error')
   }
 }
