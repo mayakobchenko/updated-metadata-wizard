@@ -23,7 +23,7 @@ export default function Dataset1({ form, onChange, data }) {
       dataStandart: data.dataset1?.dataStandart || '',
       otherDataStandart: data.dataset1?.otherDataStandart || '',
       embargo: data.dataset1?.embargo ?? false,
-      //embargoDate: data.dataset1?.embargoDate || null,
+      //embargoDate: data.dataset1?.embargoDate ? dayjs(data.dataset1.embargoDate) : null,
       embargoReview: data.dataset1?.embargoReview || false,
       submitJournalName: data.dataset1?.submitJournalName || '',
       copyright: data.dataset1?.copyright || '',
@@ -31,11 +31,22 @@ export default function Dataset1({ form, onChange, data }) {
       copyrightFirstName: data.dataset1?.copyrightFirstName || '',
       copyrightLastName: data.dataset1?.copyrightLastName || '',
       copyrightOrganization: data.dataset1?.copyrightOrganization || '',
-      copyrightYear: data.dataset1?.copyrightYear || '',
+      copyrightYear: data.dataset1?.copyrightYear ? dayjs(data.dataset1.copyrightYear) : null,
       license: data.dataset1?.license || '',
       dataStandart: data.dataset1?.dataStandart || '',
     }}
 
+    useEffect(() => {
+    const yr = data.dataset1?.copyrightYear
+    form.setFieldsValue({
+      dataset1: {
+        ...data.dataset1,
+        // normalize date string → dayjs so DatePicker doesn't crash
+        copyrightYear: yr ? dayjs(yr) : null,
+      }
+    })
+    }, [data.dataset1?.copyrightYear])
+  
     const [showOtherStandart, setShowOtherStandart] = useState(
       (data.dataset1?.dataStandart || []).includes('other(s)'))
   
