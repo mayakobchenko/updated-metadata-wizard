@@ -13,6 +13,7 @@ import Funding from './Funding.jsx'
 import Experiments from './Experiments.jsx'
 import PopoverSave from './FinalChoice.jsx'
 import LoadingSpinner from './LoadingSpinner.jsx'
+import dayjs from 'dayjs'
 
 const { Text } = Typography
 
@@ -69,6 +70,24 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return [val]
   }
 
+const normalizeDatesForForm = (data) => {
+  if (!data) return data
+  const d1 = data.dataset1
+  if (!d1) return data
+  return {
+    ...data,
+    dataset1: {
+      ...d1,
+      copyrightYear: d1.copyrightYear
+        ? (() => { const d = dayjs(d1.copyrightYear); return d.isValid() ? d : null })()
+        : null,
+      embargoDate: d1.embargoDate
+        ? (() => { const d = dayjs(d1.embargoDate); return d.isValid() ? d : null })()
+        : null,
+    }
+  }
+}
+  
   const initialValues = {
     datasetVersionId: skjemaInfo?.datasetVersionId || '',
     contactperson: {
@@ -119,7 +138,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     if (externalFormData && Object.keys(externalFormData).length > 0) {
       formDataRef.current = externalFormData
       setFormData(externalFormData)
-      form.setFieldsValue(externalFormData)
+      form.setFieldsValue(normalizeDatesForForm(externalFormData))
     }
   }, [externalFormData])
 
@@ -178,7 +197,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
     formDataRef.current = merged
     setFormData(merged)
-    form.setFieldsValue(merged)
+    form.setFieldsValue(normalizeDatesForForm(merged))
     onFormDataChange?.(merged)
 
     setImportModalVisible(false)
