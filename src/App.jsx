@@ -98,7 +98,6 @@ function App() {
                 Download form data
               </Button> */}
             
-          <>
             <Tooltip title="Download a summary of your metadata">
               <Button
                 icon={<DownloadOutlined />}
@@ -151,7 +150,6 @@ function App() {
                 </Button>
               </div>
             </Modal>
-          </>
 
               <div className="login-button"><LoginButton/></div>
             </div>
