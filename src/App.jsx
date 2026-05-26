@@ -115,11 +115,12 @@ function App() {
               onCancel={() => setFormatModalOpen(false)}
               footer={null}
               width={360}
-            >
+              >
+                {/*
               <p style={{ color: '#555', fontSize: 13, marginBottom: 20 }}>
                 Download a human-readable summary of your metadata with all
                 controlled terms resolved to their full names.
-              </p>
+              </p>*/}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <Button
                   icon={<FilePdfOutlined style={{ color: '#e74c3c' }} />}
@@ -128,7 +129,7 @@ function App() {
                   loading={downloading === 'pdf'}
                   onClick={() => handleDownload('pdf')}
                 >
-                  PDF — formatted report
+                  PDF
                 </Button>
                 <Button
                   icon={<FileWordOutlined style={{ color: '#2b579a' }} />}
@@ -137,7 +138,7 @@ function App() {
                   loading={downloading === 'docx'}
                   onClick={() => handleDownload('docx')}
                 >
-                  Word (.docx) — editable document
+                  Word (.docx)
                 </Button>
                 <Button
                   icon={<FileTextOutlined style={{ color: '#27ae60' }} />}
@@ -146,7 +147,7 @@ function App() {
                   loading={downloading === 'txt'}
                   onClick={() => handleDownload('txt')}
                 >
-                  Plain text (.txt) — simple summary
+                  Plain text (.txt)
                 </Button>
               </div>
             </Modal>
