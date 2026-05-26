@@ -126,7 +126,3 @@ export function resolve(idOrIds, map, fallback = '') {
   }).filter(Boolean)
   return names.length ? names.join(', ') : fallback
 }
-
-function toUuid(id) {
-  return String(id).split('/').pop()
-}
