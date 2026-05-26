@@ -264,7 +264,7 @@ function subheading(text) {
         field('Species',       resolve(s.species,      lookups.speciesMap))
         field('Strain',        resolve(s.strain,       lookups.strainMap))
         field('Biological sex',resolve(s.biologicalSex,lookups.bioSexMap))
-        field('Laterality',    s.laterality)
+        field('Laterality',    resolve(s.laterality,   lookups.lateralityMap))
         field('Origin',        resolve(s.origin,       lookups.organMap))
         if (s.additionalRemarks) field('Remarks', s.additionalRemarks)
       })
