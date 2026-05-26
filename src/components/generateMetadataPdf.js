@@ -73,15 +73,15 @@ export async function generateMetadataPdf(formData) {
     y += 14
   }
 
-  function subheading(text) {
-    checkPage(10)
-    y += 3
-    doc.setTextColor(...GREEN)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`▸  ${text}`, margin + 2, y)
-    y += 6
-  }
+function subheading(text) {
+  checkPage(10)
+  y += 3
+  doc.setTextColor(...GREEN)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`>  ${text}`, margin + 2, y)   // ← plain ASCII > instead of ▸
+  y += 6
+}
 
   // field: label on the left, value on the right — NO divider lines
   function field(label, value) {
