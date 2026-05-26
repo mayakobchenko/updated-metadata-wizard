@@ -182,7 +182,7 @@ export async function generateMetadataPdf(formData) {
       doc.setTextColor(...WHITE)
       doc.setFontSize(7)
       doc.setFont('helvetica', 'normal')
-      doc.text('EBRAINS Metadata', margin, H - 4)
+      doc.text('EBRAINS Metadata summary', margin, H - 4)
       doc.text(`Page ${i} of ${pages}`, W - margin, H - 4, { align: 'right' })
     }
   }
