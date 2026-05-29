@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Form as AntForm, Input, Select, Button, Typography, Tag, Tooltip } from 'antd'
+import { useState, useEffect, useMemo } from 'react'
+import { Form as AntForm, Input, Select, Button, Typography, Tag } from 'antd'
 import { FileTextOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 
@@ -9,18 +9,13 @@ const { Text }     = Typography
 
 const EXTRA = { fontSize: 12, color: 'rgba(0,0,0,0.45)' }
 
-// ── pre-fill badge shown next to label when field was auto-populated ───────
 const PrefilledBadge = () => (
-  <Tag
-    color="green"
-    style={{ fontSize: 10, padding: '0 5px', lineHeight: '16px',
-             marginLeft: 6, verticalAlign: 'middle' }}
-  >
-    pre-filled
-  </Tag>
+  <Tag color="green" style={{
+    fontSize: 10, padding: '0 5px', lineHeight: '16px',
+    marginLeft: 6, verticalAlign: 'middle',
+  }}>pre-filled</Tag>
 )
 
-// ── section heading consistent with rest of wizard ─────────────────────────
 const SectionHeading = ({ number, title }) => (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 10,
@@ -37,35 +32,24 @@ const SectionHeading = ({ number, title }) => (
   </div>
 )
 
-// ── hint for pre-filled fields ─────────────────────────────────────────────
-const PrefilledHint = ({ text }) => (
-  <div style={{
-    background: '#f0faf4', border: '1px solid #b7ebce',
-    borderRadius: 6, padding: '6px 10px', marginBottom: 6,
-    fontSize: 12, color: '#1a6b35',
-    display: 'flex', alignItems: 'flex-start', gap: 6,
-  }}>
-    <InfoCircleOutlined style={{ marginTop: 2, flexShrink: 0 }} />
-    <span>{text} You can edit this text.</span>
-  </div>
-)
+// ── helpers ────────────────────────────────────────────────────────────────
 
-// ── helpers to build pre-fill text from wizard data ────────────────────────
 function buildSubjectSummary(subj) {
   if (!subj) return ''
   const parts = []
-  const flatN  = (subj.subjects        || []).length
-  const groupN = (subj.subjectGroups   || []).length
-  const tissueN= (subj.tissueSamples   || []).length
-  const collN  = (subj.tissueCollections|| []).length
-  if (flatN)   parts.push(`${flatN} subject${flatN > 1 ? 's' : ''}`)
+  const flatN   = (subj.subjects          || []).length
+  const groupN  = (subj.subjectGroups     || []).length
+  const tissueN = (subj.tissueSamples     || []).length
+  const collN   = (subj.tissueCollections || []).length
+  if (flatN)  parts.push(`${flatN} subject${flatN > 1 ? 's' : ''}`)
   if (groupN) {
-    const total = (subj.subjectGroups || []).reduce((s, g) => s + (g.subjects?.length || 0), 0)
+    const total = (subj.subjectGroups || [])
+      .reduce((s, g) => s + (g.subjects?.length || 0), 0)
     parts.push(`${groupN} subject group${groupN > 1 ? 's' : ''} (${total} subjects total)`)
   }
   if (tissueN) parts.push(`${tissueN} tissue sample${tissueN > 1 ? 's' : ''}`)
   if (collN)   parts.push(`${collN} tissue collection${collN > 1 ? 's' : ''}`)
-  return parts.length ? parts.join(', ') : ''
+  return parts.join(', ')
 }
 
 function buildFundingText(fund) {
@@ -73,10 +57,102 @@ function buildFundingText(fund) {
   if (!funders.length) return ''
   return funders.map(f => {
     const parts = [f.funderName || f.customFunderName]
-    if (f.awardTitle  || f.customAwardTitle)  parts.push(f.awardTitle  || f.customAwardTitle)
+    if (f.awardTitle  || f.customAwardTitle)  parts.push(f.awardTitle || f.customAwardTitle)
     if (f.grantId     || f.awardNumber)       parts.push(`grant no. ${f.grantId || f.awardNumber}`)
     return parts.filter(Boolean).join(', ')
   }).join('.\n')
+}
+
+// ── compute pre-fills from wizard data — pure function, no side effects ────
+function computePrefills(data) {
+  const d1   = data.dataset1        || {}
+  const d2   = data.dataset2        || {}
+  const cont = data.contactperson   || {}
+  const cust = data.custodian       || {}
+  const exp  = data.experiments     || {}
+  const fund = data.funding         || {}
+  const subj = data.subjectMetadata || {}
+  const dd   = data.dataDescriptor  || {}
+
+  // helper: only prefill if user hasn't already saved a value
+  const pf = (key, value) => ({ key, value, isPrefilled: !dd[key] && !!value })
+
+  const title = d1.dataTitle || ''
+
+  const correspondingAuthor = (() => {
+    const name  = `${cont.firstName || ''} ${cont.familyName || ''}`.trim()
+    const email = cont.email || ''
+    return [name, email].filter(Boolean).join(': ')
+  })()
+
+  const affiliations = cust.institution || ''
+
+  const dataType = (() => {
+    const vals = d1.optionsData || []
+    if (!vals.length) return ''
+    return vals.map(v =>
+      typeof v === 'string' && v.startsWith('http') ? v.split('/').pop() : v
+    ).join(', ')
+  })()
+
+  const methodsOverview = (() => {
+    const parts = []
+    if (exp.techniques?.length)
+      parts.push(`${exp.techniques.length} technique(s) selected in the Experiments step.`)
+    if (exp.preparationTypes?.length)
+      parts.push(`Preparation type(s) selected in the Experiments step.`)
+    if (exp.experimentalApproach?.length)
+      parts.push(`Experimental approach(es) selected in the Experiments step.`)
+    return parts.join(' ')
+  })()
+
+  const subjects = buildSubjectSummary(subj)
+
+  const anatomicalEntity = exp.studyTargets?.length
+    ? `${exp.studyTargets.length} study target(s) selected in the Experiments step.`
+    : ''
+
+  const dataStandards = (() => {
+    const stds = (d1.dataStandart || [])
+      .filter(s => s !== "No, I didn't use a standard")
+    return stds.join(', ')
+  })()
+
+  const funding = buildFundingText(fund)
+
+  const dataRepository = d2.Data2UrlDoiRepo || d2.homePage || ''
+
+  return {
+    title:                dd.title               || title,
+    correspondingAuthor:  dd.correspondingAuthor  || correspondingAuthor,
+    affiliations:         dd.affiliations         || affiliations,
+    dataType:             dd.dataType             || dataType,
+    methodsOverview:      dd.methodsOverview      || methodsOverview,
+    materialsSpecimens:   dd.materialsSpecimens   || subjects,
+    anatomicalEntity:     dd.anatomicalEntity     || anatomicalEntity,
+    dataStandards:        dd.dataStandards        || dataStandards,
+    funding:              dd.funding              || funding,
+    dataRepository:       dd.dataRepository       || dataRepository,
+    // pass through any user-saved values untouched
+    objective:            dd.objective            || '',
+    methodsDescription:   dd.methodsDescription   || '',
+    keyResults:           dd.keyResults           || '',
+    dataContribution:     dd.dataContribution     || '',
+    conclusions:          dd.conclusions          || '',
+    limitations:          dd.limitations          || '',
+    futureImplications:   dd.futureImplications   || '',
+    acquisitionTechniques:dd.acquisitionTechniques|| '',
+    tools:                dd.tools                || '',
+    previousWork:         dd.previousWork         || '',
+    usageNotes:           dd.usageNotes           || '',
+    usageLimitations:     dd.usageLimitations     || '',
+    code:                 dd.code                 || '',
+    dataRecordsLayout:    dd.dataRecordsLayout    || '',
+    fileFormats:          dd.fileFormats          || '',
+    references:           dd.references           || '',
+    fieldOfStudy:         dd.fieldOfStudy         || '',
+    studyType:            dd.studyType            || '',
+  }
 }
 
 const FIELDS_OF_STUDY = [
@@ -93,111 +169,52 @@ const STUDY_TYPES = [
 ]
 
 export default function DataDescriptor({ form, onChange, data }) {
-  const dd   = data.dataDescriptor || {}
+  const dd   = data.dataDescriptor  || {}
   const d1   = data.dataset1        || {}
   const d2   = data.dataset2        || {}
   const cust = data.custodian       || {}
   const cont = data.contactperson   || {}
   const exp  = data.experiments     || {}
   const fund = data.funding         || {}
-  const contr= data.contribution    || {}
   const subj = data.subjectMetadata || {}
 
   const [generating, setGenerating] = useState(false)
   const [generated,  setGenerated]  = useState(false)
   const [genError,   setGenError]   = useState('')
 
-  // ── build pre-fill values from other wizard steps ──────────────────────
-  useEffect(() => {
-    const current = form.getFieldValue('dataDescriptor') || {}
-
-    // only pre-fill fields the user hasn't already filled
-    const prefill = {}
-
-    if (!current.title && d1.dataTitle)
-      prefill.title = d1.dataTitle
-
-    // Corresponding author block
-    if (!current.correspondingAuthor) {
-      const name  = `${cont.firstName || ''} ${cont.familyName || ''}`.trim()
-      const email = cont.email || ''
-      if (name || email)
-        prefill.correspondingAuthor = [name, email].filter(Boolean).join(': ')
-    }
-
-    // Affiliation from custodian institution
-    if (!current.affiliations && cust.institution)
-      prefill.affiliations = cust.institution
-
-    // Data type from dataset1.optionsData (may be labels or KG IDs)
-    if (!current.dataType && d1.optionsData?.length) {
-      const labels = d1.optionsData.map(v =>
-        typeof v === 'string' && v.startsWith('http')
-          ? v.split('/').pop()   // bare UUID fallback
-          : v
-      )
-      prefill.dataType = labels.join(', ')
-    }
-
-    // Methods overview from techniques + preparation types (IDs shown as hints)
-    if (!current.methodsOverview) {
-      const parts = []
-      if (exp.techniques?.length)
-        parts.push(`Techniques: ${exp.techniques.length} technique(s) selected in the Experiments step.`)
-      if (exp.preparationTypes?.length)
-        parts.push(`Preparation type(s) selected in the Experiments step.`)
-      if (exp.experimentalApproach?.length)
-        parts.push(`Experimental approach(es) selected in the Experiments step.`)
-      if (parts.length)
-        prefill.methodsOverview = parts.join(' ')
-    }
-
-    // Subjects summary
-    if (!current.subjects) {
-      const summary = buildSubjectSummary(subj)
-      if (summary) prefill.subjects = summary
-    }
-
-    // Anatomical entities from study targets
-    if (!current.anatomicalEntity && exp.studyTargets?.length)
-      prefill.anatomicalEntity =
-        `${exp.studyTargets.length} study target(s) selected in the Experiments step.`
-
-    // Data standards
-    if (!current.dataStandards && d1.dataStandart?.length) {
-      const stds = d1.dataStandart.filter(s => s !== "No, I didn't use a standard")
-      if (stds.length) prefill.dataStandards = stds.join(', ')
-    }
-
-    // Funding / acknowledgements
-    if (!current.funding) {
-      const txt = buildFundingText(fund)
-      if (txt) prefill.funding = txt
-    }
-
-    // DOI / repository
-    if (!current.dataRepository && (d2.Data2UrlDoiRepo || d2.homePage))
-      prefill.dataRepository = d2.Data2UrlDoiRepo || d2.homePage
-
-    if (Object.keys(prefill).length) {
-      form.setFieldsValue({ dataDescriptor: { ...current, ...prefill } })
-    }
-  }, [
+  // ── compute prefills synchronously — used both for initialValues
+  //    and to detect which fields were auto-populated ─────────────────────
+  const prefills = useMemo(() => computePrefills(data), [
     d1.dataTitle, d1.optionsData, d1.dataStandart,
     cont.firstName, cont.familyName, cont.email,
     cust.institution,
     exp.techniques, exp.preparationTypes, exp.experimentalApproach, exp.studyTargets,
     subj,
     fund.funders,
-    d2.Data2UrlDoiRepo,
+    d2.Data2UrlDoiRepo, d2.homePage,
   ])
 
-  // sync on JSON import
-  useEffect(() => {
-    if (Object.keys(dd).length > 0) {
-      form.setFieldsValue({ dataDescriptor: dd })
+  // ── track which fields were auto-populated (had no user value in dd) ────
+  const autoPopulated = useMemo(() => {
+    const d = data.dataDescriptor || {}
+    return {
+      title:               !d.title               && !!d1.dataTitle,
+      correspondingAuthor: !d.correspondingAuthor  && !!(cont.firstName || cont.email),
+      affiliations:        !d.affiliations         && !!cust.institution,
+      dataType:            !d.dataType             && !!(d1.optionsData?.length),
+      methodsOverview:     !d.methodsOverview      && !!(exp.techniques?.length || exp.preparationTypes?.length),
+      materialsSpecimens:  !d.materialsSpecimens   && !!buildSubjectSummary(subj),
+      anatomicalEntity:    !d.anatomicalEntity     && !!(exp.studyTargets?.length),
+      dataStandards:       !d.dataStandards        && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
+      funding:             !d.funding              && !!buildFundingText(fund),
+      dataRepository:      !d.dataRepository       && !!(d2.Data2UrlDoiRepo || d2.homePage),
     }
-  }, [data.dataDescriptor])
+  }, [data])
+
+  // ── sync form when data prop changes (JSON import or navigation) ──────
+  useEffect(() => {
+    form.setFieldsValue({ dataDescriptor: prefills })
+  }, [prefills])
 
   const handleValuesChange = (_, allValues) => {
     onChange(allValues)
@@ -239,6 +256,7 @@ export default function DataDescriptor({ form, onChange, data }) {
     }
   }
 
+  // ── Q component — field wrapper ──────────────────────────────────────
   const Q = ({ label, name, hint, required, prefilled, children }) => (
     <AntForm.Item
       label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
@@ -247,29 +265,33 @@ export default function DataDescriptor({ form, onChange, data }) {
       extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
     >
       {prefilled && (
-        <PrefilledHint text="This field was pre-filled from your wizard answers." />
+        <div style={{
+          background: '#f0faf4', border: '1px solid #b7ebce',
+          borderRadius: 6, padding: '5px 10px', marginBottom: 6,
+          fontSize: 11, color: '#1a6b35',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <InfoCircleOutlined style={{ flexShrink: 0 }} />
+          Pre-filled from your wizard answers — please review and expand.
+        </div>
       )}
       {children}
     </AntForm.Item>
   )
 
-  // detect which fields were pre-filled
-  const hasPrefill = (key) => {
-    const val = form.getFieldValue(['dataDescriptor', key])
-    return !!val && !dd[key]
-  }
-
   return (
     <div>
       <p className="step-title">Data Descriptor</p>
 
-      {/* ── intro ─────────────────────────────────────────────────────── */}
       <div style={{
         background: '#f0faf4', border: '1px solid #b7ebce',
         borderRadius: 8, padding: '14px 18px', marginBottom: 24,
         display: 'flex', gap: 12, alignItems: 'flex-start',
       }}>
-        <InfoCircleOutlined style={{ fontSize: 18, color: 'var(--ebrains-color-medium)', marginTop: 2, flexShrink: 0 }} />
+        <InfoCircleOutlined style={{
+          fontSize: 18, color: 'var(--ebrains-color-medium)',
+          marginTop: 2, flexShrink: 0,
+        }} />
         <div>
           <Text strong style={{ display: 'block', marginBottom: 4 }}>
             What is a Data Descriptor?
@@ -277,7 +299,9 @@ export default function DataDescriptor({ form, onChange, data }) {
           <Text style={{ fontSize: 13, color: '#444' }}>
             A Data Descriptor complements data shared through EBRAINS. A rich descriptor improves
             comprehension and increases the chances of reuse. Fields marked{' '}
-            <Tag color="green" style={{ fontSize: 10, padding: '0 5px', lineHeight: '16px' }}>pre-filled</Tag>{' '}
+            <Tag color="green" style={{ fontSize: 10, padding: '0 5px', lineHeight: '16px' }}>
+              pre-filled
+            </Tag>{' '}
             have been automatically populated from your other wizard answers — please review and
             expand them. All required fields must be completed before generating the document.
           </Text>
@@ -287,289 +311,206 @@ export default function DataDescriptor({ form, onChange, data }) {
       <AntForm
         form={form}
         layout="vertical"
-        initialValues={{ dataDescriptor: dd }}
+        initialValues={{ dataDescriptor: prefills }}
         onValuesChange={handleValuesChange}
       >
-
-        {/* ── SECTION 1: Header info (pre-filled) ───────────────────── */}
+        {/* ── 1. Header ─────────────────────────────────────────────── */}
         <SectionHeading number="1" title="Header information" />
 
-        <Q
-          label="Dataset title"
-          name={['dataDescriptor', 'title']}
-          hint="Use the same title as in Dataset part 1. Avoid acronyms and abbreviations."
-          required
-          prefilled={!dd.title && !!d1.dataTitle}
-        >
+        <Q label="Dataset title" name={['dataDescriptor', 'title']}
+          hint="Use the same title as in Dataset part 1." required
+          prefilled={autoPopulated.title}>
           <Input />
         </Q>
 
-        <Q
-          label="Corresponding author / contact"
+        <Q label="Corresponding author / contact"
           name={['dataDescriptor', 'correspondingAuthor']}
           hint="Name and email of the person to contact regarding this dataset."
-          prefilled={!dd.correspondingAuthor && !!(cont.firstName || cont.email)}
-        >
+          prefilled={autoPopulated.correspondingAuthor}>
           <Input placeholder="e.g. Jane Smith: jane.smith@university.edu" />
         </Q>
 
-        <Q
-          label="Affiliations"
-          name={['dataDescriptor', 'affiliations']}
+        <Q label="Affiliations" name={['dataDescriptor', 'affiliations']}
           hint="List institutional affiliations of all authors/contributors."
-          prefilled={!dd.affiliations && !!cust.institution}
-        >
+          prefilled={autoPopulated.affiliations}>
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="1. Department of Neuroscience, University of Oslo, Norway&#10;2. ..." />
+            placeholder="1. Department of Neuroscience, University of Oslo, Norway" />
         </Q>
 
-        {/* ── SECTION 2: Data description / abstract ─────────────────── */}
+        {/* ── 2. Data description ───────────────────────────────────── */}
         <SectionHeading number="2" title="Data description (Summary / Abstract)" />
 
         <p style={{ ...EXTRA, marginBottom: 16 }}>
-          This section is the abstract of your data descriptor (~200 words total).
-          Answer each sub-question concisely.
+          This section forms the abstract of your data descriptor (~200 words total).
         </p>
 
-        <Q
-          label="What type of data do you share?"
+        <Q label="What type of data do you share?"
           name={['dataDescriptor', 'dataType']}
-          hint="e.g. experimental data, raw recordings, derived/analysed data, software, etc."
-          prefilled={!dd.dataType && !!d1.optionsData?.length}
-        >
-          <Input placeholder="e.g. Experimental electrophysiological recordings (raw and spike-sorted)" />
+          hint="e.g. experimental data, raw recordings, derived/analysed data, software."
+          prefilled={autoPopulated.dataType}>
+          <Input />
         </Q>
 
-        <Q
-          label="What is the primary objective of your investigation? (≈50 words)"
+        <Q label="What is the primary objective of your investigation? (≈50 words)"
           name={['dataDescriptor', 'objective']}
-          hint="What specific hypothesis or question did the study aim to resolve? What gaps in knowledge does your research address? Why is this data important?"
-          required
-        >
+          hint="What hypothesis did the study aim to resolve? What gaps in knowledge does it address?" required>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="We investigated how theta sweeps in the medial entorhinal cortex are modulated by attention-like signals during spatial navigation…" />
+            placeholder="We investigated how theta sweeps are modulated by attention-like signals during spatial navigation…" />
         </Q>
 
-        <Q
-          label="How were the data created? What methods and materials were used?"
+        <Q label="How were the data created? What methods and materials were used?"
           name={['dataDescriptor', 'methodsDescription']}
-          hint="What experimental procedures, techniques, or instruments were employed? How are the data organised? Number of subjects/sessions? Experimental parameters?"
-          required
-        >
+          hint="Experimental procedures, techniques, instruments, number of subjects/sessions, experimental parameters." required>
           <TextArea autoSize={{ minRows: 4, maxRows: 8 }}
-            placeholder="Ten rats were implanted with high-site-count Neuropixels probes targeting the medial entorhinal cortex. Recordings were obtained during foraging, object-chasing, and sleep…" />
+            placeholder="Ten rats were implanted with Neuropixels probes targeting the medial entorhinal cortex…" />
         </Q>
 
-        <Q
-          label="What are the key findings / results?"
+        <Q label="What are the key findings / results?"
           name={['dataDescriptor', 'keyResults']}
-          hint="Summarise the most significant results. What data points or trends emerged? Have you published them? If so, in which journal?"
-          required
-        >
+          hint="Summarise the most significant results. Have you published them? If so, in which journal?" required>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="Grid cells showed consistent theta-sweep modulation across all navigational tasks. Results were published in Nature (2024, doi:…)." />
+            placeholder="Grid cells showed consistent theta-sweep modulation across all navigational tasks…" />
         </Q>
 
-        <Q
-          label="What is the key contribution of your data to the field?"
+        <Q label="What is the key contribution of your data to the field?"
           name={['dataDescriptor', 'dataContribution']}
-          hint="What implications does this data have for future research or applications? Which other projects could the data potentially be used in?"
-          required
-        >
+          hint="What implications does this data have? Which other projects could use it?" required>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="This dataset provides the first population-level recording of theta sweep modulation across simultaneously recorded brain areas, enabling…" />
+            placeholder="This dataset provides the first population-level recording of theta sweep modulation…" />
         </Q>
 
-        <Q
-          label="What conclusions can be drawn from your data?"
+        <Q label="What conclusions can be drawn from your data?"
           name={['dataDescriptor', 'conclusions']}
-          hint="How do your findings support or contradict your original hypothesis?"
-        >
+          hint="How do your findings support or contradict your original hypothesis?">
           <TextArea autoSize={{ minRows: 2, maxRows: 5 }}
-            placeholder="Our findings support the hypothesis that theta sweeps encode prospective trajectories and are modulated by…" />
+            placeholder="Our findings support the hypothesis that theta sweeps encode prospective trajectories…" />
         </Q>
 
-        <Q
-          label="Were there any limitations in your study?"
+        <Q label="Were there any limitations in your study?"
           name={['dataDescriptor', 'limitations']}
-          hint="Did you identify any limitations or challenges that could impact the interpretation of your results?"
-        >
+          hint="Limitations or challenges that could impact interpretation of your results.">
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="Spike sorting was performed automatically. The dataset is limited to adult male rats, which may not generalise to…" />
+            placeholder="Spike sorting was performed automatically. The dataset is limited to adult male rats…" />
         </Q>
 
-        <Q
-          label="What are the future implications and potential reuses?"
+        <Q label="What are the future implications and potential reuses?"
           name={['dataDescriptor', 'futureImplications']}
-          hint="What research trajectories could emerge? In which other fields could the data be used?"
-        >
+          hint="What research trajectories could emerge? In which other fields could the data be used?">
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="The data can be used to test computational models of grid cell dynamics, or to study sleep replay mechanisms…" />
+            placeholder="The data can be used to test computational models of grid cell dynamics…" />
         </Q>
 
-        {/* ── SECTION 3: Materials & Methods ─────────────────────────── */}
+        {/* ── 3. Materials & Methods ────────────────────────────────── */}
         <SectionHeading number="3" title="Materials and Methods" />
 
-        <Q
-          label="What materials / specimens were used to generate the data?"
+        <Q label="What materials / specimens were used to generate the data?"
           name={['dataDescriptor', 'materialsSpecimens']}
-          hint="List all specimens, subjects, or biological materials involved in the study."
-          required
-          prefilled={!dd.materialsSpecimens && !!buildSubjectSummary(subj)}
-        >
+          hint="List all specimens, subjects, or biological materials involved." required
+          prefilled={autoPopulated.materialsSpecimens}>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="10 adult male Long-Evans rats (300–400 g) were used. Animals were housed under 12h light/dark cycles…" />
+            placeholder="10 adult male Long-Evans rats (300–400 g) were used…" />
         </Q>
 
-        <Q
-          label="What acquisition techniques were employed?"
+        <Q label="What acquisition techniques were employed?"
           name={['dataDescriptor', 'acquisitionTechniques']}
-          hint="How were specimens obtained? What recording, imaging, or measurement steps were carried out? What preprocessing was applied?"
-          required
-        >
+          hint="Recording, imaging, or measurement steps. Preprocessing applied." required>
           <TextArea autoSize={{ minRows: 3, maxRows: 8 }}
-            placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia. Neural signals were amplified and digitised at 30 kHz using an Open Ephys acquisition system. Spike sorting was performed using Kilosort 2.5…" />
+            placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia…" />
         </Q>
 
-        <Q
-          label="What tools and workflows were utilised?"
+        <Q label="What tools and workflows were utilised?"
           name={['dataDescriptor', 'tools']}
-          hint="Describe specific software, toolboxes, scripts, and analysis pipelines used (with versions if known)."
-          required
-          prefilled={!dd.tools && !!(exp.techniques?.length || exp.preparationTypes?.length)}
-        >
+          hint="Software, toolboxes, scripts and analysis pipelines used (with versions if known)." required
+          prefilled={autoPopulated.methodsOverview}>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="Kilosort 2.5 (spike sorting), MATLAB R2021b (custom analysis scripts), Python 3.9 (visualisation, NumPy, SciPy, Matplotlib)…" />
+            placeholder="Kilosort 2.5, MATLAB R2021b, Python 3.9…" />
         </Q>
 
-        <Q
-          label="What anatomical entity was examined?"
+        <Q label="What anatomical entity was examined?"
           name={['dataDescriptor', 'anatomicalEntity']}
-          hint="Which anatomical structure/location was the focus? Cell type? Brain region? Coordinate system or brain atlas used?"
-          prefilled={!dd.anatomicalEntity && !!exp.studyTargets?.length}
-        >
+          hint="Anatomical structure, cell type, brain region, coordinate system or brain atlas used."
+          prefilled={autoPopulated.anatomicalEntity}>
           <TextArea autoSize={{ minRows: 2, maxRows: 5 }}
-            placeholder="Medial entorhinal cortex (layers II–III), parasubiculum, and anterodorsal thalamus. Electrode positions confirmed using Paxinos & Watson atlas (7th edition)…" />
+            placeholder="Medial entorhinal cortex (layers II–III), parasubiculum, anterodorsal thalamus…" />
         </Q>
 
-        <Q
-          label="Previous work and published methods"
+        <Q label="Previous work and published methods"
           name={['dataDescriptor', 'previousWork']}
-          hint="Optional. Cite or summarise previous methodological descriptions relevant to this dataset. Under which subheading in your publication can readers find full details?"
-        >
+          hint="Optional. Cite or summarise previous methodological descriptions relevant to this dataset.">
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="Full surgical and recording procedures are described in Smith et al. (2022), Nature Methods, under 'Experimental procedures'…" />
+            placeholder="Full surgical and recording procedures are described in Smith et al. (2022)…" />
         </Q>
 
-        {/* ── SECTION 4: Usage notes ─────────────────────────────────── */}
+        {/* ── 4. Usage notes ────────────────────────────────────────── */}
         <SectionHeading number="4" title="Usage Notes" />
 
-        <Q
-          label="How should the data be used? What are the recommended use cases?"
+        <Q label="How should the data be used? Recommended use cases."
           name={['dataDescriptor', 'usageNotes']}
-          hint="Provide suggestions for how the data can be reused. Mention specific analyses, populations, or research questions this data is well suited for."
-          required
-        >
+          hint='e.g. "the spike sorting makes this dataset particularly interesting for precise spike time analysis"' required>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="The spike-sorted data are particularly well suited for precise spike-time analyses and theta-phase coding studies. The broadband LFP signal enables investigation of multiple frequency bands…" />
+            placeholder="The spike-sorted data are particularly well suited for precise spike-time analyses…" />
         </Q>
 
-        <Q
-          label="How should the data NOT be used? What are the limitations for reuse?"
+        <Q label="How should the data NOT be used? Limitations for reuse."
           name={['dataDescriptor', 'usageLimitations']}
-          hint="Warn users about inappropriate uses. e.g. unsuitable age groups, insufficient resolution, artefacts."
-        >
+          hint='e.g. "data are from adult subjects, making it unsuitable for developmental studies"'>
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="Data are from adult male rats only, making it unsuitable for developmental or sex-difference studies. The image resolution is insufficient for single-cell morphology analysis…" />
+            placeholder="Data are from adult male rats only, making it unsuitable for developmental studies…" />
         </Q>
 
-        <Q
-          label="Complementary code / software"
+        <Q label="Complementary code / software"
           name={['dataDescriptor', 'code']}
-          hint="Where can users find loading routines, analysis pipelines, or visualisation tools? Provide URLs if available."
-        >
+          hint="Where can users find loading routines, analysis pipelines, or visualisation tools? URLs if available.">
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="Analysis scripts are available at https://github.com/… under MIT licence. Loading routines for NWB files are included in the repository README…" />
+            placeholder="Analysis scripts are available at https://github.com/… under MIT licence…" />
         </Q>
 
-        {/* ── SECTION 5: Data records ────────────────────────────────── */}
+        {/* ── 5. Data records ───────────────────────────────────────── */}
         <SectionHeading number="5" title="Data Records" />
 
-        <Q
-          label="Data repository / DOI"
+        <Q label="Data repository / DOI"
           name={['dataDescriptor', 'dataRepository']}
           hint="Where are the data stored? Link to the repository or data DOI."
-          prefilled={!dd.dataRepository && !!(d2.Data2UrlDoiRepo || d2.homePage)}
-        >
+          prefilled={autoPopulated.dataRepository}>
           <Input placeholder="https://doi.org/10.25493/…" />
         </Q>
 
-        <Q
-          label="Dataset file structure"
+        <Q label="Dataset file structure"
           name={['dataDescriptor', 'dataRecordsLayout']}
-          hint="Provide a layout of the file repository. Describe the content of each file in square brackets. Did you follow a metadata standard (e.g. BIDS, NWB)?"
-          required
-          prefilled={!dd.dataRecordsLayout && !!d1.dataStandart?.length}
-        >
+          hint="Layout of the file repository. Content of each file in square brackets. Metadata standard used (e.g. BIDS, NWB)?" required
+          prefilled={autoPopulated.dataStandards}>
           <TextArea autoSize={{ minRows: 5, maxRows: 14 }}
             style={{ fontFamily: 'monospace', fontSize: 12 }}
-            placeholder={
-`/ repository-root/
-  sub_info.tsv [subject metadata]
-  / sub-XXX/
-    / Hor-0/
-      Data.mat [trial-wise neural data and behavioural events]
-    / Hor-1/
-      Data.mat
-  / code/
-    analysis.m [spike analysis script]`
-            }
-          />
+            placeholder={`/ repository-root/\n  sub_info.tsv [subject metadata]\n  / sub-XXX/\n    Data.mat [trial-wise neural data]`} />
         </Q>
 
-        <Q
-          label="File formats table"
+        <Q label="File formats table"
           name={['dataDescriptor', 'fileFormats']}
-          hint="Describe each file format: Format | Extension | Software used / file specification"
-        >
+          hint="Format | Extension | Software used / file specification">
           <TextArea autoSize={{ minRows: 4, maxRows: 10 }}
             style={{ fontFamily: 'monospace', fontSize: 12 }}
-            placeholder={
-`Format | Extension | Software / specification
-MATLAB | .mat | Generated by Kilosort 2.5; fields: Fs, labelsChannels, trialInfo
-Tab-separated | .tsv | Self-made; columns: id, species, sex
-Python script | .py | Python 3.9`
-            }
-          />
+            placeholder={`Format | Extension | Software / specification\nMATLAB | .mat | Generated by Kilosort 2.5\nTSV    | .tsv | Self-made`} />
         </Q>
 
-        {/* ── SECTION 6: Acknowledgements & references ──────────────── */}
+        {/* ── 6. Acknowledgements & references ─────────────────────── */}
         <SectionHeading number="6" title="Acknowledgements and References" />
 
-        <Q
-          label="Acknowledgements and funding"
+        <Q label="Acknowledgements and funding"
           name={['dataDescriptor', 'funding']}
-          hint="Brief acknowledgements of non-author contributors and funding sources (grant name and number). Pre-filled from your Funding step."
-          prefilled={!dd.funding && !!buildFundingText(fund)}
-        >
+          hint="Brief acknowledgements of non-author contributors and funding sources (grant name and number)."
+          prefilled={autoPopulated.funding}>
           <TextArea autoSize={{ minRows: 2, maxRows: 6 }}
-            placeholder="This work was supported by the European Research Council (ERC) under grant agreement No. 12345…" />
+            placeholder="This work was supported by the European Research Council (ERC) grant No. 12345…" />
         </Q>
 
-        <Q
-          label="References"
+        <Q label="References"
           name={['dataDescriptor', 'references']}
-          hint="List all references cited in the descriptor using Nature referencing style (Author et al., Journal, Year, doi)."
-        >
+          hint="All references cited above, using Nature referencing style.">
           <TextArea autoSize={{ minRows: 3, maxRows: 10 }}
-            placeholder={
-`1. Smith, J. et al. Title of paper. Nature 123, 456–789 (2022). https://doi.org/10.1038/…
-2. Jones, A. & Brown, B. Another paper. J. Neurosci. 40, 1234 (2021).`
-            }
-          />
+            placeholder={`1. Smith, J. et al. Title. Nature 123, 456–789 (2022). https://doi.org/…`} />
         </Q>
 
-        {/* ── Generate button ────────────────────────────────────────── */}
+        {/* ── Generate ──────────────────────────────────────────────── */}
         <div style={{
           borderTop: '1px solid #e5e5e5', marginTop: 28, paddingTop: 20,
           display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
