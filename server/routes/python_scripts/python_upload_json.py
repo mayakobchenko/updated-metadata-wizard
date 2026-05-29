@@ -333,6 +333,7 @@ def create_orcid_instance(orcid_url):
     except Exception as e:
         print(f"DEBUG error creating ORCID instance: {e}", file=sys.stderr)
         return None
+
 # ── person helpers ────────────────────────────────────────────────────────────
 
 
@@ -646,6 +647,113 @@ if contribution_ids:
 
 dsv_result = KG_patch(dsv_id, dsv_attributes)
 results.append({"datasetVersion": dsv_result})
+
+# ── 2b. find or create parent Dataset and update it ──────────────────────────
+
+
+def find_dataset_via_neighbors(dsv_uuid):
+    """
+    Fetch neighbors of the DatasetVersion and find the parent Dataset
+    in the inbound list (Dataset points to DSV via hasVersion).
+    Returns the Dataset UUID string or None.
+    """
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        url = f"https://core.kg.ebrains.eu/v3/instances/{dsv_uuid}/neighbors?stage=IN_PROGRESS"
+        resp = rq.get(url=url, headers=headers)
+        print(f"DEBUG neighbors {url} → {resp.status_code}", file=sys.stderr)
+        if not resp.ok:
+            print(f"DEBUG neighbors error: {resp.text[:200]}", file=sys.stderr)
+            return None
+
+        neighbors = resp.json().get("data", {})
+        inbound = neighbors.get("inbound", []) or []
+
+        dataset_type = "https://openminds.om-i.org/types/Dataset"
+        for item in inbound:
+            if dataset_type in (item.get("types") or []):
+                dataset_uuid = item["id"]
+                print(
+                    f"DEBUG found parent Dataset via neighbors: {dataset_uuid}", file=sys.stderr)
+                return dataset_uuid
+
+        print(f"DEBUG no parent Dataset found in neighbors inbound", file=sys.stderr)
+        return None
+
+    except Exception as e:
+        print(f"DEBUG find_dataset_via_neighbors error: {e}", file=sys.stderr)
+        return None
+
+
+def create_dataset(dsv_uuid, dataset_attributes):
+    """
+    Create a new Dataset instance in the collab space and link it to the DSV.
+    """
+    dataset_uuid = str(uuid4())
+    dataset_node = {
+        "@type":      [f"{T}Dataset"],
+        "hasVersion": [{"@id": KG_PREFIX + dsv_uuid}],
+        **dataset_attributes,
+    }
+    print(f"DEBUG creating new Dataset {dataset_uuid}", file=sys.stderr)
+    result = KG_post(dataset_uuid, dataset_node)
+    if isinstance(result, dict) and "error" in result:
+        print(f"DEBUG FAILED to create Dataset: {result}", file=sys.stderr)
+        return None
+    print(f"DEBUG new Dataset → {KG_PREFIX + dataset_uuid}", file=sys.stderr)
+    return dataset_uuid
+
+
+def patch_dataset(dataset_uuid, dataset_attributes):
+    """
+    Patch an existing Dataset with updated metadata.
+    Always ensures hasVersion references the current DSV.
+    """
+    dataset_node = {
+        "@type":      [f"{T}Dataset"],
+        "hasVersion": [{"@id": KG_PREFIX + dsv_id}],
+        **dataset_attributes,
+    }
+    result = KG_patch(dataset_uuid, dataset_node)
+    print(f"DEBUG patched Dataset {dataset_uuid} → {result}", file=sys.stderr)
+    return result
+
+
+# ── build Dataset attributes from form data ───────────────────────────────────
+# Dataset shares title, authors and custodian with DatasetVersion
+# but does NOT have description, license, embargo etc. — those live on DSV.
+
+dataset_attributes = {}
+
+if dsv_title:
+    dataset_attributes["fullName"] = dsv_title
+if dsv_short_title:
+    dataset_attributes["shortName"] = dsv_short_title
+
+# authors — same list resolved above for DSV
+if valid_authors:
+    dataset_attributes["author"] = [{"@id": a} for a in valid_authors]
+
+# custodian
+if custodian_url and isinstance(custodian_url, str) and custodian_url.startswith("http"):
+    dataset_attributes["custodian"] = {"@id": custodian_url}
+
+# ── find existing Dataset or create new one ───────────────────────────────────
+
+dataset_uuid = find_dataset_via_neighbors(dsv_id)
+
+if dataset_uuid:
+    print(f"DEBUG updating existing Dataset {dataset_uuid}", file=sys.stderr)
+    dataset_result = patch_dataset(dataset_uuid, dataset_attributes)
+    results.append({"dataset": dataset_result})
+else:
+    print(f"DEBUG no existing Dataset found — creating new one", file=sys.stderr)
+    dataset_uuid = create_dataset(dsv_id, dataset_attributes)
+    if dataset_uuid:
+        results.append({"dataset": {"created": dataset_uuid}})
+    else:
+        results.append({"dataset": {"error": "failed to create Dataset"}})
 
 # ── 3. subject helpers ────────────────────────────────────────────────────────
 
