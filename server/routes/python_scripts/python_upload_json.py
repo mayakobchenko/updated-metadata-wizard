@@ -730,6 +730,8 @@ if dsv_title:
     dataset_attributes["fullName"] = dsv_title
 if dsv_short_title:
     dataset_attributes["shortName"] = dsv_short_title
+if brief_summary:
+    dataset_attributes["description"] = brief_summary
 
 # authors — same list resolved above for DSV
 if valid_authors:
