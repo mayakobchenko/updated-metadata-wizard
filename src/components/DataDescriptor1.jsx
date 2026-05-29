@@ -1,16 +1,45 @@
 import { useState, useEffect } from 'react'
-import { Form as AntForm, Input, Select, Button, Alert, Divider, Typography } from 'antd'
-import { FileTextOutlined, DownloadOutlined } from '@ant-design/icons'
+import { Form as AntForm, Input, Select, Button, Alert, Typography } from 'antd'
+import { FileTextOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 
 const { TextArea } = Input
 const { Option }   = Select
-const { Title, Text } = Typography
+const { Text }     = Typography
 
-const LABEL = { fontSize: 12, color: '#444', fontWeight: 500 }
-const HINT  = { fontSize: 11, color: '#888', marginTop: 2 }
+// ── matches the hint style used across Dataset1, Experiments etc ──────────
+const EXTRA = { fontSize: 12, color: 'rgba(0,0,0,0.45)' }
 
-// ── field‑of‑study options ─────────────────────────────────────────────────
+// ── section heading — matches .step-subtitle style ────────────────────────
+const SectionHeading = ({ number, title }) => (
+  <div style={{
+    display:      'flex',
+    alignItems:   'center',
+    gap:          10,
+    margin:       '28px 0 16px',
+    borderBottom: '1px solid #e5e5e5',
+    paddingBottom: 8,
+  }}>
+    <span style={{
+      background:   'var(--ebrains-color-medium)',
+      color:        '#fff',
+      borderRadius: '50%',
+      width:        24,
+      height:       24,
+      display:      'flex',
+      alignItems:   'center',
+      justifyContent: 'center',
+      fontSize:     12,
+      fontWeight:   700,
+      flexShrink:   0,
+    }}>
+      {number}
+    </span>
+    <span style={{ fontSize: 16, fontWeight: 600, color: '#333' }}>{title}</span>
+  </div>
+)
+
+// ── options ───────────────────────────────────────────────────────────────
 const FIELDS_OF_STUDY = [
   'Neuroimaging',
   'Electrophysiology',
@@ -24,7 +53,6 @@ const FIELDS_OF_STUDY = [
   'Other',
 ]
 
-// ── study‑type options ─────────────────────────────────────────────────────
 const STUDY_TYPES = [
   'Animal study (in vivo)',
   'Human study (in vivo)',
@@ -36,26 +64,15 @@ const STUDY_TYPES = [
   'Other',
 ]
 
-const Q = ({ label, name, hint, required, children }) => (
-  <AntForm.Item
-    label={<span style={LABEL}>{label}</span>}
-    name={name}
-    rules={required ? [{ required: true, message: 'This field is required.' }] : []}
-    extra={hint ? <span style={HINT}>{hint}</span> : undefined}
-    style={{ marginBottom: 20 }}
-  >
-    {children}
-  </AntForm.Item>
-)
-
 export default function DataDescriptor({ form, onChange, data }) {
   const dd = data.dataDescriptor || {}
-  const d1 = data.dataset1      || {}
+  const d1 = data.dataset1       || {}
 
   const [generating, setGenerating] = useState(false)
   const [generated,  setGenerated]  = useState(false)
+  const [genError,   setGenError]   = useState('')
 
-  // pre‑fill title from dataset1 if available and not yet set
+  // ── pre‑fill title from Dataset1 if not yet set ───────────────────────
   useEffect(() => {
     const existing = form.getFieldValue(['dataDescriptor', 'title'])
     if (!existing && d1.dataTitle) {
@@ -63,12 +80,21 @@ export default function DataDescriptor({ form, onChange, data }) {
     }
   }, [d1.dataTitle])
 
+  // ── sync when data changes (JSON import) ──────────────────────────────
+  useEffect(() => {
+    if (Object.keys(dd).length > 0) {
+      form.setFieldsValue({ dataDescriptor: dd })
+    }
+  }, [data.dataDescriptor])
+
   const handleValuesChange = (_, allValues) => {
     onChange(allValues)
     setGenerated(false)
+    setGenError('')
   }
 
   const handleGenerate = async () => {
+    setGenError('')
     try {
       await form.validateFields([
         ['dataDescriptor', 'title'],
@@ -82,9 +108,9 @@ export default function DataDescriptor({ form, onChange, data }) {
         ['dataDescriptor', 'usageNotes'],
       ])
     } catch {
-      return  // validation errors shown by form
+      setGenError('Please fill in all required fields before generating.')
+      return
     }
-
     setGenerating(true)
     try {
       const ddData = form.getFieldValue('dataDescriptor') || {}
@@ -92,30 +118,59 @@ export default function DataDescriptor({ form, onChange, data }) {
       setGenerated(true)
     } catch (err) {
       console.error('Data descriptor generation failed:', err)
+      setGenError('Generation failed — please try again.')
     } finally {
       setGenerating(false)
     }
   }
 
+  // ── shared field wrapper — matches Dataset1 AntForm.Item style ────────
+  const Q = ({ label, name, hint, required, children }) => (
+    <AntForm.Item
+      label={label}
+      name={name}
+      rules={required ? [{ required: true, message: `Please fill in "${label}".` }] : []}
+      extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
+    >
+      {children}
+    </AntForm.Item>
+  )
+
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div>
       <p className="step-title">Data Descriptor</p>
 
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 24 }}
-        message="What is a Data Descriptor?"
-        description={
-          <span>
+      {/* ── intro box — uses form-background-color tint, matching style ── */}
+      <div style={{
+        background:   '#f0faf4',
+        border:       '1px solid #b7ebce',
+        borderRadius: 8,
+        padding:      '14px 18px',
+        marginBottom: 24,
+        display:      'flex',
+        gap:          12,
+        alignItems:   'flex-start',
+      }}>
+        <span style={{
+          fontSize:     18,
+          color:        'var(--ebrains-color-medium)',
+          marginTop:    2,
+          flexShrink:   0,
+        }}>ℹ</span>
+        <div>
+          <Text strong style={{ display: 'block', marginBottom: 4 }}>
+            What is a Data Descriptor?
+          </Text>
+          <Text style={{ fontSize: 13, color: '#444' }}>
             A Data Descriptor is a short document that helps other researchers understand,
-            find and reuse your dataset. It describes <strong>what the data are</strong>,
-            <strong> why they were collected</strong>, and{' '}
-            <strong>how they can be used</strong>. Answer the questions below and we will
-            generate a formatted Word document you can download and review.
-          </span>
-        }
-      />
+            find and reuse your dataset. It describes{' '}
+            <strong>what the data are</strong>,{' '}
+            <strong>why they were collected</strong>, and{' '}
+            <strong>how they can be used</strong>. Answer the questions below and
+            click <strong>Generate</strong> to download a formatted Word document.
+          </Text>
+        </div>
+      </div>
 
       <AntForm
         form={form}
@@ -124,15 +179,13 @@ export default function DataDescriptor({ form, onChange, data }) {
         onValuesChange={handleValuesChange}
       >
 
-        {/* ── SECTION 1: Dataset identity ─────────────────────────────── */}
-        <Divider orientation="left">
-          <Text strong style={{ color: '#00C959' }}>1. Dataset identity</Text>
-        </Divider>
+        {/* ── 1. Dataset identity ────────────────────────────────────── */}
+        <SectionHeading number="1" title="Dataset identity" />
 
         <Q
           label="Dataset title"
           name={['dataDescriptor', 'title']}
-          hint="Use the same title as in step 1. Avoid acronyms and abbreviations."
+          hint="Use the same title as in Dataset part 1. Avoid acronyms and abbreviations."
           required
         >
           <Input placeholder="e.g. Human intracranial recordings of decision‑making in the frontoparietal cortex" />
@@ -144,7 +197,7 @@ export default function DataDescriptor({ form, onChange, data }) {
           hint="Select the primary scientific domain of this dataset."
           required
         >
-          <Select placeholder="Select field of study">
+          <Select placeholder="Select field of study" style={{ width: '100%' }}>
             {FIELDS_OF_STUDY.map(f => <Option key={f} value={f}>{f}</Option>)}
           </Select>
         </Q>
@@ -154,7 +207,7 @@ export default function DataDescriptor({ form, onChange, data }) {
           name={['dataDescriptor', 'studyType']}
           hint="What kind of experimental or computational approach was used?"
         >
-          <Select placeholder="Select study type">
+          <Select placeholder="Select study type" style={{ width: '100%' }}>
             {STUDY_TYPES.map(s => <Option key={s} value={s}>{s}</Option>)}
           </Select>
         </Q>
@@ -162,7 +215,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q
           label="What are the data?"
           name={['dataDescriptor', 'whatAreTheData']}
-          hint="Start with: 'This dataset contains…'. Describe the data in 1-3 sentences. What modality, how many subjects/samples, what species?"
+          hint='Start with "This dataset contains…". Describe the data in 1–3 sentences: modality, number of subjects/samples, species.'
           required
         >
           <TextArea
@@ -171,15 +224,13 @@ export default function DataDescriptor({ form, onChange, data }) {
           />
         </Q>
 
-        {/* ── SECTION 2: Scientific context ───────────────────────────── */}
-        <Divider orientation="left">
-          <Text strong style={{ color: '#00C959' }}>2. Scientific context</Text>
-        </Divider>
+        {/* ── 2. Scientific context ──────────────────────────────────── */}
+        <SectionHeading number="2" title="Scientific context" />
 
         <Q
           label="What is the scientific background and context?"
           name={['dataDescriptor', 'scientificContext']}
-          hint="What is the broader field of research? What was already known before this study? Why is this area important? (2‑4 sentences)"
+          hint="What is the broader field of research? What was already known? Why is this area important? (2–4 sentences)"
           required
         >
           <TextArea
@@ -208,19 +259,17 @@ export default function DataDescriptor({ form, onChange, data }) {
         >
           <TextArea
             autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="We hypothesised that attention‑like modulation of theta sweeps would be observable across the navigation circuit…"
+            placeholder="We hypothesised that attention‑like modulation of theta sweeps would be observable…"
           />
         </Q>
 
-        {/* ── SECTION 3: Methods ──────────────────────────────────────── */}
-        <Divider orientation="left">
-          <Text strong style={{ color: '#00C959' }}>3. Methods</Text>
-        </Divider>
+        {/* ── 3. Methods ─────────────────────────────────────────────── */}
+        <SectionHeading number="3" title="Methods" />
 
         <Q
           label="What methods were used to acquire the data?"
           name={['dataDescriptor', 'methods']}
-          hint="Describe the key experimental setup, equipment, recording parameters, and any preprocessing steps. Be specific — this section is important for reproducibility."
+          hint="Describe the key experimental setup, equipment, recording parameters, and preprocessing. Be specific — this is important for reproducibility."
           required
         >
           <TextArea
@@ -236,19 +285,17 @@ export default function DataDescriptor({ form, onChange, data }) {
         >
           <TextArea
             autoSize={{ minRows: 2, maxRows: 5 }}
-            placeholder="Kilosort 2.5 (spike sorting), MATLAB R2021b (analysis), Python 3.9 (visualisation)…"
+            placeholder="Kilosort 2.5, MATLAB R2021b, Python 3.9…"
           />
         </Q>
 
-        {/* ── SECTION 4: Data description ─────────────────────────────── */}
-        <Divider orientation="left">
-          <Text strong style={{ color: '#00C959' }}>4. Data description</Text>
-        </Divider>
+        {/* ── 4. Data description ────────────────────────────────────── */}
+        <SectionHeading number="4" title="Data description" />
 
         <Q
           label="Describe the dataset structure and content"
           name={['dataDescriptor', 'dataDescription']}
-          hint="What files are included? What do they contain? What format are they in? Describe the folder structure if relevant."
+          hint="What files are included? What do they contain? What format? Describe the folder structure if relevant."
           required
         >
           <TextArea
@@ -260,23 +307,21 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q
           label="What are the key results or findings?"
           name={['dataDescriptor', 'results']}
-          hint="Briefly summarise the main scientific findings or observations from this dataset. (2‑4 sentences)"
+          hint="Briefly summarise the main scientific findings or observations. (2–4 sentences)"
         >
           <TextArea
             autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="Grid cells showed consistent theta‑sweep modulation across navigational tasks. The sweep amplitude correlated with…"
+            placeholder="Grid cells showed consistent theta‑sweep modulation across navigational tasks…"
           />
         </Q>
 
-        {/* ── SECTION 5: Usage ────────────────────────────────────────── */}
-        <Divider orientation="left">
-          <Text strong style={{ color: '#00C959' }}>5. Usage and reuse</Text>
-        </Divider>
+        {/* ── 5. Usage ───────────────────────────────────────────────── */}
+        <SectionHeading number="5" title="Usage and reuse" />
 
         <Q
           label="What can this dataset be used for?"
           name={['dataDescriptor', 'usageNotes']}
-          hint="What analyses or research questions can be addressed with this data? Who is the intended audience?"
+          hint="What analyses or research questions can be addressed? Who is the intended audience?"
           required
         >
           <TextArea
@@ -292,49 +337,61 @@ export default function DataDescriptor({ form, onChange, data }) {
         >
           <TextArea
             autoSize={{ minRows: 2, maxRows: 5 }}
-            placeholder="Note that spike sorting was performed automatically and may contain occasional errors…"
+            placeholder="Spike sorting was performed automatically and may contain occasional errors…"
           />
         </Q>
 
         <Q
           label="Funding and acknowledgements"
           name={['dataDescriptor', 'funding']}
-          hint="Optional. List funding sources and acknowledgements (these will be pre‑filled from the Funding step if available)."
+          hint="Optional. Pre-filled from the Funding step if available. Edit as needed."
         >
           <TextArea
             autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="This project received funding from the European Research Council (ERC) under…"
+            placeholder="This project received funding from the European Research Council (ERC)…"
           />
         </Q>
 
-        {/* ── Generate button ──────────────────────────────────────────── */}
-        <Divider />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+        {/* ── Generate button — uses next-back-button class ──────────── */}
+        <div style={{
+          borderTop:  '1px solid #e5e5e5',
+          marginTop:  28,
+          paddingTop: 20,
+          display:    'flex',
+          alignItems: 'center',
+          gap:        16,
+          flexWrap:   'wrap',
+        }}>
           <Button
-            type="primary"
+            className="next-back-button"
             icon={<FileTextOutlined />}
             size="large"
             loading={generating}
             onClick={handleGenerate}
-            style={{ background: '#00C959', borderColor: '#00C959' }}
           >
             Generate Data Descriptor (.docx)
           </Button>
 
-          {generated && (
-            <Alert
-              type="success"
-              showIcon
-              message="Document downloaded! Review it, edit as needed, and share it with your data curator."
-              style={{ flex: 1 }}
-            />
+          {generated && !genError && (
+            <span style={{
+              fontSize:   13,
+              color:      'var(--ebrains-color-dark)',
+              fontWeight: 500,
+            }}>
+              ✓ Downloaded! Review and edit the Word file before sending to your curator.
+            </span>
+          )}
+
+          {genError && (
+            <span style={{ fontSize: 13, color: '#d32f2f' }}>
+              {genError}
+            </span>
           )}
         </div>
 
-        <p style={{ fontSize: 11, color: '#999', marginTop: 12 }}>
+        <p style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)', marginTop: 10 }}>
           The generated document follows the EBRAINS Data Descriptor template.
-          You can edit the Word file freely before submitting it to your curator.
+          You can freely edit the Word file before submitting it to your curator.
         </p>
 
       </AntForm>
