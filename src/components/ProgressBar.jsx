@@ -8,6 +8,7 @@ const BASE_STEP_NAMES = [
   'Funding',
   'Contributors',
   'Experiments',
+  'Data descriptor',
   'Subjects',
 ]
 

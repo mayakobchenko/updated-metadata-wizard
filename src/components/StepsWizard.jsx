@@ -13,6 +13,7 @@ import Funding from './Funding.jsx'
 import Experiments from './Experiments.jsx'
 import PopoverSave from './FinalChoice.jsx'
 import LoadingSpinner from './LoadingSpinner.jsx'
+import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 
 const { Text } = Typography
@@ -260,10 +261,12 @@ const normalizeDatesForForm = (data) => {
     { id: 3, component: Funding },
     { id: 4, component: Contributors },
     { id: 5, component: Experiments },
-    { id: 6, component: Subjects },
+    { id: 6, component: DataDescriptor }, 
+    { id: 7, component: Subjects },
   ]
 
-  const lastLogicalStepIndex = subjectStepEnabled ? 6 : 5
+  //const lastLogicalStepIndex = subjectStepEnabled ? 6 : 5
+  const lastLogicalStepIndex = subjectStepEnabled ? 7 : 6
 
   useEffect(() => {
     if (!subjectStepEnabled && currentStepIndex > lastLogicalStepIndex) {
