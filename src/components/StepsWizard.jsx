@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuthContext } from './context/NewContextProvider.jsx'
 import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal, Upload, Alert, Typography } from 'antd'
-import { UploadOutlined, FileTextOutlined } from '@ant-design/icons'
+import { FileTextOutlined } from '@ant-design/icons'
 import ProgressBar from './ProgressBar.jsx'
 import Contributors from './Contributors.jsx'
 import Subjects from './Subjects.jsx'
@@ -18,48 +18,17 @@ import dayjs from 'dayjs'
 
 const { Text } = Typography
 
-// ── JSON import helper ────────────────────────────────────────────────────────
-// Reads a JSON file uploaded by the user and returns a promise resolving to
-// the parsed object, or rejects with a descriptive error.
 const readJsonFile = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      try {
-        resolve(JSON.parse(e.target.result))
-      } catch {
-        reject(new Error('File is not valid JSON.'))
-      }
+      try { resolve(JSON.parse(e.target.result)) }
+      catch { reject(new Error('File is not valid JSON.')) }
     }
     reader.onerror = () => reject(new Error('Could not read the file.'))
     reader.readAsText(file)
   })
 
-// ── deep merge helper ─────────────────────────────────────────────────────────
-// Merges imported JSON into existing form data so fields not present in the
-// imported file keep their current values (e.g. pre-filled from Nettskjema).
-/*
-const deepMerge = (base, incoming) => {
-  if (!incoming || typeof incoming !== 'object') return base
-  const result = { ...base }
-  for (const key of Object.keys(incoming)) {
-    const inVal = incoming[key]
-    const baseVal = base?.[key]
-    if (
-      inVal !== null &&
-      typeof inVal === 'object' &&
-      !Array.isArray(inVal) &&
-      typeof baseVal === 'object' &&
-      !Array.isArray(baseVal)
-    ) {
-      result[key] = deepMerge(baseVal, inVal)
-    } else if (inVal !== undefined && inVal !== null && inVal !== '') {
-      result[key] = inVal
-    }
-  }
-  return result
-}
-*/
 const deepMerge = (base, incoming) => incoming
 
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
@@ -71,50 +40,50 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return [val]
   }
 
-const normalizeDatesForForm = (data) => {
-  if (!data) return data
-  const d1 = data.dataset1
-  if (!d1) return data
-  return {
-    ...data,
-    dataset1: {
-      ...d1,
-      copyrightYear: d1.copyrightYear
-        ? (() => { const d = dayjs(d1.copyrightYear); return d.isValid() ? d : null })()
-        : null,
-      embargoDate: d1.embargoDate
-        ? (() => { const d = dayjs(d1.embargoDate); return d.isValid() ? d : null })()
-        : null,
+  const normalizeDatesForForm = (data) => {
+    if (!data) return data
+    const d1 = data.dataset1
+    if (!d1) return data
+    return {
+      ...data,
+      dataset1: {
+        ...d1,
+        copyrightYear: d1.copyrightYear
+          ? (() => { const d = dayjs(d1.copyrightYear); return d.isValid() ? d : null })()
+          : null,
+        embargoDate: d1.embargoDate
+          ? (() => { const d = dayjs(d1.embargoDate); return d.isValid() ? d : null })()
+          : null,
+      }
     }
   }
-}
-  
+
   const initialValues = {
     datasetVersionId: skjemaInfo?.datasetVersionId || '',
     contactperson: {
       firstName: skjemaInfo?.nettskjemaInfo?.contactFirstName || '',
-      familyName: skjemaInfo?.nettskjemaInfo?.contactSurname || '',
-      email:      skjemaInfo?.nettskjemaInfo?.contactEmail || '',
+      familyName: skjemaInfo?.nettskjemaInfo?.contactSurname  || '',
+      email:      skjemaInfo?.nettskjemaInfo?.contactEmail    || '',
     },
     custodian: {
-      firstName:   skjemaInfo?.nettskjemaInfo?.custodionaFirstName || '',
-      familyName:  skjemaInfo?.nettskjemaInfo?.custodianSurname || '',
-      email:       skjemaInfo?.nettskjemaInfo?.custodianEmail || '',
-      orcid:       skjemaInfo?.nettskjemaInfo?.custodianORCID || '',
+      firstName:   skjemaInfo?.nettskjemaInfo?.custodionaFirstName  || '',
+      familyName:  skjemaInfo?.nettskjemaInfo?.custodianSurname     || '',
+      email:       skjemaInfo?.nettskjemaInfo?.custodianEmail       || '',
+      orcid:       skjemaInfo?.nettskjemaInfo?.custodianORCID       || '',
       institution: skjemaInfo?.nettskjemaInfo?.custodianInstitution || '',
     },
     groupLeader: {
-      name:  skjemaInfo?.nettskjemaInfo?.GroupLeaderName || '',
+      name:  skjemaInfo?.nettskjemaInfo?.GroupLeaderName  || '',
       orcid: skjemaInfo?.nettskjemaInfo?.GroupLeaderOrcid || '',
     },
     dataset1: {
-      dataTitle:         skjemaInfo?.nettskjemaInfo?.dataTitle || '',
-      briefSummary:      skjemaInfo?.nettskjemaInfo?.briefSummary || '',
-      embargo:           skjemaInfo?.nettskjemaInfo?.embargo || false,
+      dataTitle:         skjemaInfo?.nettskjemaInfo?.dataTitle         || '',
+      briefSummary:      skjemaInfo?.nettskjemaInfo?.briefSummary      || '',
+      embargo:           skjemaInfo?.nettskjemaInfo?.embargo           || false,
       optionsData:       normalizeOptionsData(skjemaInfo?.nettskjemaInfo?.optionsData),
       dataStandart:      normalizeOptionsData(skjemaInfo?.nettskjemaInfo?.dataStandart),
       otherDataStandart: skjemaInfo?.nettskjemaInfo?.otherDataStandart || '',
-      embargoReview:     skjemaInfo?.nettskjemaInfo?.embargoReview || false,
+      embargoReview:     skjemaInfo?.nettskjemaInfo?.embargoReview     || false,
       submitJournalName: skjemaInfo?.nettskjemaInfo?.submitJournalName || '',
     },
     dataset2: {
@@ -123,17 +92,15 @@ const normalizeDatesForForm = (data) => {
     },
   }
 
-  const formDataRef = useRef({})
-  const [formData, setFormData]               = useState({})
-  const [form]                                = AntForm.useForm()
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [isModalVisible, setIsModalVisible]   = useState(false)
-
-  // ── JSON import state ─────────────────────────────────────────────────────
-  const [importModalVisible, setImportModalVisible] = useState(false)
-  const [importPreview, setImportPreview]           = useState(null)
-  const [importError, setImportError]               = useState('')
-  const [importFileName, setImportFileName]         = useState('')
+  const formDataRef                                     = useRef({})
+  const [formData, setFormData]                         = useState({})
+  const [form]                                          = AntForm.useForm()
+  const [currentStepIndex, setCurrentStepIndex]         = useState(0)
+  const [isModalVisible, setIsModalVisible]             = useState(false)
+  const [importModalVisible, setImportModalVisible]     = useState(false)
+  const [importPreview, setImportPreview]               = useState(null)
+  const [importError, setImportError]                   = useState('')
+  const [importFileName, setImportFileName]             = useState('')
 
   useEffect(() => {
     if (externalFormData && Object.keys(externalFormData).length > 0) {
@@ -158,49 +125,38 @@ const normalizeDatesForForm = (data) => {
     })
   }
 
-  // ── JSON import handlers ──────────────────────────────────────────────────
+  // ── JSON import ───────────────────────────────────────────────────────────
 
   const handleJsonUpload = async (file) => {
     setImportError('')
     setImportPreview(null)
     setImportFileName(file.name)
-
     try {
       const parsed = await readJsonFile(file)
-
-      // basic sanity check — must be an object with at least one known key
       const knownKeys = ['datasetVersionId', 'contactperson', 'custodian',
                          'dataset1', 'dataset2', 'funding', 'contribution',
                          'experiments', 'subjectMetadata']
-      const hasKnownKey = knownKeys.some(k => k in parsed)
-      if (!hasKnownKey) {
-        setImportError('This does not look like a Metadata Wizard JSON file. No recognised fields were found.')
+      if (!knownKeys.some(k => k in parsed)) {
+        setImportError('This does not look like a Metadata Wizard JSON file.')
         setImportModalVisible(true)
         return false
       }
-
       setImportPreview(parsed)
       setImportModalVisible(true)
     } catch (err) {
       setImportError(err.message)
       setImportModalVisible(true)
     }
-
-    return false  // prevent antd Upload from making an HTTP request
+    return false
   }
 
   const applyImportedJson = () => {
     if (!importPreview) return
-
-    // merge imported data on top of current form data so Nettskjema
-    // pre-fills are not wiped if the imported file lacks those fields
     const merged = deepMerge(formDataRef.current, importPreview)
-
     formDataRef.current = merged
     setFormData(merged)
     form.setFieldsValue(normalizeDatesForForm(merged))
     onFormDataChange?.(merged)
-
     setImportModalVisible(false)
     setImportPreview(null)
     setImportFileName('')
@@ -213,112 +169,147 @@ const normalizeDatesForForm = (data) => {
     setImportFileName('')
   }
 
-  // ── summary of what will be imported ─────────────────────────────────────
   const buildImportSummary = (parsed) => {
     if (!parsed) return []
     const lines = []
-
-    if (parsed.datasetVersionId)
-      lines.push(`Dataset version ID: ${parsed.datasetVersionId}`)
-    if (parsed.contactperson?.firstName)
-      lines.push(`Contact person: ${parsed.contactperson.firstName} ${parsed.contactperson.familyName}`)
-    if (parsed.custodian?.firstName)
-      lines.push(`Custodian: ${parsed.custodian.firstName} ${parsed.custodian.familyName}`)
-    if (parsed.dataset1?.dataTitle)
-      lines.push(`Dataset title: ${parsed.dataset1.dataTitle}`)
-    if (parsed.dataset1?.briefSummary)
-      lines.push(`Summary: ${parsed.dataset1.briefSummary.slice(0, 80)}${parsed.dataset1.briefSummary.length > 80 ? '…' : ''}`)
-    if (parsed.funding?.funders?.length)
-      lines.push(`Funders: ${parsed.funding.funders.length}`)
-    if (parsed.contribution?.authors?.length)
-      lines.push(`Authors: ${parsed.contribution.authors.length}`)
-    if (parsed.contribution?.contributor?.othercontr?.length)
-      lines.push(`Contributors: ${parsed.contribution.contributor.othercontr.length}`)
-    if (parsed.experiments?.experimentalApproach?.length)
-      lines.push(`Experimental approaches: ${parsed.experiments.experimentalApproach.length}`)
-
-    const subjects     = parsed.subjectMetadata?.subjects?.length || 0
-    const groups       = parsed.subjectMetadata?.subjectGroups?.length || 0
-    const tissues      = parsed.subjectMetadata?.tissueSamples?.length || 0
-    const collections  = parsed.subjectMetadata?.tissueCollections?.length || 0
-
+    if (parsed.datasetVersionId)                      lines.push(`Dataset version ID: ${parsed.datasetVersionId}`)
+    if (parsed.contactperson?.firstName)              lines.push(`Contact person: ${parsed.contactperson.firstName} ${parsed.contactperson.familyName}`)
+    if (parsed.custodian?.firstName)                  lines.push(`Custodian: ${parsed.custodian.firstName} ${parsed.custodian.familyName}`)
+    if (parsed.dataset1?.dataTitle)                   lines.push(`Dataset title: ${parsed.dataset1.dataTitle}`)
+    if (parsed.dataset1?.briefSummary)                lines.push(`Summary: ${parsed.dataset1.briefSummary.slice(0, 80)}${parsed.dataset1.briefSummary.length > 80 ? '…' : ''}`)
+    if (parsed.funding?.funders?.length)              lines.push(`Funders: ${parsed.funding.funders.length}`)
+    if (parsed.contribution?.authors?.length)         lines.push(`Authors: ${parsed.contribution.authors.length}`)
+    if (parsed.experiments?.experimentalApproach?.length) lines.push(`Experimental approaches: ${parsed.experiments.experimentalApproach.length}`)
+    const subjects    = parsed.subjectMetadata?.subjects?.length    || 0
+    const groups      = parsed.subjectMetadata?.subjectGroups?.length|| 0
+    const tissues     = parsed.subjectMetadata?.tissueSamples?.length|| 0
+    const collections = parsed.subjectMetadata?.tissueCollections?.length || 0
     if (subjects)    lines.push(`Subjects: ${subjects}`)
     if (groups)      lines.push(`Subject groups: ${groups}`)
     if (tissues)     lines.push(`Tissue samples: ${tissues}`)
     if (collections) lines.push(`Tissue collections: ${collections}`)
-
     return lines
   }
 
-  // ── subject step logic ────────────────────────────────────────────────────
+  // ── step definitions ──────────────────────────────────────────────────────
+  //
+  //  Index  Component        Visible when
+  //  ─────  ───────────────  ──────────────────────────────
+  //    0    Intro            always
+  //    1    Dataset1         always
+  //    2    Dataset2         always
+  //    3    Funding          always
+  //    4    Contributors     always
+  //    5    Experiments      always
+  //    6    Subjects         only when subjectschoice === 'Yes'
+  //    7    DataDescriptor   always (last step)
+
+  const steps = [
+    { id: 0, component: Intro          },
+    { id: 1, component: Dataset1       },
+    { id: 2, component: Dataset2       },
+    { id: 3, component: Funding        },
+    { id: 4, component: Contributors   },
+    { id: 5, component: Experiments    },
+    { id: 6, component: Subjects       },  // may be skipped
+    { id: 7, component: DataDescriptor },  // always last
+  ]
+
+  const SUBJECTS_INDEX      = 6
+  const DATA_DESCRIPTOR_INDEX = 7
+
   const subjectStepEnabled = formData?.experiments?.subjectschoice === 'Yes'
   const subjectStepVisible = formData?.experiments?.subjectschoice !== 'No'
 
-  const steps = [
-    { id: 0, component: Intro },
-    { id: 1, component: Dataset1 },
-    { id: 2, component: Dataset2 },
-    { id: 3, component: Funding },
-    { id: 4, component: Contributors },
-    { id: 5, component: Experiments },
-    { id: 6, component: DataDescriptor }, 
-    { id: 7, component: Subjects },
-  ]
+  // Last logical step is always DataDescriptor (index 7).
+  // When subjects are disabled we jump from 5 → 7 skipping 6.
+  const lastLogicalStepIndex = DATA_DESCRIPTOR_INDEX
 
-  //const lastLogicalStepIndex = subjectStepEnabled ? 6 : 5
-  const lastLogicalStepIndex = subjectStepEnabled ? 7 : 6
-
+  // If subjects get disabled while the user is on the Subjects step,
+  // jump forward to DataDescriptor.
   useEffect(() => {
-    if (!subjectStepEnabled && currentStepIndex > lastLogicalStepIndex) {
-      setCurrentStepIndex(lastLogicalStepIndex)
+    if (!subjectStepEnabled && currentStepIndex === SUBJECTS_INDEX) {
+      setCurrentStepIndex(DATA_DESCRIPTOR_INDEX)
     }
-  }, [subjectStepEnabled, currentStepIndex, lastLogicalStepIndex])
+  }, [subjectStepEnabled])
+
+  // ── navigation ────────────────────────────────────────────────────────────
 
   const nextStep = () => {
-    form.validateFields()
-      .then(() => {
-        completeCurrentStep()
-        setCurrentStepIndex((prev) =>
-          prev < lastLogicalStepIndex ? prev + 1 : prev
-        )
+    // DataDescriptor uses its own local form so we skip shared form validation
+    // on that step; all other steps validate the shared form.
+    const skipValidation = currentStepIndex === DATA_DESCRIPTOR_INDEX
+
+    const advance = () => {
+      completeCurrentStep()
+      setCurrentStepIndex((prev) => {
+        if (prev >= lastLogicalStepIndex) return prev
+        // skip Subjects if not enabled
+        const next = prev + 1
+        if (next === SUBJECTS_INDEX && !subjectStepEnabled) return next + 1
+        return next
       })
-      .catch(() => setIsModalVisible(true))
+    }
+
+    if (skipValidation) {
+      advance()
+    } else {
+      form.validateFields()
+        .then(advance)
+        .catch(() => setIsModalVisible(true))
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStepIndex <= 0) return
+    setCurrentStepIndex((prev) => {
+      const next = prev - 1
+      // skip Subjects when going back if not enabled
+      if (next === SUBJECTS_INDEX && !subjectStepEnabled) return next - 1
+      return next
+    })
+  }
+
+  // ── ProgressBar click navigation — also skip Subjects if disabled ─────────
+  const goToWizardStep = (clickedVisualIndex) => {
+    // The ProgressBar hides Subjects when not visible, so visual indices
+    // may not match logical indices. Rebuild the mapping here.
+    let logicalIndex = clickedVisualIndex
+    if (!subjectStepVisible && clickedVisualIndex >= SUBJECTS_INDEX) {
+      // every visual step at or after where Subjects would be is shifted by 1
+      logicalIndex = clickedVisualIndex + 1
+    }
+    setCurrentStepIndex(logicalIndex)
   }
 
   const handleCancel = () => setIsModalVisible(false)
   const handleOk     = () => setIsModalVisible(false)
 
-  const prevStep = () => {
-    if (currentStepIndex > 0) setCurrentStepIndex((prev) => prev - 1)
-  }
-
   const CurrentStep = steps[currentStepIndex].component
 
-  const initializeValidSteps = () => Array(steps.length).fill(false)
-  const [statuses, setStatuses] = useState(initializeValidSteps)
+  const [statuses, setStatuses] = useState(() => Array(steps.length).fill(false))
 
   const completeCurrentStep = () => {
     setStatuses((prev) => {
-      const newStatuses = [...prev]
-      newStatuses[currentStepIndex] = true
-      return newStatuses
+      const next = [...prev]
+      next[currentStepIndex] = true
+      return next
     })
   }
 
-  const goToWizardStep = (nextWizardStep) => setCurrentStepIndex(nextWizardStep)
+  // ── KG / drive helpers (unchanged) ───────────────────────────────────────
 
   const mapDataset1OptionsToIds = async (formData) => {
     try {
-      const res = await fetch('api/kginfo/datatypes')
-      if (!res.ok) throw new Error(`Error fetching data types: ${res.status}`)
+      const res   = await fetch('api/kginfo/datatypes')
+      if (!res.ok) throw new Error(`${res.status}`)
       const json  = await res.json()
       const types = json.dataTypes || []
       const labelToId = new Map(types.map((t) => [t.name.toLowerCase(), t.identifier]))
-      const labels = formData.dataset1?.optionsData || []
-      const mapped = labels.map((val) => {
-        if (typeof val !== 'string') return val
-        return labelToId.get(val.toLowerCase()) || val
-      })
+      const labels    = formData.dataset1?.optionsData || []
+      const mapped    = labels.map((val) =>
+        typeof val !== 'string' ? val : labelToId.get(val.toLowerCase()) || val
+      )
       return { ...formData, dataset1: { ...(formData.dataset1 || {}), optionsData: mapped } }
     } catch (e) {
       console.error('Error mapping dataset1.optionsData to KG ids:', e)
@@ -336,7 +327,7 @@ const normalizeDatesForForm = (data) => {
 
   const saveJsonToZammad = async (ticketId) => {
     try {
-      const response = await fetch('/api/zammad/save-json', {
+      return await fetch('/api/zammad/save-json', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -345,7 +336,6 @@ const normalizeDatesForForm = (data) => {
           datasetTitle: formDataRef.current?.dataset1?.dataTitle || 'dataset'
         })
       })
-      return response
     } catch (err) {
       console.error('Error saving to Zammad:', err)
       throw err
@@ -353,29 +343,26 @@ const normalizeDatesForForm = (data) => {
   }
 
   const savePythonKG = async () => {
-    const payload  = await mapDataset1OptionsToIds(formDataRef.current)
-    const response = await fetch('api/python/runpython', {
+    const payload = await mapDataset1OptionsToIds(formDataRef.current)
+    return fetch('api/python/runpython', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload, null, 2),
     })
-    return response
   }
 
   const saveJsonToDrive = async () => {
-    const payload  = await mapDataset1OptionsToIds(formDataRef.current)
-    const response = await fetch('api/drive/driveupload', {
+    const payload = await mapDataset1OptionsToIds(formDataRef.current)
+    return fetch('api/drive/driveupload', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload, null, 2),
     })
-    return response
   }
 
   const downloadJson = async () => {
     const payload = await mapDataset1OptionsToIds(formDataRef.current)
-    const json    = JSON.stringify(payload, null, 2)
-    const blob    = new Blob([json], { type: 'application/json' })
+    const blob    = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url     = URL.createObjectURL(blob)
     const a       = document.createElement('a')
     a.href = url; a.download = 'metadata_wizard.json'
@@ -395,74 +382,32 @@ const normalizeDatesForForm = (data) => {
         subjectStepVisible={subjectStepVisible}
       />
 
-      {/* ── JSON import button — visible on every step ── */}
-      {/*}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 16px 0' }}>
-        <Upload
-          accept=".json"
-          showUploadList={false}
-          beforeUpload={handleJsonUpload}
-        >
-          <Button
-            size="small"
-            icon={<FileTextOutlined />}
-            title="Import a previously downloaded Metadata Wizard JSON file to pre-fill the form"
-          >
-            Import JSON
-          </Button>
-        </Upload>
-      </div>
-       */}
-      
-      {/* ── JSON import / export toolbar — visible on every step ── */}
+      {/* ── JSON toolbar ────────────────────────────────────────────────── */}
       <div style={{
-        display:        'flex',
-        justifyContent: 'space-between',
-        alignItems:     'center',
-        padding:        '6px 16px 4px',
-        background:     '#f0f7ff',
-        border:         '1px solid #bae0ff',
-        borderRadius:   6,
-        margin:         '8px 16px 4px',
-        gap:            12,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '6px 16px 4px', background: '#f0f7ff',
+        border: '1px solid #bae0ff', borderRadius: 6, margin: '8px 16px 4px', gap: 12,
       }}>
-        {/* ── hint text ── */}
         <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
           💾 Want to save your progress and continue later?{' '}
           <strong>Download JSON</strong> to save your current form data,
           then use <strong>Import JSON</strong> next time to restore it instantly.
         </span>
-
-        {/* ── action buttons ── */}
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          {/* download current form data */}
-          <Button
-            size="small"
-            onClick={downloadJson}
-            title="Download your current form data as a JSON file to continue later"
-          >
+          <Button size="small" onClick={downloadJson}
+            title="Download your current form data as a JSON file to continue later">
             Download JSON
           </Button>
-
-          {/* import previously saved file */}
-          <Upload
-            accept=".json"
-            showUploadList={false}
-            beforeUpload={handleJsonUpload}
-          >
-            <Button
-              size="small"
-              icon={<FileTextOutlined />}
-              title="Import a previously downloaded Metadata Wizard JSON file to pre-fill the form"
-            >
+          <Upload accept=".json" showUploadList={false} beforeUpload={handleJsonUpload}>
+            <Button size="small" icon={<FileTextOutlined />}
+              title="Import a previously downloaded Metadata Wizard JSON file to pre-fill the form">
               Import JSON
             </Button>
           </Upload>
         </div>
       </div>
 
-
-      {/* ── JSON import preview modal ── */}
+      {/* ── Import preview modal ─────────────────────────────────────────── */}
       <Modal
         open={importModalVisible}
         title={
@@ -485,13 +430,9 @@ const normalizeDatesForForm = (data) => {
         {importError && (
           <Alert type="error" showIcon message={importError} style={{ marginBottom: 12 }} />
         )}
-
         {importPreview && (
           <>
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
+            <Alert type="info" showIcon style={{ marginBottom: 16 }}
               message="The following data was found in the file"
               description={
                 <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
@@ -501,25 +442,23 @@ const normalizeDatesForForm = (data) => {
                 </ul>
               }
             />
-            <Alert
-              type="warning"
-              showIcon
-              message="Existing form values will be overwritten by any matching fields from the imported file."
-              style={{ marginBottom: 4 }}
-            />
+            <Alert type="warning" showIcon style={{ marginBottom: 4 }}
+              message="Existing form values will be overwritten by any matching fields from the imported file." />
           </>
         )}
       </Modal>
 
+      {/* ── Current step ─────────────────────────────────────────────────── */}
       <CurrentStep form={form} onChange={handleInputChange} data={formData} />
 
+      {/* ── Navigation buttons ───────────────────────────────────────────── */}
       <div className="buttons-save-next-back">
         {currentStepIndex > 0 && (
           <Button onClick={prevStep} className="next-back-button">Back</Button>
         )}
-        <div className="spacer"></div>
+        <div className="spacer" />
 
-        {currentStepIndex < lastLogicalStepIndex && (
+        {!isLastLogicalStep && (
           <Button onClick={nextStep} className="next-back-button">Next</Button>
         )}
 
@@ -533,14 +472,9 @@ const normalizeDatesForForm = (data) => {
         )}
       </div>
 
-      <Modal
-        title="Warning"
-        open={isModalVisible}
-        onOk={handleOk}
-        onCancel={handleCancel}
-        okText="OK"
-        cancelText="Cancel"
-      >
+      {/* ── Validation warning modal ─────────────────────────────────────── */}
+      <Modal title="Warning" open={isModalVisible}
+        onOk={handleOk} onCancel={handleCancel} okText="OK" cancelText="Cancel">
         <p>Please fill in the required fields before proceeding.</p>
       </Modal>
     </ConfigProvider>
@@ -554,21 +488,15 @@ function Intro({ form, onChange, data }) {
       <div>
         <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
         <p>
-          Thank you for choosing EBRAINS to share your research data. In this
-          form, you can describe key aspects of your dataset so that other
-          researchers will be able to find, reuse and cite your work. While
-          filling out this form, please remember to consider all data related to
-          the dataset that you wish to publish on EBRAINS. Some fields might be
-          pre-filled from the curation request form that you had submitted
-          earlier. You can edit the fields or leave them unchanged and once you
-          complete the form, metadata describing your dataset will be curated
-          according to the{' '}
-          <a
-            href="https://openminds-documentation.readthedocs.io/en/latest/"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ margin: '0 5px' }}
-          >
+          Thank you for choosing EBRAINS to share your research data. In this form, you can
+          describe key aspects of your dataset so that other researchers will be able to find,
+          reuse and cite your work. While filling out this form, please remember to consider
+          all data related to the dataset that you wish to publish on EBRAINS. Some fields
+          might be pre-filled from the curation request form that you had submitted earlier.
+          You can edit the fields or leave them unchanged and once you complete the form,
+          metadata describing your dataset will be curated according to the{' '}
+          <a href="https://openminds-documentation.readthedocs.io/en/latest/"
+            target="_blank" rel="noopener noreferrer" style={{ margin: '0 5px' }}>
             openMINDS standard.
           </a>
         </p>

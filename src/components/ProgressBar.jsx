@@ -1,40 +1,29 @@
 import { useState } from 'react'
 import { Popover, Steps } from 'antd'
 
+// Step definitions — order matches the steps array in StepsWizard
 const BASE_STEP_NAMES = [
-  'Introduction',
-  'Dataset part 1',
-  'Dataset part 2',
-  'Funding',
-  'Contributors',
-  'Experiments',
-  'Data descriptor',
-  'Subjects',
+  'Introduction',    // 0
+  'Dataset part 1',  // 1
+  'Dataset part 2',  // 2
+  'Funding',         // 3
+  'Contributors',    // 4
+  'Experiments',     // 5
+  'Subjects',        // 6  — conditionally hidden
+  'Data descriptor', // 7  — always last
 ]
 
-// factory so we can pass the totalSteps dynamically
+const SUBJECTS_INDEX = 6
+
 const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
   let label
   switch (status) {
-    case 'process':
-      label = 'In progress'
-      break
-    case 'finish':
-      label = 'Completed'
-      break
-    case 'wait':
-    default:
-      label = 'Incomplete'
+    case 'process': label = 'In progress'; break
+    case 'finish':  label = 'Completed';   break
+    default:        label = 'Incomplete'
   }
-
   return (
-    <Popover
-      content={
-        <span>
-          Step {index + 1} of {totalSteps} - Status: {label}
-        </span>
-      }
-    >
+    <Popover content={<span>Step {index + 1} of {totalSteps} — {label}</span>}>
       {dot}
     </Popover>
   )
@@ -48,31 +37,26 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible }) => {
     onChanged(value)
   }
 
-  // how many steps are visible in the UI
-  const totalSteps = subjectStepVisible
-    ? BASE_STEP_NAMES.length          // 7
-    : BASE_STEP_NAMES.length - 1      // 6 (no Subjects)
-
+  // Build visible items — skip Subjects (index 6) when not needed
   const items = []
   for (let i = 0; i < BASE_STEP_NAMES.length; i++) {
-    // hide Subjects step if not visible
-    if (!subjectStepVisible && i === 6) continue
+    if (i === SUBJECTS_INDEX && !subjectStepVisible) continue
 
+    let thisStatus      = 'wait'
     let thisDescription = 'Incomplete'
-    let thisStatus = 'wait'
 
     if (status[i]) {
+      thisStatus      = 'finish'
       thisDescription = 'Completed'
-      thisStatus = 'finish'
     } else if (i === step) {
-      thisStatus = 'process'
+      thisStatus      = 'process'
       thisDescription = 'In progress'
     }
 
     items.push({
-      title: BASE_STEP_NAMES[i],
+      title:       BASE_STEP_NAMES[i],
       description: thisDescription,
-      status: thisStatus,
+      status:      thisStatus,
     })
   }
 
@@ -81,7 +65,7 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible }) => {
       <Steps
         current={step}
         onChange={onChange}
-        progressDot={makeCustomDot(totalSteps)}
+        progressDot={makeCustomDot(items.length)}
         items={items}
       />
     </div>
