@@ -88,50 +88,66 @@ function buildFundingText(fund) {
   }).filter(Boolean).join('.\n')
 }
 
-// ── build author list from contribution.authors ───────────────────────────
-// Each author entry is { selectedAuthor: KG_URL, isCustom, firstName, lastName }
-// We store { name, affiliation, affiliationNumbers } per author in dataDescriptor
-function buildAutoAuthors(data) {
-  const contribAuthors = data.contribution?.authors || []
-  const cust           = data.custodian || {}
-  const custName       = `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
+// ── resolve a single author entry to a display name ───────────────────────
+// personMap: Map of KG URL → full name (loaded from /api/kginfo/contributorsfile)
+function resolveAuthorName(entry, personMap) {
+  // custom author — name typed directly
+  if (entry.isCustom || (!entry.selectedAuthor && (entry.firstName || entry.lastName))) {
+    return `${entry.firstName || ''} ${entry.lastName || ''}`.trim()
+  }
+  // KG-selected author — look up name from Person.json via personMap
+  if (entry.selectedAuthor && personMap.size > 0) {
+    const name = personMap.get(entry.selectedAuthor)
+    if (name) return name
+  }
+  // fallback: bare UUID or empty
+  return entry.selectedAuthor
+    ? entry.selectedAuthor.split('/').pop()
+    : `${entry.firstName || ''} ${entry.lastName || ''}`.trim()
+}
 
-  if (!contribAuthors.length) {
-    // fallback: just custodian
-    if (custName) return [{ id: 'cust', name: custName, affiliation: cust.institution || '', affiliationNumbers: '1' }]
-    return []
+// ── build author rows including custodian ─────────────────────────────────
+function buildAutoAuthors(data, personMap) {
+  const cust         = data.custodian || {}
+  const custName     = `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
+  const contribList  = data.contribution?.authors || []
+
+  const rows = []
+
+  // always add custodian first (affiliation 1)
+  if (custName) {
+    rows.push({
+      id:                 'cust-0',
+      name:               custName,
+      affiliationNumbers: '1',
+    })
   }
 
-  return contribAuthors.map((a, i) => {
-    let name = ''
-    if (a.isCustom) {
-      name = `${a.firstName || ''} ${a.lastName || ''}`.trim()
-    } else if (a.selectedAuthor) {
-      // KG URL — use as placeholder; real name resolved at display time
-      // but we may have it stored in Person.json via the contributors step
-      name = `${a.firstName || ''} ${a.lastName || ''}`.trim()
-        || a.selectedAuthor.split('/').pop()
-    }
-    return {
-      id:                  a.id || `author-${i}`,
-      name:                name,
-      affiliation:         i === 0 ? (cust.institution || '') : '',
-      affiliationNumbers:  String(i + 1),
-    }
+  // add contributors, skip if same as custodian
+  contribList.forEach((a, i) => {
+    const name = resolveAuthorName(a, personMap)
+    if (!name) return
+    // skip duplicate of custodian
+    if (custName && name.toLowerCase() === custName.toLowerCase()) return
+    rows.push({
+      id:                 a.id || `contrib-${i}`,
+      name,
+      affiliationNumbers: '',
+    })
   })
+
+  return rows
 }
 
-// ── build affiliations list from authors (deduplicated) ───────────────────
+// ── build affiliation rows from custodian institution ─────────────────────
 function buildAutoAffiliations(data) {
-  const cust = data.custodian || {}
-  if (cust.institution) {
-    return [{ id: 'aff-1', number: '1', text: cust.institution }]
-  }
-  return []
+  const inst = data.custodian?.institution || ''
+  if (!inst) return []
+  return [{ id: 'aff-0', number: '1', text: inst }]
 }
 
-// ── compute simple scalar field values ────────────────────────────────────
-function computeScalarFields(data) {
+// ── compute scalar prefill values ─────────────────────────────────────────
+function computeFieldValues(data) {
   const d1   = data.dataset1        || {}
   const d2   = data.dataset2        || {}
   const cont = data.contactperson   || {}
@@ -140,60 +156,61 @@ function computeScalarFields(data) {
   const subj = data.subjectMetadata || {}
   const dd   = data.dataDescriptor  || {}
 
+  // saved user value always wins
   const pf = (saved, auto) => (saved !== undefined && saved !== '') ? saved : (auto || '')
 
-  const autoCorrespondingAuthor = (() => {
-    const name  = `${cont.firstName || ''} ${cont.familyName || ''}`.trim()
-    const email = cont.email || ''
-    return [name, email].filter(Boolean).join(': ')
-  })()
-
-  const autoDataType = (() => {
-    const vals = d1.optionsData || []
-    if (!vals.length) return ''
-    return vals
-      .map(v => typeof v === 'string' && v.startsWith('http') ? v.split('/').pop() : v)
-      .join(', ')
-  })()
-
-  const autoWhatAreTheData = (() => {
-    const summary = buildSubjectSummary(subj)
-    return summary ? `This dataset contains data from ${summary}.` : ''
-  })()
-
-  const autoSoftware = (() => {
-    const parts = []
-    if (exp.techniques?.length)
-      parts.push(`${exp.techniques.length} technique(s) selected in the Experiments step — please replace with specific tool names and versions.`)
-    if (exp.preparationTypes?.length)
-      parts.push(`Preparation type(s) selected in the Experiments step.`)
-    return parts.join(' ')
-  })()
-
-  const autoDataDescription = (() => {
-    const stds = (d1.dataStandart || []).filter(s => s !== "No, I didn't use a standard")
-    return stds.length ? `Data follows the ${stds.join(', ')} standard.` : ''
-  })()
+  // title always mirrors Dataset1 — never let a stale saved value override
+  const title = d1.dataTitle || ''
 
   return {
-    title:               pf(dd.title,               d1.dataTitle || ''),
-    correspondingAuthor: pf(dd.correspondingAuthor, autoCorrespondingAuthor),
-    dataType:            pf(dd.dataType,            autoDataType),
-    fieldOfStudy:        dd.fieldOfStudy            || '',
-    studyType:           dd.studyType               || '',
-    whatAreTheData:      pf(dd.whatAreTheData,      autoWhatAreTheData),
-    scientificContext:   dd.scientificContext        || '',
-    motivation:          dd.motivation              || '',
-    hypothesis:          dd.hypothesis              || '',
-    methods:             dd.methods                 || '',
-    software:            pf(dd.software,            autoSoftware),
-    dataDescription:     pf(dd.dataDescription,     autoDataDescription),
-    results:             dd.results                 || '',
-    dataRepository:      pf(dd.dataRepository,      d2.Data2UrlDoiRepo || d2.homePage || ''),
-    usageNotes:          dd.usageNotes              || '',
-    limitations:         dd.limitations             || '',
-    funding:             pf(dd.funding,             buildFundingText(fund)),
-    references:          dd.references              || '',
+    title,   // always from Dataset1, not from dd.title
+
+    correspondingAuthor: pf(dd.correspondingAuthor, (() => {
+      const name  = `${cont.firstName || ''} ${cont.familyName || ''}`.trim()
+      const email = cont.email || ''
+      return [name, email].filter(Boolean).join(': ')
+    })()),
+
+    dataType: pf(dd.dataType, (() => {
+      const vals = d1.optionsData || []
+      return vals.map(v =>
+        typeof v === 'string' && v.startsWith('http') ? v.split('/').pop() : v
+      ).join(', ')
+    })()),
+
+    fieldOfStudy:      dd.fieldOfStudy      || '',
+    studyType:         dd.studyType         || '',
+
+    whatAreTheData: pf(dd.whatAreTheData, (() => {
+      const s = buildSubjectSummary(subj)
+      return s ? `This dataset contains data from ${s}.` : ''
+    })()),
+
+    scientificContext: dd.scientificContext  || '',
+    motivation:        dd.motivation        || '',
+    hypothesis:        dd.hypothesis        || '',
+    methods:           dd.methods           || '',
+
+    software: pf(dd.software, (() => {
+      const parts = []
+      if (exp.techniques?.length)
+        parts.push(`${exp.techniques.length} technique(s) selected in the Experiments step — please replace with specific tool names and versions.`)
+      if (exp.preparationTypes?.length)
+        parts.push(`Preparation type(s) selected in the Experiments step.`)
+      return parts.join(' ')
+    })()),
+
+    dataDescription: pf(dd.dataDescription, (() => {
+      const stds = (d1.dataStandart || []).filter(s => s !== "No, I didn't use a standard")
+      return stds.length ? `Data follows the ${stds.join(', ')} standard.` : ''
+    })()),
+
+    results:        dd.results        || '',
+    dataRepository: pf(dd.dataRepository, d2.Data2UrlDoiRepo || d2.homePage || ''),
+    usageNotes:     dd.usageNotes     || '',
+    limitations:    dd.limitations    || '',
+    funding:        pf(dd.funding,    buildFundingText(fund)),
+    references:     dd.references     || '',
   }
 }
 
@@ -205,16 +222,15 @@ function computeAutoPopulated(data) {
   const fund = data.funding         || {}
   const subj = data.subjectMetadata || {}
   const dd   = data.dataDescriptor  || {}
-  const noUserVal = (key) => !dd[key] || dd[key] === ''
+  const no   = (k) => !dd[k] || dd[k] === ''
   return {
-    title:               noUserVal('title')               && !!d1.dataTitle,
-    correspondingAuthor: noUserVal('correspondingAuthor') && !!(cont.firstName || cont.email),
-    dataType:            noUserVal('dataType')            && !!(d1.optionsData?.length),
-    whatAreTheData:      noUserVal('whatAreTheData')      && !!buildSubjectSummary(subj),
-    software:            noUserVal('software')            && !!(exp.techniques?.length || exp.preparationTypes?.length),
-    dataDescription:     noUserVal('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
-    dataRepository:      noUserVal('dataRepository')      && !!(d2.Data2UrlDoiRepo || d2.homePage),
-    funding:             noUserVal('funding')             && !!buildFundingText(fund),
+    correspondingAuthor: no('correspondingAuthor') && !!(cont.firstName || cont.email),
+    dataType:            no('dataType')            && !!(d1.optionsData?.length),
+    whatAreTheData:      no('whatAreTheData')      && !!buildSubjectSummary(subj),
+    software:            no('software')            && !!(exp.techniques?.length || exp.preparationTypes?.length),
+    dataDescription:     no('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
+    dataRepository:      no('dataRepository')      && !!(d2.Data2UrlDoiRepo || d2.homePage),
+    funding:             no('funding')             && !!buildFundingText(fund),
   }
 }
 
@@ -222,64 +238,82 @@ function computeAutoPopulated(data) {
 
 export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
   const [localForm] = AntForm.useForm()
+  const dd = data.dataDescriptor || {}
+
+  // ── person map: KG URL → full name, loaded once ───────────────────────
+  const [personMap, setPersonMap] = useState(new Map())
+
+  useEffect(() => {
+    fetch('api/kginfo/contributorsfile')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(json => {
+        const persons = json.person || []
+        const map = new Map()
+        persons.forEach(p => {
+          if (!p.uuid) return
+          const name = `${p.givenName || ''} ${p.familyName || ''}`.trim()
+          if (!name) return
+          // Person.json uuid is stored as a full KG URL
+          map.set(p.uuid,                                                 name)
+          // also index by bare UUID in case selectedAuthor uses that form
+          map.set(p.uuid.split('/').pop(),                                name)
+          // also index with KG_PREFIX variant
+          map.set(`https://kg.ebrains.eu/api/instances/${p.uuid.split('/').pop()}`, name)
+        })
+        setPersonMap(map)
+      })
+      .catch(e => console.error('DataDescriptor: could not load persons', e))
+  }, []) // load once on mount
+
+  // ── local state for author / affiliation rows ─────────────────────────
+  const [authors,      setAuthors]      = useState(dd.authors           || [])
+  const [affiliations, setAffiliations] = useState(dd.affiliations_list || [])
+
   const [generating, setGenerating] = useState(false)
   const [generated,  setGenerated]  = useState(false)
   const [genError,   setGenError]   = useState('')
 
-  // ── authors: local state, pre-filled from contribution.authors ────────
-  const dd = data.dataDescriptor || {}
-  const [authors, setAuthors]           = useState(dd.authors           || buildAutoAuthors(data))
-  const [affiliations, setAffiliations] = useState(dd.affiliations_list || buildAutoAffiliations(data))
-
-  // ── sync scalar fields whenever source data changes ───────────────────
-  // This is the same pattern as Dataset1 — useEffect with specific deps.
+  // ── main sync effect — runs on mount and whenever data changes ────────
+  // Uses full `data` as dep (same pattern as Dataset2) so it always runs
+  // when navigating back to this step or after JSON import.
+  // Also re-runs when personMap loads (author names resolve after fetch).
   useEffect(() => {
-    localForm.setFieldsValue(computeScalarFields(data))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    data.dataset1?.dataTitle,
-    data.dataset1?.optionsData,
-    data.dataset1?.dataStandart,
-    data.contactperson?.firstName,
-    data.contactperson?.familyName,
-    data.contactperson?.email,
-    data.experiments?.techniques,
-    data.experiments?.preparationTypes,
-    data.subjectMetadata,
-    data.funding?.funders,
-    data.dataset2?.Data2UrlDoiRepo,
-    data.dataset2?.homePage,
-    data.dataDescriptor,
-  ])
+    // 1. scalar fields
+    const fieldVals = computeFieldValues(data)
+    localForm.setFieldsValue(fieldVals)
 
-  // ── sync authors/affiliations when contributors or custodian change ───
-  useEffect(() => {
-    const savedAuthors = data.dataDescriptor?.authors
-    if (!savedAuthors || savedAuthors.length === 0) {
-      // only auto-fill if user hasn't manually edited yet
-      const auto = buildAutoAuthors(data)
+    // 2. author rows
+    if (!dd.authors || dd.authors.length === 0) {
+      const auto = buildAutoAuthors(data, personMap)
       if (auto.length > 0) setAuthors(auto)
+    } else {
+      // re-resolve names in case personMap just loaded
+      const resolved = dd.authors.map(a => ({
+        ...a,
+        // only re-resolve if name looks like a UUID (bare or URL)
+        name: a.name && !a.name.includes('/') && a.name.length < 40
+          ? a.name
+          : (personMap.get(a.name) || a.name),
+      }))
+      setAuthors(resolved)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    data.contribution?.authors,
-    data.custodian?.firstName,
-    data.custodian?.familyName,
-    data.custodian?.institution,
-  ])
 
-  useEffect(() => {
-    const savedAffs = data.dataDescriptor?.affiliations_list
-    if (!savedAffs || savedAffs.length === 0) {
+    // 3. affiliation rows
+    if (!dd.affiliations_list || dd.affiliations_list.length === 0) {
       const auto = buildAutoAffiliations(data)
       if (auto.length > 0) setAffiliations(auto)
+    } else {
+      setAffiliations(dd.affiliations_list)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.custodian?.institution])
+  }, [data, personMap]) // re-run when personMap loads too
 
-  // ── emit changes upward (merges into formData → appears in JSON) ──────
+  const autoPopulated = computeAutoPopulated(data)
+
+  // ── emit all changes upward ───────────────────────────────────────────
   const emitAll = (newAuthors, newAffs, formVals) => {
-    const vals = formVals || localForm.getFieldsValue()
+    const vals = formVals !== undefined ? formVals : localForm.getFieldsValue()
+    // always override title with Dataset1 value so they stay in sync
+    vals.title = data.dataset1?.dataTitle || ''
     onChange({
       dataDescriptor: {
         ...vals,
@@ -297,54 +331,44 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
 
   // ── author handlers ───────────────────────────────────────────────────
   const addAuthor = () => {
-    const next = [...authors, { id: Date.now(), name: '', affiliation: '', affiliationNumbers: '' }]
-    setAuthors(next)
-    emitAll(next, affiliations, null)
+    const next = [...authors, { id: Date.now(), name: '', affiliationNumbers: '' }]
+    setAuthors(next); emitAll(next, affiliations)
   }
-
-  const removeAuthor = (idx) => {
-    const next = authors.filter((_, i) => i !== idx)
-    setAuthors(next)
-    emitAll(next, affiliations, null)
+  const removeAuthor = (i) => {
+    const next = authors.filter((_, idx) => idx !== i)
+    setAuthors(next); emitAll(next, affiliations)
   }
-
-  const updateAuthor = (idx, field, value) => {
-    const next = authors.map((a, i) => i === idx ? { ...a, [field]: value } : a)
-    setAuthors(next)
-    emitAll(next, affiliations, null)
+  const updateAuthor = (i, field, value) => {
+    const next = authors.map((a, idx) => idx === i ? { ...a, [field]: value } : a)
+    setAuthors(next); emitAll(next, affiliations)
   }
 
   // ── affiliation handlers ──────────────────────────────────────────────
   const addAffiliation = () => {
-    const num  = String(affiliations.length + 1)
-    const next = [...affiliations, { id: Date.now(), number: num, text: '' }]
-    setAffiliations(next)
-    emitAll(authors, next, null)
+    const next = [...affiliations, {
+      id:     Date.now(),
+      number: String(affiliations.length + 1),
+      text:   '',
+    }]
+    setAffiliations(next); emitAll(authors, next)
   }
-
-  const removeAffiliation = (idx) => {
-    const next = affiliations.filter((_, i) => i !== idx)
-    // renumber
-    const renumbered = next.map((a, i) => ({ ...a, number: String(i + 1) }))
-    setAffiliations(renumbered)
-    emitAll(authors, renumbered, null)
+  const removeAffiliation = (i) => {
+    const next = affiliations
+      .filter((_, idx) => idx !== i)
+      .map((a, idx) => ({ ...a, number: String(idx + 1) }))
+    setAffiliations(next); emitAll(authors, next)
   }
-
-  const updateAffiliation = (idx, field, value) => {
-    const next = affiliations.map((a, i) => i === idx ? { ...a, [field]: value } : a)
-    setAffiliations(next)
-    emitAll(authors, next, null)
+  const updateAffiliation = (i, value) => {
+    const next = affiliations.map((a, idx) => idx === i ? { ...a, text: value } : a)
+    setAffiliations(next); emitAll(authors, next)
   }
-
-  const autoPopulated = computeAutoPopulated(data)
 
   const handleGenerate = async () => {
     setGenError('')
     try {
       await localForm.validateFields([
-        'title', 'fieldOfStudy', 'whatAreTheData',
-        'scientificContext', 'motivation', 'hypothesis',
-        'methods', 'dataDescription', 'usageNotes',
+        'fieldOfStudy', 'whatAreTheData', 'scientificContext',
+        'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes',
       ])
     } catch {
       setGenError('Please fill in all required fields (marked with *) before generating.')
@@ -355,9 +379,10 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
       const ddData = localForm.getFieldsValue()
       await generateDataDescriptorDocx({
         ...ddData,
+        title:             data.dataset1?.dataTitle || ddData.title,
         authors,
         affiliations_list: affiliations,
-        fullData: data,
+        fullData:          data,
       })
       setGenerated(true)
     } catch (err) {
@@ -380,13 +405,16 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
     </AntForm.Item>
   )
 
-  // ── label style for author/affiliation rows ───────────────────────────
   const rowLabel = { fontSize: 11, color: '#888', marginBottom: 2 }
+  const title    = data.dataset1?.dataTitle || ''
+  const hasAutoAuthors = !dd.authors?.length &&
+    !!(data.custodian?.firstName || data.contribution?.authors?.length)
 
   return (
     <div>
       <p className="step-title">Data Descriptor</p>
 
+      {/* intro */}
       <div style={{
         background: '#f0faf4', border: '1px solid #b7ebce',
         borderRadius: 8, padding: '14px 18px', marginBottom: 24,
@@ -416,11 +444,30 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
         {/* ══ 1. Header ══════════════════════════════════════════════════ */}
         <SectionHeading number="1" title="Header information" />
 
-        <Q label="Dataset title" name="title"
-          hint="Use the same title as in Dataset part 1. Avoid acronyms and abbreviations."
-          required prefilled={autoPopulated.title}>
-          <Input />
-        </Q>
+        {/* title — read-only, always mirrors Dataset1 */}
+        <AntForm.Item
+          label={
+            <span>
+              Dataset title
+              <Tag color="green" style={{ fontSize: 10, padding: '0 5px', lineHeight: '16px', marginLeft: 6 }}>
+                from Dataset part 1
+              </Tag>
+            </span>
+          }
+          extra={<span style={EXTRA}>This title is set in Dataset part 1 and cannot be changed here.</span>}
+        >
+          <div style={{
+            padding:      '6px 11px',
+            background:   '#f5f5f5',
+            border:       '1px solid #d9d9d9',
+            borderRadius: 6,
+            color:        title ? '#1a1a1a' : '#bfbfbf',
+            fontSize:     14,
+            minHeight:    32,
+          }}>
+            {title || 'Not yet entered — please fill in Dataset part 1'}
+          </div>
+        </AntForm.Item>
 
         <Q label="Corresponding author / contact" name="correspondingAuthor"
           hint="Name and email of the person to contact regarding this dataset."
@@ -428,115 +475,81 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
           <Input placeholder="e.g. Jane Smith: jane.smith@university.edu" />
         </Q>
 
-        {/* ── Authors ─────────────────────────────────────────────────── */}
+        {/* ── Authors ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div style={{ marginBottom: 4 }}>
             <span style={{ fontWeight: 500, fontSize: 14 }}>
               Authors
-              {data.contribution?.authors?.length > 0 && <PrefilledBadge />}
+              {hasAutoAuthors && <PrefilledBadge />}
             </span>
           </div>
-          {data.contribution?.authors?.length > 0 && !data.dataDescriptor?.authors?.length && (
-            <PrefilledHint />
-          )}
+          {hasAutoAuthors && <PrefilledHint />}
           <span style={EXTRA}>
-            List all authors. Use the affiliation number(s) to link each author to their institution(s).
+            List all authors. Use the affiliation number(s) to link each author
+            to their institution(s) in the list below.
           </span>
 
-          {authors.map((author, idx) => (
+          {authors.map((author, i) => (
             <div key={author.id} style={{
-              border: '1px solid #e8e8e8', borderRadius: 6,
-              padding: '10px 14px', marginTop: 8, background: '#fafafa',
+              display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap',
+              marginTop: 8, border: '1px solid #e8e8e8', borderRadius: 6,
+              padding: '10px 12px', background: '#fafafa',
             }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-
-                {/* name */}
-                <div style={{ flex: '2 1 200px' }}>
-                  <div style={rowLabel}>Full name</div>
-                  <Input
-                    size="small"
-                    value={author.name}
-                    onChange={e => updateAuthor(idx, 'name', e.target.value)}
-                    placeholder="e.g. Jane Smith"
-                  />
-                </div>
-
-                {/* affiliation numbers */}
-                <div style={{ flex: '0 0 90px' }}>
-                  <div style={rowLabel}>Affil. no(s)</div>
-                  <Input
-                    size="small"
-                    value={author.affiliationNumbers}
-                    onChange={e => updateAuthor(idx, 'affiliationNumbers', e.target.value)}
-                    placeholder="1,2"
-                  />
-                </div>
-
-                {/* remove button */}
-                <Button
-                  size="small" type="text" danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => removeAuthor(idx)}
-                  style={{ flexShrink: 0 }}
-                />
+              <div style={{ flex: '2 1 200px' }}>
+                <div style={rowLabel}>Full name</div>
+                <Input size="small" value={author.name}
+                  onChange={e => updateAuthor(i, 'name', e.target.value)}
+                  placeholder="e.g. Jane Smith" />
               </div>
+              <div style={{ flex: '0 0 110px' }}>
+                <div style={rowLabel}>Affiliation no(s)</div>
+                <Input size="small" value={author.affiliationNumbers}
+                  onChange={e => updateAuthor(i, 'affiliationNumbers', e.target.value)}
+                  placeholder="e.g. 1,2" />
+              </div>
+              <Button size="small" type="text" danger icon={<DeleteOutlined />}
+                onClick={() => removeAuthor(i)} style={{ flexShrink: 0 }} />
             </div>
           ))}
 
-          <Button
-            type="dashed" size="small" icon={<PlusOutlined />}
-            onClick={addAuthor}
-            style={{ marginTop: 8, width: '30%' }}
-          >
+          <Button type="dashed" size="small" icon={<PlusOutlined />}
+            onClick={addAuthor} style={{ marginTop: 8, width: '30%' }}>
             Add author
           </Button>
         </div>
 
-        {/* ── Affiliations list ────────────────────────────────────────── */}
+        {/* ── Affiliations ─────────────────────────────────────────────── */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ marginBottom: 4 }}>
             <span style={{ fontWeight: 500, fontSize: 14 }}>
               Affiliations
-              {data.custodian?.institution && !data.dataDescriptor?.affiliations_list?.length && (
-                <PrefilledBadge />
-              )}
+              {data.custodian?.institution && !dd.affiliations_list?.length && <PrefilledBadge />}
             </span>
           </div>
-          {data.custodian?.institution && !data.dataDescriptor?.affiliations_list?.length && (
-            <PrefilledHint />
-          )}
+          {data.custodian?.institution && !dd.affiliations_list?.length && <PrefilledHint />}
           <span style={EXTRA}>
-            Number each affiliation. Authors reference these numbers in the field above.
+            Numbered list of institutions. Authors reference these numbers in the field above.
           </span>
 
-          {affiliations.map((aff, idx) => (
+          {affiliations.map((aff, i) => (
             <div key={aff.id} style={{
               display: 'flex', gap: 8, alignItems: 'center', marginTop: 8,
             }}>
-              <div style={{ flex: '0 0 32px', textAlign: 'center',
-                fontWeight: 700, color: 'var(--ebrains-color-medium)', fontSize: 13 }}>
-                {aff.number}.
-              </div>
-              <Input
-                size="small"
-                value={aff.text}
-                onChange={e => updateAffiliation(idx, 'text', e.target.value)}
+              <span style={{
+                fontWeight: 700, color: 'var(--ebrains-color-medium)',
+                fontSize: 13, width: 20, flexShrink: 0, textAlign: 'center',
+              }}>{aff.number}.</span>
+              <Input size="small" value={aff.text}
+                onChange={e => updateAffiliation(i, e.target.value)}
                 placeholder="Department, Institution, City, Country"
-                style={{ flex: 1 }}
-              />
-              <Button
-                size="small" type="text" danger
-                icon={<DeleteOutlined />}
-                onClick={() => removeAffiliation(idx)}
-              />
+                style={{ flex: 1 }} />
+              <Button size="small" type="text" danger icon={<DeleteOutlined />}
+                onClick={() => removeAffiliation(i)} />
             </div>
           ))}
 
-          <Button
-            type="dashed" size="small" icon={<PlusOutlined />}
-            onClick={addAffiliation}
-            style={{ marginTop: 8, width: '30%' }}
-          >
+          <Button type="dashed" size="small" icon={<PlusOutlined />}
+            onClick={addAffiliation} style={{ marginTop: 8, width: '30%' }}>
             Add affiliation
           </Button>
         </div>
@@ -598,7 +611,7 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
         <SectionHeading number="4" title="Methods" />
 
         <Q label="What methods were used to acquire the data?" name="methods"
-          hint="Describe the experimental setup, equipment, recording parameters, and preprocessing. Be specific — important for reproducibility."
+          hint="Describe the experimental setup, equipment, recording parameters, and preprocessing."
           required>
           <TextArea autoSize={{ minRows: 4, maxRows: 12 }}
             placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia…" />
@@ -615,14 +628,14 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
         <SectionHeading number="5" title="Data description" />
 
         <Q label="Describe the dataset structure and content" name="dataDescription"
-          hint="What files are included? What format? Did you follow a metadata standard (e.g. BIDS, NWB)? Folder structure?"
+          hint="What files are included? What format? Did you follow a metadata standard (e.g. BIDS, NWB)?"
           required prefilled={autoPopulated.dataDescription}>
           <TextArea autoSize={{ minRows: 4, maxRows: 10 }}
-            placeholder="The dataset contains spike-sorted activity (spike times) for all cells. Files are provided in NWB format…" />
+            placeholder="The dataset contains spike-sorted activity. Files are provided in NWB format…" />
         </Q>
 
         <Q label="What are the key results or findings?" name="results"
-          hint="Briefly summarise the main scientific findings. Published? If so, in which journal? (2–4 sentences)">
+          hint="Briefly summarise the main scientific findings. Published? In which journal? (2–4 sentences)">
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="Grid cells showed consistent theta-sweep modulation. Results published in Nature (2024, doi:…)." />
         </Q>
@@ -640,13 +653,13 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
           hint='Suggestions for use. e.g. "particularly suitable for precise spike-time analyses"'
           required>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="The data can be used to examine spatial-coding neural populations across behaviours and sleep states…" />
+            placeholder="The data can be used to examine spatial-coding neural populations…" />
         </Q>
 
         <Q label="Are there any limitations or important caveats?" name="limitations"
           hint='Warn about inappropriate uses. e.g. "data are from adult subjects, unsuitable for developmental studies"'>
           <TextArea autoSize={{ minRows: 2, maxRows: 5 }}
-            placeholder="Spike sorting was performed automatically. The dataset is limited to adult male rats…" />
+            placeholder="Spike sorting was performed automatically. Dataset limited to adult male rats…" />
         </Q>
 
         {/* ══ 7. Acknowledgements ════════════════════════════════════════ */}
