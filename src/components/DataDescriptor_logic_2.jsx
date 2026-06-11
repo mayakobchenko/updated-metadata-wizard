@@ -85,12 +85,12 @@ function buildFundingText(fund) {
     if (f.awardTitle  || f.customAwardTitle)  parts.push(f.awardTitle || f.customAwardTitle)
     if (f.grantId     || f.awardNumber)       parts.push(`grant no. ${f.grantId || f.awardNumber}`)
     return parts.filter(Boolean).join(', ')
-  }).filter(Boolean).join('.\n')
+  }).join('.\n')
 }
 
-// ── compute what each field should show ────────────────────────────────────
-// Priority: user's saved value (dd.xxx) > auto-generated from other steps > ''
-function computeFieldValues(data) {
+// ── pure function: compute prefill values from all wizard data ─────────────
+// User's saved value always wins over auto-generated value.
+function computePrefills(data) {
   const d1   = data.dataset1        || {}
   const d2   = data.dataset2        || {}
   const cont = data.contactperson   || {}
@@ -100,7 +100,7 @@ function computeFieldValues(data) {
   const subj = data.subjectMetadata || {}
   const dd   = data.dataDescriptor  || {}
 
-  const pf = (saved, auto) => (saved !== undefined && saved !== '') ? saved : (auto || '')
+  const pf = (saved, auto) => saved || auto || ''
 
   const autoTitle = d1.dataTitle || ''
 
@@ -110,12 +110,7 @@ function computeFieldValues(data) {
     return [name, email].filter(Boolean).join(': ')
   })()
 
-  const autoAffiliations = [
-    cust.institution,
-    cust.firstName || cust.familyName
-      ? `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
-      : null,
-  ].filter(Boolean).join(', ') || ''
+  const autoAffiliations = cust.institution || ''
 
   const autoDataType = (() => {
     const vals = d1.optionsData || []
@@ -127,7 +122,8 @@ function computeFieldValues(data) {
 
   const autoWhatAreTheData = (() => {
     const summary = buildSubjectSummary(subj)
-    return summary ? `This dataset contains data from ${summary}.` : ''
+    if (!summary) return ''
+    return `This dataset contains data from ${summary}.`
   })()
 
   const autoSoftware = (() => {
@@ -145,34 +141,34 @@ function computeFieldValues(data) {
     return stds.length ? `Data follows the ${stds.join(', ')} standard.` : ''
   })()
 
-  const autoFunding = buildFundingText(fund)
-  const autoRepo    = d2.Data2UrlDoiRepo || d2.homePage || ''
+  const autoFunding    = buildFundingText(fund)
+  const autoRepo       = d2.Data2UrlDoiRepo || d2.homePage || ''
 
   return {
     title:               pf(dd.title,               autoTitle),
     correspondingAuthor: pf(dd.correspondingAuthor, autoCorrespondingAuthor),
     affiliations:        pf(dd.affiliations,        autoAffiliations),
     dataType:            pf(dd.dataType,            autoDataType),
-    fieldOfStudy:        dd.fieldOfStudy            || '',
-    studyType:           dd.studyType               || '',
+    fieldOfStudy:        dd.fieldOfStudy  || '',
+    studyType:           dd.studyType     || '',
     whatAreTheData:      pf(dd.whatAreTheData,      autoWhatAreTheData),
-    scientificContext:   dd.scientificContext        || '',
-    motivation:          dd.motivation              || '',
-    hypothesis:          dd.hypothesis              || '',
-    methods:             dd.methods                 || '',
+    scientificContext:   dd.scientificContext || '',
+    motivation:          dd.motivation       || '',
+    hypothesis:          dd.hypothesis       || '',
+    methods:             dd.methods          || '',
     software:            pf(dd.software,            autoSoftware),
     dataDescription:     pf(dd.dataDescription,     autoDataDescription),
-    results:             dd.results                 || '',
+    results:             dd.results          || '',
     dataRepository:      pf(dd.dataRepository,      autoRepo),
-    usageNotes:          dd.usageNotes              || '',
-    limitations:         dd.limitations             || '',
+    usageNotes:          dd.usageNotes       || '',
+    limitations:         dd.limitations      || '',
     funding:             pf(dd.funding,             autoFunding),
-    references:          dd.references              || '',
+    references:          dd.references       || '',
   }
 }
 
-// ── badge detection: was this field auto-populated (no user value yet)? ───
-function computeAutoPopulated(data) {
+// ── which fields were auto-populated — drives badge display ───────────────
+function detectAutoPopulated(data) {
   const d1   = data.dataset1        || {}
   const d2   = data.dataset2        || {}
   const cont = data.contactperson   || {}
@@ -182,69 +178,44 @@ function computeAutoPopulated(data) {
   const subj = data.subjectMetadata || {}
   const dd   = data.dataDescriptor  || {}
 
-  const noUserVal = (key) => !dd[key] || dd[key] === ''
-
   return {
-    title:               noUserVal('title')               && !!d1.dataTitle,
-    correspondingAuthor: noUserVal('correspondingAuthor') && !!(cont.firstName || cont.email),
-    affiliations:        noUserVal('affiliations')        && !!cust.institution,
-    dataType:            noUserVal('dataType')            && !!(d1.optionsData?.length),
-    whatAreTheData:      noUserVal('whatAreTheData')      && !!buildSubjectSummary(subj),
-    software:            noUserVal('software')            && !!(exp.techniques?.length || exp.preparationTypes?.length),
-    dataDescription:     noUserVal('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
-    dataRepository:      noUserVal('dataRepository')      && !!(d2.Data2UrlDoiRepo || d2.homePage),
-    funding:             noUserVal('funding')             && !!buildFundingText(fund),
+    title:               !dd.title               && !!d1.dataTitle,
+    correspondingAuthor: !dd.correspondingAuthor  && !!(cont.firstName || cont.email),
+    affiliations:        !dd.affiliations         && !!cust.institution,
+    dataType:            !dd.dataType             && !!(d1.optionsData?.length),
+    whatAreTheData:      !dd.whatAreTheData       && !!buildSubjectSummary(subj),
+    software:            !dd.software             && !!(exp.techniques?.length || exp.preparationTypes?.length),
+    dataDescription:     !dd.dataDescription      && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
+    dataRepository:      !dd.dataRepository       && !!(d2.Data2UrlDoiRepo || d2.homePage),
+    funding:             !dd.funding              && !!buildFundingText(fund),
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
-  // ── own local form — isolated from shared wizard form resets ──────────
+export default function DataDescriptor({ onChange, data }) {
+
+  // ── THE FIX: own local form so StepsWizard resets never wipe our values ──
   const [localForm] = AntForm.useForm()
 
   const [generating, setGenerating] = useState(false)
   const [generated,  setGenerated]  = useState(false)
   const [genError,   setGenError]   = useState('')
 
-  // ── THE KEY SYNC PATTERN (same as Dataset1 / Introduction) ────────────
-  // On every render, recompute what the fields should show and push to form.
-  // This handles:
-  //   • first mount (fields get initial values)
-  //   • returning from another step (component remounts, values restored)
-  //   • changes in source data (title typed in Dataset1, funders added, etc.)
-  //   • JSON import (data.dataDescriptor changes)
-  // We use useEffect with the full data object so it reruns whenever
-  // any source data changes.
+  // Compute prefills and badge flags on every render.
+  // This is fast (pure computation) and avoids useMemo dependency array
+  // problems with arrays/objects that are new references on every render.
+  const prefills      = computePrefills(data)
+  const autoPopulated = detectAutoPopulated(data)
+
+  // ── sync form when external data changes (JSON import) ────────────────
+  // We do NOT call setFieldsValue on every render — only when
+  // data.dataDescriptor itself changes (i.e. a JSON was imported).
+  // For the initial mount, initialValues (below) handles it instead.
   useEffect(() => {
-    localForm.setFieldsValue(computeFieldValues(data))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    data.dataset1?.dataTitle,
-    data.dataset1?.optionsData,
-    data.dataset1?.dataStandart,
-    data.contactperson?.firstName,
-    data.contactperson?.familyName,
-    data.contactperson?.email,
-    data.custodian?.institution,
-    data.custodian?.firstName,
-    data.custodian?.familyName,
-    data.experiments?.techniques,
-    data.experiments?.preparationTypes,
-    data.subjectMetadata,
-    data.funding?.funders,
-    data.dataset2?.Data2UrlDoiRepo,
-    data.dataset2?.homePage,
-    data.dataDescriptor,  // also re-sync on JSON import
-  ])
+    localForm.setFieldsValue(computePrefills(data))
+  }, [data.dataDescriptor])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Compute badge flags on each render (cheap pure computation)
-  const autoPopulated = computeAutoPopulated(data)
-
-  // ── propagate user edits up to StepsWizard (writes into formData) ─────
-  // Same pattern as Funding: onChange({ dataDescriptor: { ...values } })
-  // StepsWizard's handleInputChange merges this into its formData state,
-  // which means data.dataDescriptor will be populated in the JSON export.
   const handleValuesChange = (_, allValues) => {
     onChange({ dataDescriptor: allValues })
     setGenerated(false)
@@ -320,10 +291,13 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
         </div>
       </div>
 
-      {/* local form — NOT the shared wizard form */}
+      {/* ── THE KEY: initialValues on a fresh local form always works ─── */}
+      {/* Unlike setFieldsValue in useEffect, initialValues is applied     */}
+      {/* synchronously when the form mounts — no timing race possible.    */}
       <AntForm
         form={localForm}
         layout="vertical"
+        initialValues={prefills}
         onValuesChange={handleValuesChange}
       >
 
@@ -402,7 +376,7 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
           name="hypothesis"
           hint="What did you set out to test or discover? One or two sentences." required>
           <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="We hypothesised that attention-like modulation of theta sweeps would be observable…" />
+            placeholder="We hypothesised that attention-like modulation of theta sweeps would be observable across the navigation circuit…" />
         </Q>
 
         {/* ══ 4. Methods ═════════════════════════════════════════════ */}
@@ -457,7 +431,7 @@ export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
         <Q label="Are there any limitations or important caveats?" name="limitations"
           hint='Warn about inappropriate uses. e.g. "data are from adult subjects, making it unsuitable for developmental studies"'>
           <TextArea autoSize={{ minRows: 2, maxRows: 5 }}
-            placeholder="Spike sorting was performed automatically. The dataset is limited to adult male rats…" />
+            placeholder="Spike sorting was performed automatically. The dataset is limited to adult male rats, which may not generalise to…" />
         </Q>
 
         {/* ══ 7. Acknowledgements ════════════════════════════════════ */}
