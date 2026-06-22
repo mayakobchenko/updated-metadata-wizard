@@ -24,7 +24,7 @@ const PrefilledHint = () => (
     display: 'flex', alignItems: 'center', gap: 6,
   }}>
     <InfoCircleOutlined style={{ flexShrink: 0 }} />
-    Pre-filled from your wizard answers — please review and expand.
+    Pre-filled from your wizard answers — please review and expand. Testing new rancher cluster.
   </div>
 )
 

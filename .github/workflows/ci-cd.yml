@@ -60,7 +60,7 @@ jobs:
 
       - name: Write kubeconfig (base64) for DEV
         env:
-          KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG }}
+          KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG_JSC }}
         run: |
           set -euo pipefail
           KUBE_DIR="${{ runner.temp }}/.kube"
