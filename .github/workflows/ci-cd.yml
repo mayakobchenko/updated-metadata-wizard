@@ -152,7 +152,7 @@ jobs:
 
       - name: Write kubeconfig (base64) for PROD
         env:
-          KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG }}
+          KUBECONFIG_B64: ${{ secrets.KUBE_CONFIG_JSC_PROD }}
         run: |
           set -euo pipefail
           KUBE_DIR="${{ runner.temp }}/.kube"

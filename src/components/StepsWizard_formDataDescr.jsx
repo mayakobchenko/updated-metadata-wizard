@@ -236,8 +236,10 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   // ── navigation ────────────────────────────────────────────────────────────
 
   const nextStep = () => {
-    // All steps, including DataDescriptor, now share the same form instance,
-    // so validateFields() here covers whichever step is currently mounted.
+    // DataDescriptor uses its own local form so we skip shared form validation
+    // on that step; all other steps validate the shared form.
+    const skipValidation = currentStepIndex === DATA_DESCRIPTOR_INDEX
+
     const advance = () => {
       completeCurrentStep()
       setCurrentStepIndex((prev) => {
@@ -249,9 +251,13 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       })
     }
 
-    form.validateFields()
-      .then(advance)
-      .catch(() => setIsModalVisible(true))
+    if (skipValidation) {
+      advance()
+    } else {
+      form.validateFields()
+        .then(advance)
+        .catch(() => setIsModalVisible(true))
+    }
   }
 
   const prevStep = () => {

@@ -236,7 +236,8 @@ function computeAutoPopulated(data) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DataDescriptor({ form, onChange, data }) {
+export default function DataDescriptor({ form: _sharedForm, onChange, data }) {
+  const [localForm] = AntForm.useForm()
   const dd = data.dataDescriptor || {}
 
   // ── person map: KG URL → full name, loaded once ───────────────────────
@@ -277,9 +278,9 @@ export default function DataDescriptor({ form, onChange, data }) {
   // when navigating back to this step or after JSON import.
   // Also re-runs when personMap loads (author names resolve after fetch).
   useEffect(() => {
-    // 1. scalar fields — written under the shared form's `dataDescriptor` namespace
+    // 1. scalar fields
     const fieldVals = computeFieldValues(data)
-    form.setFieldsValue({ dataDescriptor: fieldVals })
+    localForm.setFieldsValue(fieldVals)
 
     // 2. author rows
     if (!dd.authors || dd.authors.length === 0) {
@@ -310,9 +311,7 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   // ── emit all changes upward ───────────────────────────────────────────
   const emitAll = (newAuthors, newAffs, formVals) => {
-    const vals = formVals !== undefined
-      ? formVals
-      : (form.getFieldsValue().dataDescriptor || {})
+    const vals = formVals !== undefined ? formVals : localForm.getFieldsValue()
     // always override title with Dataset1 value so they stay in sync
     vals.title = data.dataset1?.dataTitle || ''
     onChange({
@@ -325,7 +324,7 @@ export default function DataDescriptor({ form, onChange, data }) {
   }
 
   const handleValuesChange = (_, allValues) => {
-    emitAll(authors, affiliations, allValues.dataDescriptor || {})
+    emitAll(authors, affiliations, allValues)
     setGenerated(false)
     setGenError('')
   }
@@ -366,19 +365,18 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   const handleGenerate = async () => {
     setGenError('')
-    const requiredFields = [
-      'fieldOfStudy', 'whatAreTheData', 'scientificContext',
-      'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes',
-    ]
     try {
-      await form.validateFields(requiredFields.map((f) => ['dataDescriptor', f]))
+      await localForm.validateFields([
+        'fieldOfStudy', 'whatAreTheData', 'scientificContext',
+        'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes',
+      ])
     } catch {
       setGenError('Please fill in all required fields (marked with *) before generating.')
       return
     }
     setGenerating(true)
     try {
-      const ddData = form.getFieldsValue().dataDescriptor || {}
+      const ddData = localForm.getFieldsValue()
       await generateDataDescriptorDocx({
         ...ddData,
         title:             data.dataset1?.dataTitle || ddData.title,
@@ -398,7 +396,7 @@ export default function DataDescriptor({ form, onChange, data }) {
   const Q = ({ label, name, hint, required, prefilled, children }) => (
     <AntForm.Item
       label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
-      name={['dataDescriptor', name]}
+      name={name}
       rules={required ? [{ required: true, message: `Please fill in "${label}".` }] : []}
       extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
     >
@@ -441,7 +439,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         </div>
       </div>
 
-      <AntForm form={form} layout="vertical" onValuesChange={handleValuesChange}>
+      <AntForm form={localForm} layout="vertical" onValuesChange={handleValuesChange}>
 
         {/* ══ 1. Header ══════════════════════════════════════════════════ */}
         <SectionHeading number="1" title="Header information" />
