@@ -4,15 +4,11 @@ import {
   WidthType, ShadingType, Table, TableRow, TableCell,
 } from 'docx'
 
-// `dd` here is the DataDescriptor step's own data (dd.authors and
-// dd.affiliations_list are already resolved to display names / numbered
-// institutions by DataDescriptor.jsx — this file must NOT recompute author
-// names from fullData.contribution.authors itself, since those only hold
-// raw KG URLs, not resolved names).
 export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   const d1   = fullData.dataset1      || {}
   const cust = fullData.custodian     || {}
   const cont = fullData.contactperson || {}
+  const contr= fullData.contribution  || {}
 
   // ── helpers ────────────────────────────────────────────────────────────────
   const h1 = (text) => new Paragraph({
@@ -82,40 +78,14 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     })]
   })
 
-  // ── authors / affiliations ───────────────────────────────────────────────
-  // Use the already-resolved lists built by DataDescriptor.jsx. Each author
-  // may reference one or more affiliation numbers (e.g. "1,2"), rendered as
-  // a superscript after their name — standard author-list convention.
-  const authorsList      = Array.isArray(dd.authors) ? dd.authors : []
-  const affiliationsList = Array.isArray(dd.affiliations_list) ? dd.affiliations_list : []
-  const custodianName    = `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
+  // ── author list ───────────────────────────────────────────────────────────
+  const authorNames = (contr.authors || []).map(a =>
+    a.selectedAuthor
+      ? a.selectedAuthor.split('/').pop()
+      : `${a.firstName || ''} ${a.lastName || ''}`.trim()
+  ).filter(Boolean)
 
-  const authorsParagraph = () => {
-    if (!authorsList.length) {
-      return custodianName ? bodyLines(custodianName) : []
-    }
-    const runs = []
-    authorsList.forEach((a, i) => {
-      if (i > 0) runs.push(new TextRun({ text: ', ', size: 22, font: 'Arial' }))
-      runs.push(new TextRun({ text: a.name || '', size: 22, font: 'Arial' }))
-      if (a.affiliationNumbers) {
-        runs.push(new TextRun({
-          text: a.affiliationNumbers, size: 16, font: 'Arial', superScript: true
-        }))
-      }
-    })
-    return [new Paragraph({ spacing: { after: 160 }, children: runs })]
-  }
-
-  const affiliationsParagraphs = () => {
-    if (affiliationsList.length) {
-      return affiliationsList.map((aff) => new Paragraph({
-        spacing: { after: 60 },
-        children: [new TextRun({ text: `${aff.number}. ${aff.text || ''}`, size: 22, font: 'Arial' })]
-      }))
-    }
-    return cust.institution ? bodyLines(cust.institution) : []
-  }
+  const custodianName = `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
 
   // ── section: question + answer helper ────────────────────────────────────
   const QA = (question, answer) => {
@@ -139,16 +109,16 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   push(divider())
 
   // AUTHORS
-  if (authorsList.length || custodianName) {
+  if (authorNames.length || custodianName) {
     push(h1('Authors'))
-    push(...authorsParagraph())
+    push(...bodyLines(authorNames.join(', ') || custodianName))
     push(divider())
   }
 
   // AFFILIATIONS
-  if (affiliationsList.length || cust.institution) {
+  if (dd.affiliations || cust.institution) {
     push(h1('Affiliations'))
-    push(...affiliationsParagraphs())
+    push(...bodyLines(dd.affiliations || cust.institution))
     push(divider())
   }
 
@@ -159,41 +129,42 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     push(divider())
   }
 
-  // DATASET IDENTITY — matches "2. Dataset identity" in the form
-  push(h1('Dataset Identity'))
+  // DATA DESCRIPTION
+  push(h1('Data Description'))
   push(...QA('What type of data do you share?', dd.dataType))
-  push(...QA('Field of study', dd.fieldOfStudy))
-  push(...QA('Type of study', dd.studyType))
-  push(...QA('What are the data?', dd.whatAreTheData))
+  push(...QA('What is the primary objective of your investigation?', dd.objective))
+  push(...QA('How were the data created? What methods and materials were used?', dd.methodsDescription))
+  push(...QA('What are the key findings / results?', dd.keyResults))
+  push(...QA('What is the key contribution of your data to the field?', dd.dataContribution))
+  if (dd.conclusions)        push(...QA('What conclusions can be drawn from your data?', dd.conclusions))
+  if (dd.limitations)        push(...QA('Were there any limitations in your study?', dd.limitations))
+  if (dd.futureImplications) push(...QA('What are the future implications and potential reuses?', dd.futureImplications))
   push(divider())
 
-  // SCIENTIFIC CONTEXT — matches "3. Scientific context" in the form
-  push(h1('Scientific Context'))
-  push(...QA('What is the scientific background and context?', dd.scientificContext))
-  push(...QA('What was the motivation for creating and sharing this dataset?', dd.motivation))
-  push(...QA('What was the central hypothesis or research question?', dd.hypothesis))
-  push(divider())
-
-  // MATERIALS AND METHODS — matches "4. Methods" in the form
+  // MATERIALS AND METHODS
   push(h1('Materials and Methods'))
-  push(...QA('What methods were used to acquire the data?', dd.methods))
-  push(...QA('What software and analysis tools were used?', dd.software))
+  push(...QA('What materials / specimens were used to generate the data?', dd.materialsSpecimens))
+  push(...QA('What acquisition techniques were employed?', dd.acquisitionTechniques))
+  push(...QA('What tools and workflows were utilised?', dd.tools))
+  if (dd.anatomicalEntity) push(...QA('What anatomical entity was examined?', dd.anatomicalEntity))
+  if (dd.previousWork)     push(...QA('Previous work and published methods', dd.previousWork))
   push(divider())
 
-  // DATA RECORDS — matches "5. Data description" in the form
+  // USAGE NOTES
+  push(h1('Usage Notes'))
+  push(...QA('Recommended use cases', dd.usageNotes))
+  if (dd.usageLimitations) push(...QA('How should the data NOT be used?', dd.usageLimitations))
+  if (dd.code)             push(...QA('Complementary code / software', dd.code))
+  push(divider())
+
+  // DATA RECORDS
   push(h1('Data Records'))
-  push(...QA('Describe the dataset structure and content', dd.dataDescription))
-  push(...QA('What are the key results or findings?', dd.results))
   if (dd.dataRepository) {
     push(h2('Repository'))
     push(...bodyLines(dd.dataRepository))
   }
-  push(divider())
-
-  // USAGE NOTES — matches "6. Usage and reuse" in the form
-  push(h1('Usage Notes'))
-  push(...QA('What can this dataset be used for?', dd.usageNotes))
-  push(...QA('Are there any limitations or important caveats?', dd.limitations))
+  push(...QA('Dataset file structure', dd.dataRecordsLayout))
+  if (dd.fileFormats) push(...QA('File formats', dd.fileFormats))
   push(divider())
 
   // ACKNOWLEDGEMENTS
