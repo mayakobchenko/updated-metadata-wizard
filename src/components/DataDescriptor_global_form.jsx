@@ -44,25 +44,6 @@ const SectionHeading = ({ number, title }) => (
   </div>
 )
 
-// Field wrapper for the dataDescriptor namespace.
-// IMPORTANT: this must stay at module scope, not be redefined inside
-// DataDescriptor() on every render. A component defined inside another
-// component's body gets a brand-new function identity every render, which
-// makes React treat it as a different component type and remount the
-// underlying <input>/<textarea> on every keystroke — causing focus loss
-// after a single character typed.
-const Q = ({ label, name, hint, required, prefilled, children }) => (
-  <AntForm.Item
-    label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
-    name={['dataDescriptor', name]}
-    rules={required ? [{ required: true, message: `Please fill in "${label}".` }] : []}
-    extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
-  >
-    {prefilled && <PrefilledHint />}
-    {children}
-  </AntForm.Item>
-)
-
 const FIELDS_OF_STUDY = [
   'Neuroimaging', 'Electrophysiology', 'Anatomy / Neuroanatomy',
   'Behavioural neuroscience', 'Computational neuroscience',
@@ -413,6 +394,18 @@ export default function DataDescriptor({ form, onChange, data }) {
       setGenerating(false)
     }
   }
+
+  const Q = ({ label, name, hint, required, prefilled, children }) => (
+    <AntForm.Item
+      label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
+      name={['dataDescriptor', name]}
+      rules={required ? [{ required: true, message: `Please fill in "${label}".` }] : []}
+      extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
+    >
+      {prefilled && <PrefilledHint />}
+      {children}
+    </AntForm.Item>
+  )
 
   const rowLabel = { fontSize: 11, color: '#888', marginBottom: 2 }
   const title    = data.dataset1?.dataTitle || ''
