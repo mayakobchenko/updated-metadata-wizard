@@ -8,8 +8,8 @@ import {
 // static asset from /public, fetched at generation time and embedded as an
 // ImageRun (docx needs raw image bytes, not a URL).
 const LOGO_URL = '/logo.png'
-const LOGO_WIDTH  = 132
-const LOGO_HEIGHT = 31 // matches the ~380x90 source aspect ratio
+const LOGO_WIDTH  = 80
+const LOGO_HEIGHT = 34 // matches the 127x54 source aspect ratio
 
 async function fetchLogoBytes() {
   try {
@@ -35,20 +35,37 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   const version = dd.version || '1'
 
   // ── text style helpers, matching the official EBRAINS Data Descriptor
-  // template: bold ALL CAPS section headers (Acknowledgements is the one
-  // exception — the template keeps that one in title case), plain body
-  // text, no colored banners or divider rules.
+  // template: Calibri throughout (the template's actual docDefaults font),
+  // bold ALL CAPS section headers (Acknowledgements is the one exception —
+  // the template keeps that one in title case), plain body text.
+  const mainHeading = (text) => new Paragraph({
+    spacing: { before: 0, after: 200 },
+    children: [new TextRun({
+      text: text.toUpperCase(),
+      bold: true, size: 32, font: 'Calibri', color: '000000', // 16pt
+    })]
+  })
+
   const sectionHeading = (text, { allCaps = true } = {}) => new Paragraph({
     spacing: { before: 320, after: 120 },
     children: [new TextRun({
       text: allCaps ? text.toUpperCase() : text,
-      bold: true, size: 24, font: 'Arial', color: '000000',
+      bold: true, size: 24, font: 'Calibri', color: '000000', // 12pt
+    })]
+  })
+
+  // The dataset title itself — Bold, Calibri, 20pt, distinct from (and
+  // larger than) every other heading in the document.
+  const titleText = (text) => new Paragraph({
+    spacing: { after: 160 },
+    children: [new TextRun({
+      text, bold: true, size: 40, font: 'Calibri', color: '000000', // 20pt
     })]
   })
 
   const subLabel = (text) => new Paragraph({
     spacing: { before: 120, after: 40 },
-    children: [new TextRun({ text, bold: true, size: 22, font: 'Arial' })]
+    children: [new TextRun({ text, bold: true, size: 22, font: 'Calibri' })]
   })
 
   const bodyLines = (text) => {
@@ -56,7 +73,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     return text.split('\n').filter((l) => l.trim() !== '').map((line) =>
       new Paragraph({
         spacing: { after: 160 },
-        children: [new TextRun({ text: line, size: 22, font: 'Arial' })]
+        children: [new TextRun({ text: line, size: 22, font: 'Calibri' })]
       })
     )
   }
@@ -77,11 +94,11 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     }
     const runs = []
     authorsList.forEach((a, i) => {
-      if (i > 0) runs.push(new TextRun({ text: ', ', size: 22, font: 'Arial' }))
-      runs.push(new TextRun({ text: a.name || '', size: 22, font: 'Arial' }))
+      if (i > 0) runs.push(new TextRun({ text: ', ', size: 22, font: 'Calibri' }))
+      runs.push(new TextRun({ text: a.name || '', size: 22, font: 'Calibri' }))
       if (a.affiliationNumbers) {
         runs.push(new TextRun({
-          text: a.affiliationNumbers, size: 16, font: 'Arial', superScript: true
+          text: a.affiliationNumbers, size: 16, font: 'Calibri', superScript: true
         }))
       }
     })
@@ -92,7 +109,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     if (affiliationsList.length) {
       return affiliationsList.map((aff) => new Paragraph({
         spacing: { after: 40 },
-        children: [new TextRun({ text: `${aff.number}. ${aff.text || ''}`, size: 22, font: 'Arial' })]
+        children: [new TextRun({ text: `${aff.number}. ${aff.text || ''}`, size: 22, font: 'Calibri' })]
       }))
     }
     return cust.institution ? bodyLines(cust.institution) : []
@@ -104,7 +121,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     return value.split(/\n|;/).map((s) => s.trim()).filter(Boolean).map((line) =>
       new Paragraph({
         spacing: { after: 40 },
-        children: [new TextRun({ text: line, size: 22, font: 'Arial' })]
+        children: [new TextRun({ text: line, size: 22, font: 'Calibri' })]
       })
     )
   }
@@ -113,11 +130,11 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   const children = []
   const push = (...items) => items.flat().filter(Boolean).forEach((i) => children.push(i))
 
-  push(sectionHeading('Data Descriptor'))
+  push(mainHeading('Data Descriptor'))
   push(spacer(160))
 
   push(sectionHeading('Title'))
-  push(...bodyLines(title))
+  push(titleText(title))
 
   if (authorsList.length || custodianName) {
     push(sectionHeading('Authors'))
@@ -220,7 +237,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
           transformation: { width: LOGO_WIDTH, height: LOGO_HEIGHT },
         })],
       })
-    : new Paragraph({ children: [new TextRun({ text: 'EBRAINS', bold: true, size: 20, font: 'Arial' })], alignment: AlignmentType.RIGHT })
+    : new Paragraph({ children: [new TextRun({ text: 'EBRAINS', bold: true, size: 20, font: 'Calibri' })], alignment: AlignmentType.RIGHT })
 
   const headerTable = new Table({
     width: { size: 9360, type: WidthType.DXA },
@@ -240,8 +257,8 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
           },
           children: [new Paragraph({
             children: [
-              new TextRun({ text: `Title: '${title}'`, italics: true, size: 18, font: 'Arial', color: '444444' }),
-              new TextRun({ text: `  |  version: ${version}`, size: 18, font: 'Arial', color: '444444' }),
+              new TextRun({ text: `Title: '${title}'`, italics: true, size: 18, font: 'Calibri', color: '444444' }),
+              new TextRun({ text: `  |  version: ${version}`, size: 18, font: 'Calibri', color: '444444' }),
             ]
           })],
         }),
@@ -263,11 +280,11 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     title,
     description: 'Generated by the EBRAINS Metadata Wizard',
     styles: {
-      default: { document: { run: { font: 'Arial', size: 22 } } },
+      default: { document: { run: { font: 'Calibri', size: 22 } } },
       paragraphStyles: [
         {
           id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run:       { size: 24, bold: true, font: 'Arial', color: '000000' },
+          run:       { size: 24, bold: true, font: 'Calibri', color: '000000' },
           paragraph: { spacing: { before: 320, after: 120 }, outlineLevel: 0 }
         },
       ]
@@ -286,7 +303,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
         default: new Footer({
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, font: 'Arial', color: '444444' })]
+            children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, font: 'Calibri', color: '444444' })]
           })]
         })
       },
