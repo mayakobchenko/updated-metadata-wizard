@@ -148,14 +148,16 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     push(...correspondingAuthorsParagraphs())
   }
 
-  // SUMMARY — a single flowing narrative, combining the dataset-identity and
-  // scientific-context answers, matching the template's SUMMARY paragraph
-  // rather than presenting each wizard question separately.
-  const summaryParts = [dd.whatAreTheData, dd.scientificContext, dd.motivation, dd.hypothesis]
-    .filter(Boolean)
-  if (summaryParts.length) {
+  // SUMMARY — prefers the dedicated `summary` field (written by hand, or
+  // drafted via the "Generate with AI" button in the wizard). Falls back to
+  // a raw concatenation of the underlying answers for older saved data that
+  // predates the dedicated field.
+  const summaryFallback = [dd.whatAreTheData, dd.scientificContext, dd.motivation, dd.hypothesis]
+    .filter(Boolean).join(' ')
+  const summaryText = dd.summary || summaryFallback
+  if (summaryText) {
     push(sectionHeading('Summary'))
-    push(...bodyLines(summaryParts.join(' ')))
+    push(...bodyLines(summaryText))
   }
 
   push(sectionHeading('Version specifications:'))

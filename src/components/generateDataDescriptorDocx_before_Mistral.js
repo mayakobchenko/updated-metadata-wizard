@@ -8,8 +8,8 @@ import {
 // static asset from /public, fetched at generation time and embedded as an
 // ImageRun (docx needs raw image bytes, not a URL).
 const LOGO_URL = '/logo.png'
-const LOGO_WIDTH  = 80
-const LOGO_HEIGHT = 34 // matches the 127x54 source aspect ratio
+const LOGO_WIDTH  = 150
+const LOGO_HEIGHT = 64 // matches the 127x54 source aspect ratio
 
 async function fetchLogoBytes() {
   try {
@@ -34,32 +34,27 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   const title   = dd.title || d1.dataTitle || 'Untitled Dataset'
   const version = dd.version || '1'
 
-  // ── text style helpers, matching the official EBRAINS Data Descriptor
-  // template: Calibri throughout (the template's actual docDefaults font),
-  // bold ALL CAPS section headers (Acknowledgements is the one exception —
-  // the template keeps that one in title case), plain body text.
+  // ── text style helpers ───────────────────────────────────────────────────
+  // Sizes below are taken directly from the template's styles.xml (w:sz is
+  // in half-points): Normal = 22 (11pt), Heading 2 / Heading 3 = 22 (11pt,
+  // bold inherited from Heading 1). The one deliberate deviation from the
+  // template is DATA DESCRIPTOR, set to 20pt per explicit request (the
+  // template's own Heading 1 is 14pt).
   const mainHeading = (text) => new Paragraph({
     spacing: { before: 0, after: 200 },
     children: [new TextRun({
       text: text.toUpperCase(),
-      bold: true, size: 32, font: 'Calibri', color: '000000', // 16pt
+      bold: true, size: 40, font: 'Calibri', color: '000000', // 20pt
     })]
   })
 
+  // Section labels (TITLE, AUTHORS, AFFILIATIONS, SUMMARY, etc.) — bold,
+  // 11pt, matching the template's Heading 2 / Heading 3 styles exactly.
   const sectionHeading = (text, { allCaps = true } = {}) => new Paragraph({
     spacing: { before: 320, after: 120 },
     children: [new TextRun({
       text: allCaps ? text.toUpperCase() : text,
-      bold: true, size: 24, font: 'Calibri', color: '000000', // 12pt
-    })]
-  })
-
-  // The dataset title itself — Bold, Calibri, 20pt, distinct from (and
-  // larger than) every other heading in the document.
-  const titleText = (text) => new Paragraph({
-    spacing: { after: 160 },
-    children: [new TextRun({
-      text, bold: true, size: 40, font: 'Calibri', color: '000000', // 20pt
+      bold: true, size: 22, font: 'Calibri', color: '000000', // 11pt
     })]
   })
 
@@ -68,6 +63,8 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     children: [new TextRun({ text, bold: true, size: 22, font: 'Calibri' })]
   })
 
+  // Body text, and the dataset title itself — plain Calibri 11pt, matching
+  // the template's Normal / "1) Body Text HBP" style (not bold, not enlarged).
   const bodyLines = (text) => {
     if (!text) return []
     return text.split('\n').filter((l) => l.trim() !== '').map((line) =>
@@ -134,7 +131,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   push(spacer(160))
 
   push(sectionHeading('Title'))
-  push(titleText(title))
+  push(...bodyLines(title))
 
   if (authorsList.length || custodianName) {
     push(sectionHeading('Authors'))
@@ -233,15 +230,16 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     ? new Paragraph({
         alignment: AlignmentType.RIGHT,
         children: [new ImageRun({
+          type: 'png',
           data: logoBytes,
           transformation: { width: LOGO_WIDTH, height: LOGO_HEIGHT },
         })],
       })
-    : new Paragraph({ children: [new TextRun({ text: 'EBRAINS', bold: true, size: 20, font: 'Calibri' })], alignment: AlignmentType.RIGHT })
+    : new Paragraph({ children: [new TextRun({ text: 'EBRAINS', bold: true, size: 28, font: 'Calibri' })], alignment: AlignmentType.RIGHT })
 
   const headerTable = new Table({
     width: { size: 9360, type: WidthType.DXA },
-    columnWidths: [7000, 2360],
+    columnWidths: [6560, 2800],
     borders: {
       top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
       left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
@@ -250,20 +248,20 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     rows: [new TableRow({
       children: [
         new TableCell({
-          width: { size: 7000, type: WidthType.DXA },
+          width: { size: 6560, type: WidthType.DXA },
           borders: {
             top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
             left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
           },
           children: [new Paragraph({
             children: [
-              new TextRun({ text: `Title: '${title}'`, italics: true, size: 18, font: 'Calibri', color: '444444' }),
-              new TextRun({ text: `  |  version: ${version}`, size: 18, font: 'Calibri', color: '444444' }),
+              new TextRun({ text: `Title: '${title}'`, italics: true, size: 22, font: 'Calibri', color: '444444' }),
+              new TextRun({ text: `  |  version: ${version}`, size: 22, font: 'Calibri', color: '444444' }),
             ]
           })],
         }),
         new TableCell({
-          width: { size: 2360, type: WidthType.DXA },
+          width: { size: 2800, type: WidthType.DXA },
           borders: {
             top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
             left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
@@ -284,7 +282,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
       paragraphStyles: [
         {
           id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-          run:       { size: 24, bold: true, font: 'Calibri', color: '000000' },
+          run:       { size: 40, bold: true, font: 'Calibri', color: '000000' }, // 20pt
           paragraph: { spacing: { before: 320, after: 120 }, outlineLevel: 0 }
         },
       ]
