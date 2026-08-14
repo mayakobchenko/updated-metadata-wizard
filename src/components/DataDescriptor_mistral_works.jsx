@@ -107,17 +107,6 @@ function buildFundingText(fund) {
   }).filter(Boolean).join('.\n')
 }
 
-// ── detect a name that's still a KG reference, not a resolved display name ─
-// Matches either a full KG URL (contains "/") or a bare UUID left over from
-// resolveAuthorName's last-resort fallback (e.g. a contributor added before
-// personMap had loaded their record). Deliberately NOT based on string
-// length alone — a bare UUID is 36 characters with no slash, which a naive
-// "short, no slash" check would misclassify as an already-resolved name.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-function isUnresolvedReference(name) {
-  return !name || name.includes('/') || UUID_RE.test(name)
-}
-
 // ── resolve a single author entry to a display name ───────────────────────
 // personMap: Map of KG URL → full name (loaded from /api/kginfo/contributorsfile)
 function resolveAuthorName(entry, personMap) {
@@ -315,40 +304,36 @@ export default function DataDescriptor({ form, onChange, data }) {
     const fieldVals = computeFieldValues(data)
     form.setFieldsValue({ dataDescriptor: fieldVals })
 
-    // 2. authors — a STRICT mirror of Contributors + Custodian. There is no
-    // manual add/remove for authors anymore, so the membership of this list
-    // is fully owned by the Contributors step: anyone added there appears
-    // here automatically, anyone removed there disappears here automatically.
-    // Per-author customizations that DO stay in this step (currently just
-    // affiliationNumbers) are preserved for whoever remains, matched by id.
-    const autoAuthors = buildAutoAuthors(data, personMap)
-    const autoAuthorIds = new Set(autoAuthors.map(a => a.id))
+    // 2 & 3. author + affiliation rows — MERGE new Contributors/Custodian
+    // entries into whatever's already saved, rather than freezing the whole
+    // list after the first manual edit. Previously, any customization (even
+    // just editing one author's affiliation numbers) set a flag that froze
+    // the entire list, so brand-new contributors added later never showed
+    // up. Now: entries already in dd.authors/dd.affiliations_list (matched
+    // by id) are never overwritten — their names/affiliation numbers stay
+    // exactly as the user left them — but any id present in the
+    // Contributors/Custodian data that ISN'T already in the list gets
+    // appended. Explicitly removed entries are tracked in
+    // removedAuthorIds/removedAffiliationIds so they don't reappear.
+    const autoAuthors      = buildAutoAuthors(data, personMap)
+    const autoAffiliations = buildAutoAffiliations(data)
 
-    const existingAuthors = (dd.authors || [])
-      .filter(a => autoAuthorIds.has(a.id)) // drop anyone no longer in Contributors/Custodian
-      .map(a => ({
-        ...a,
-        // re-resolve if the stored name still looks like a KG reference
-        // rather than a real name — either the full URL, or (as with a
-        // newly-added contributor whose person record hadn't loaded into
-        // personMap yet) a bare UUID left over from resolveAuthorName's
-        // last-resort fallback. A bare UUID has no "/" and is exactly 36
-        // characters, so a simple "no slash, short string" check wrongly
-        // treats it as an already-resolved name and never retries — hence
-        // the explicit UUID pattern check below.
-        name: isUnresolvedReference(a.name) ? (personMap.get(a.name) || a.name) : a.name,
-      }))
+    const removedAuthorIds      = new Set(dd.removedAuthorIds      || [])
+    const removedAffiliationIds = new Set(dd.removedAffiliationIds || [])
+
+    const existingAuthors  = (dd.authors || []).map(a => ({
+      ...a,
+      // re-resolve any UUID-looking names once the person map loads
+      name: a.name && !a.name.includes('/') && a.name.length < 40
+        ? a.name
+        : (personMap.get(a.name) || a.name),
+    }))
     const existingAuthorIds = new Set(existingAuthors.map(a => a.id))
-    const newAuthors = autoAuthors.filter(a => !existingAuthorIds.has(a.id))
+    const newAuthors = autoAuthors.filter(
+      a => !existingAuthorIds.has(a.id) && !removedAuthorIds.has(a.id)
+    )
     const nextAuthors = [...existingAuthors, ...newAuthors]
 
-    // 3. affiliations — unlike authors, these aren't sourced from a single
-    // authoritative list elsewhere in the wizard (only the custodian's
-    // institution is auto-derived; any co-author institutions are added by
-    // hand in this step), so they keep the add/remove UI and the merge +
-    // removedAffiliationIds tracking from before.
-    const autoAffiliations = buildAutoAffiliations(data)
-    const removedAffiliationIds = new Set(dd.removedAffiliationIds || [])
     const existingAffiliations  = dd.affiliations_list || []
     const existingAffiliationIds = new Set(existingAffiliations.map(a => a.id))
     const newAffiliations = autoAffiliations.filter(
@@ -381,12 +366,15 @@ export default function DataDescriptor({ form, onChange, data }) {
     onChange({
       dataDescriptor: {
         ...vals,
-        // carried forward by default — only an explicit `extra` override
-        // (from a manual affiliation edit) should change it. Authors have
-        // no manual add/remove anymore, so there's nothing to carry forward
-        // for them; removedAffiliationIds is still needed since
-        // affiliations keep their add/remove UI.
+        // carry these forward by default — only an explicit `extra`
+        // override (from a manual edit) should change them. The
+        // auto-generated flags are cosmetic now (drive the "pre-filled"
+        // badge only); removedAuthorIds/removedAffiliationIds are what
+        // actually stop a deliberately-removed entry from being
+        // resurrected by the merge in the sync effect above.
+        authorsAutoGenerated:      dd.authorsAutoGenerated,
         affiliationsAutoGenerated: dd.affiliationsAutoGenerated,
+        removedAuthorIds:          dd.removedAuthorIds      || [],
         removedAffiliationIds:     dd.removedAffiliationIds || [],
         authors:           newAuthors,
         affiliations_list: newAffs,
@@ -401,13 +389,25 @@ export default function DataDescriptor({ form, onChange, data }) {
     setGenError('')
   }
 
-  // Authors have no add/remove UI — membership is a strict mirror of
-  // Contributors + Custodian, reconciled in the sync effect above. The only
-  // thing still editable per-author here is the affiliation number linking
-  // them to an entry in the Affiliations list below.
-  const updateAuthorAffiliationNumbers = (i, value) => {
-    const next = authors.map((a, idx) => idx === i ? { ...a, affiliationNumbers: value } : a)
-    setAuthors(next); emitAll(next, affiliations)
+  // ── author handlers ─────────────────────────────────────────────────────
+  // Any manual edit here means the user has taken ownership of the author
+  // list, so we stop overwriting it from Contributors/Custodian changes.
+  const addAuthor = () => {
+    const next = [...authors, { id: Date.now(), name: '', affiliationNumbers: '' }]
+    setAuthors(next); emitAll(next, affiliations, undefined, { authorsAutoGenerated: false })
+  }
+  const removeAuthor = (i) => {
+    const removedId = authors[i]?.id
+    const next = authors.filter((_, idx) => idx !== i)
+    setAuthors(next)
+    emitAll(next, affiliations, undefined, {
+      authorsAutoGenerated: false,
+      removedAuthorIds: [...(dd.removedAuthorIds || []), removedId],
+    })
+  }
+  const updateAuthor = (i, field, value) => {
+    const next = authors.map((a, idx) => idx === i ? { ...a, [field]: value } : a)
+    setAuthors(next); emitAll(next, affiliations, undefined, { authorsAutoGenerated: false })
   }
 
   // ── affiliation handlers ────────────────────────────────────────────────
@@ -506,6 +506,8 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   const rowLabel = { fontSize: 11, color: '#888', marginBottom: 2 }
   const title    = data.dataset1?.dataTitle || ''
+  const hasAutoAuthors = dd.authorsAutoGenerated !== false &&
+    !!(data.custodian?.firstName || data.contribution?.authors?.length)
   const hasAutoAffiliations = dd.affiliationsAutoGenerated !== false &&
     !!data.custodian?.institution
 
@@ -582,19 +584,16 @@ export default function DataDescriptor({ form, onChange, data }) {
         {/* ── Authors ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ marginBottom: 4 }}>
-            <span style={{ fontWeight: 500, fontSize: 14 }}>Authors</span>
+            <span style={{ fontWeight: 500, fontSize: 14 }}>
+              Authors
+              {hasAutoAuthors && <PrefilledBadge />}
+            </span>
           </div>
-          <div style={{
-            background: '#f0faf4', border: '1px solid #b7ebce',
-            borderRadius: 6, padding: '5px 10px', marginBottom: 6,
-            fontSize: 11, color: '#1a6b35',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <InfoCircleOutlined style={{ flexShrink: 0 }} />
-            This list always matches the Contributors step exactly — add, remove, or edit
-            authors there. You only set affiliation number(s) here, to link each author to
-            an institution in the list below.
-          </div>
+          {hasAutoAuthors && <PrefilledHint />}
+          <span style={EXTRA}>
+            List all authors. Use the affiliation number(s) to link each author
+            to their institution(s) in the list below.
+          </span>
 
           {authors.map((author, i) => (
             <div key={author.id} style={{
@@ -604,21 +603,25 @@ export default function DataDescriptor({ form, onChange, data }) {
             }}>
               <div style={{ flex: '2 1 200px' }}>
                 <div style={rowLabel}>Full name</div>
-                <div style={{ padding: '4px 0', fontSize: 13 }}>{author.name}</div>
+                <Input size="small" value={author.name}
+                  onChange={e => updateAuthor(i, 'name', e.target.value)}
+                  placeholder="e.g. Jane Smith" />
               </div>
               <div style={{ flex: '0 0 110px' }}>
                 <div style={rowLabel}>Affiliation no(s)</div>
                 <Input size="small" value={author.affiliationNumbers}
-                  onChange={e => updateAuthorAffiliationNumbers(i, e.target.value)}
+                  onChange={e => updateAuthor(i, 'affiliationNumbers', e.target.value)}
                   placeholder="e.g. 1,2" />
               </div>
+              <Button size="small" type="text" danger icon={<DeleteOutlined />}
+                onClick={() => removeAuthor(i)} style={{ flexShrink: 0 }} />
             </div>
           ))}
-          {authors.length === 0 && (
-            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-              No authors yet — add contributors or a custodian earlier in the wizard.
-            </div>
-          )}
+
+          <Button type="dashed" size="small" icon={<PlusOutlined />}
+            onClick={addAuthor} style={{ marginTop: 8, width: '30%' }}>
+            Add author
+          </Button>
         </div>
 
         {/* ── Affiliations ─────────────────────────────────────────────── */}
