@@ -120,10 +120,9 @@ jobs:
       WIZARD_IMAGE: docker-registry.ebrains.eu/ebrains-data-curation/metadata-wizard
       
       # Container name inside the PROD Deployment
-      WIZARD_CONTAINER: container-0
-
+      WIZARD_CONTAINER: container-wizard
       # Kubernetes PROD Deployment name
-      WIZARD_DEPLOYMENT: metadata-wizard
+      WIZARD_DEPLOYMENT: wizard-deployment
 
     steps:
       - name: Checkout
