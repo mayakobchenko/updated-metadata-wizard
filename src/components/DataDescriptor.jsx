@@ -24,7 +24,7 @@ const PrefilledHint = () => (
     display: 'flex', alignItems: 'center', gap: 6,
   }}>
     <InfoCircleOutlined style={{ flexShrink: 0 }} />
-    Pre-filled from your wizard answers — please review and expand. Testing new rancher cluster.
+    Pre-filled from your wizard answers.
   </div>
 )
 
@@ -531,8 +531,7 @@ export default function DataDescriptor({ form, onChange, data }) {
             <Tag color="green" style={{ fontSize: 10, padding: '0 5px', lineHeight: '16px' }}>
               pre-filled
             </Tag>{' '}
-            were automatically populated from your other wizard answers — please review and
-            expand them. Click <strong>Generate</strong> to download a formatted Word document.
+            were automatically populated from your other wizard answers. Click <strong>Generate</strong> to download a formatted Word document.
           </Text>
         </div>
       </div>
@@ -822,8 +821,7 @@ export default function DataDescriptor({ form, onChange, data }) {
 
         <p style={{ fontSize: 11, color: 'rgba(0,0,0,0.35)', marginTop: 10 }}>
           The generated document follows the EBRAINS Data Descriptor template.
-          Fields marked <strong>pre-filled</strong> were populated automatically —
-          please review and expand them before submitting to your curator.
+          Fields marked <strong>pre-filled</strong> were populated automatically.
         </p>
 
       </AntForm>
