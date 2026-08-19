@@ -18,7 +18,7 @@ dotenv.config({ path: '../.env' })
 const PORT = process.env.PORT_SERVER || 4000
 const app = express()
 
-app.use(express.json({ limit: '10mb' }))
+app.use(express.json())
 app.use((req, res, next) => {
     logger.info(`${req.method} ${req.url}`)
     //console.log(`${req.method} ${req.url}`);
