@@ -1,6 +1,6 @@
 import express from 'express'
 import ViteExpress from "vite-express"
-import cors from 'cors'
+import cors from 'cors'; 
 import dotenv from 'dotenv'
 import logger from './logger.js'
 import formRoutes from './routes/metadataSubmission.js'
@@ -11,7 +11,6 @@ import zammadInfo from './routes/getTicketNettskjemaInfo.js'
 import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
-import mistralRoutes from './routes/mistral.js'
 import { resetFundingInProgressFlag } from './KG_utils/fetchDataFromKG.js'
 
 
@@ -19,7 +18,7 @@ dotenv.config({ path: '../.env' })
 const PORT = process.env.PORT_SERVER || 4000
 const app = express()
 
-app.use(express.json({ limit: '10mb' }))
+app.use(express.json())
 app.use((req, res, next) => {
     logger.info(`${req.method} ${req.url}`)
     //console.log(`${req.method} ${req.url}`);
@@ -52,7 +51,6 @@ app.use('/api/subjects/', KGinfoSubjects)
 app.use('/api/zammad/', zammadInfo)
 app.use('/api/python/', runpython)
 app.use('/api/drive/', driveupload)
-app.use('/api/mistral/', mistralRoutes)
 
 app.get('/health', (req, res) => res.status(200).send('ok'))
 app.get('/api/test', (req, res) => res.send('BACKEND_OK'))
