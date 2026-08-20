@@ -52,48 +52,12 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
       console.warn('Could not fetch ticket ID:', e.message)
     }
 
-    // ── step 2: KG upload ─────────────────────────────────────────────────────
-    let kgSucceeded   = false
-    let kgErrorDetail = ''
-    let sessionExpired = false
-
-    try {
-      const kgResponse = await uploadpythonKG()
-
-      if (!kgResponse) {
-        kgErrorDetail = 'No response from the upload server.'
-      } else if (kgResponse.status === 401) {
-        try {
-          const errData = await kgResponse.json()
-          if (errData.code === 'SESSION_EXPIRED') {
-            sessionExpired = true
-          } else {
-            kgErrorDetail = errData.error || 'Authentication failed.'
-          }
-        } catch {
-          sessionExpired = true
-        }
-      } else {
-        let kgData
-        try {
-          kgData = await kgResponse.json()
-        } catch {
-          kgErrorDetail = 'Could not parse server response.'
-        }
-
-        if (kgData) {
-          if (kgResponse.ok && !kgData.error) {
-            kgSucceeded = true
-          } else {
-            kgErrorDetail = kgData.error || kgData.message || `Server error ${kgResponse.status}`
-          }
-        }
-      }
-    } catch (err) {
-      kgErrorDetail = err.message || 'Network error during upload.'
-    }
-
-    // ── step 3: save JSON to Zammad ───────────────────────────────────────────
+    // ── step 2: save JSON to Zammad FIRST ─────────────────────────────────────
+    // This is a safety net, so it deliberately runs before — and doesn't
+    // depend on — the KG upload, which can take much longer and has more
+    // ways to fail (network, KG availability, session expiry). Even if KG
+    // upload times out, is interrupted, or the user closes the tab, the
+    // form data is already safely attached to the support ticket.
     let zammadSucceeded = false
     if (ticketId && saveJsonToZammad) {
       try {
@@ -105,6 +69,32 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
       } catch (e) {
         console.warn('Zammad save failed:', e.message)
       }
+    }
+
+    // ── step 3: KG upload (runs as a background job; uploadpythonKG polls
+    // internally and resolves once the job reaches a final state) ────────────
+    let kgSucceeded   = false
+    let kgErrorDetail = ''
+    let sessionExpired = false
+
+    try {
+      const kgResult = await uploadpythonKG()
+
+      if (!kgResult) {
+        kgErrorDetail = 'No response from the upload server.'
+      } else if (kgResult.status === 401) {
+        if (kgResult.data?.code === 'SESSION_EXPIRED') {
+          sessionExpired = true
+        } else {
+          kgErrorDetail = kgResult.data?.error || 'Authentication failed.'
+        }
+      } else if (kgResult.ok && !kgResult.data?.error) {
+        kgSucceeded = true
+      } else {
+        kgErrorDetail = kgResult.data?.error || kgResult.data?.message || `Server error ${kgResult.status}`
+      }
+    } catch (err) {
+      kgErrorDetail = err.message || 'Network error during upload.'
     }
 
     // ── step 4: set final status ──────────────────────────────────────────────
@@ -170,7 +160,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
           <Result
             icon={<Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />}
             title="Submitting your metadata..."
-            subTitle="Please wait, this may take a moment."
+            subTitle="This can take a few minutes for larger datasets — feel free to leave this open, it'll update automatically when it's done."
           />
         )}
 

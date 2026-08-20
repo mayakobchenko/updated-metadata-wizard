@@ -54,6 +54,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          build-args: |
+            VITE_ENABLE_DATA_DESCRIPTOR=true
           tags: |
             ${{ env.WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
             ${{ env.WIZARD_IMAGE }}:latest
@@ -145,6 +147,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          build-args: |
+            VITE_ENABLE_DATA_DESCRIPTOR=false
           tags: |
             ${{ env.WIZARD_IMAGE }}:${{ env.SHORT_TAG }}
             ${{ env.WIZARD_IMAGE }}:latest

@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import time
 import requests as rq
 from uuid import uuid4
 
@@ -12,7 +13,53 @@ VOCAB = {"@context": {"@vocab": "https://openminds.om-i.org/props/"}}
 V = "https://openminds.om-i.org/props/"
 T = "https://openminds.om-i.org/types/"
 
+# ── existence-check reliability ──────────────────────────────────────────────
+# These calls decide "does this already exist, or should I create it?" — a
+# transient network failure here must NEVER be treated the same as "confirmed
+# it doesn't exist", because that leads directly to duplicates (this is
+# exactly what happened during a DNS outage: every failed existence check
+# silently fell through to creating a brand new SubjectGroup/
+# TissueSampleCollection, even when one already existed).
+#
+# KGLookupError is raised when an existence check could not be completed
+# after retries. Callers MUST treat this as "unknown" and skip creating
+# anything for that item, reporting an error instead — never fall back to
+# "assume not found".
+
+
+class KGLookupError(Exception):
+    pass
+
+
+def kg_get_with_retry(url, headers, max_retries=3, timeout_seconds=15):
+    """
+    GET with retries for transient network errors (DNS failures, connection
+    resets, timeouts). Raises KGLookupError if every attempt fails, or if the
+    server returns a non-2xx response after retries — either way, the caller
+    could not get a definitive answer and must not guess.
+    """
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = rq.get(url=url, headers=headers, timeout=timeout_seconds)
+            if resp.ok:
+                return resp
+            last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        except (rq.exceptions.ConnectionError, rq.exceptions.Timeout) as e:
+            last_error = str(e)
+
+        if attempt < max_retries:
+            backoff = 2 * attempt  # 2s, 4s, 6s...
+            print(
+                f"DEBUG KG GET attempt {attempt}/{max_retries} failed ({last_error}) — retrying in {backoff}s",
+                file=sys.stderr)
+            time.sleep(backoff)
+
+    raise KGLookupError(
+        f"KG GET failed after {max_retries} attempts: {last_error} (url: {url})")
+
 # ── argument parsing ──────────────────────────────────────────────────────────
+
 
 if len(sys.argv) > 1:
     personal_token = sys.argv[1]
@@ -246,6 +293,39 @@ def create_orcid_instance(orcid_url):
 """
 
 
+def find_orcid_in_collab(orc):
+    """
+    Search the collab space for an existing ORCID instance matching `orc`.
+    Returns the @id if found, None if the search completed and genuinely
+    found nothing. Raises KGLookupError if the search could not be
+    completed — callers must not treat that the same as "not found".
+    """
+    headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
+    from_offset = 0
+    page_size = 100
+    vocab_ident = f"{V}identifier"
+    while True:
+        url = (
+            f"https://core.kg.ebrains.eu/v3/instances"
+            f"?stage=IN_PROGRESS"
+            f"&space=collab-d-{dsv_id}"
+            f"&type=https://openminds.om-i.org/types/ORCID"
+            f"&size={page_size}&from={from_offset}"
+        )
+        # raises KGLookupError on failure
+        resp = kg_get_with_retry(url, headers)
+        items = resp.json().get("data", [])
+        for item in items:
+            item_orc = item.get(vocab_ident, "")
+            if isinstance(item_orc, str) and item_orc.lower() == orc.lower():
+                print(
+                    f"DEBUG found existing ORCID in collab space: {item['@id']}", file=sys.stderr)
+                return item["@id"]
+        if len(items) < page_size:
+            return None  # genuinely confirmed: paged through everything, not found
+        from_offset += page_size
+
+
 def create_orcid_instance(orcid_url):
     """
     Find or create an ORCID instance and return its KG URL.
@@ -253,6 +333,13 @@ def create_orcid_instance(orcid_url):
       1. ORCID.json (common space, already fetched)
       2. collab space (IN_PROGRESS) — check before creating to avoid duplicates
       3. Create new in collab space
+
+    If step 2 can't be completed (KGLookupError), this returns None rather
+    than falling through to step 3 — creating an ORCID record without being
+    sure one doesn't already exist risks a duplicate identifier node. The
+    caller (create_person) already handles a None return gracefully: the
+    Person just gets created without an ORCID link this run, which is a far
+    smaller problem than a duplicate.
     """
     orc = normalize_orcid(orcid_url)
     if not orc:
@@ -267,38 +354,14 @@ def create_orcid_instance(orcid_url):
 
     # ── 2. check collab space to avoid duplicates on re-submission ───────────
     try:
-        headers = {"accept": "*/*",
-                   "Authorization": "Bearer " + personal_token}
-        from_offset = 0
-        page_size = 100
-        while True:
-            url = (
-                f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS"
-                f"&space=collab-d-{dsv_id}"
-                f"&type=https://openminds.om-i.org/types/ORCID"
-                f"&size={page_size}&from={from_offset}"
-            )
-            resp = rq.get(url=url, headers=headers)
-            if resp.ok:
-                items = resp.json().get("data", [])
-                vocab_ident = f"{V}identifier"
-                for item in items:
-                    item_orc = item.get(vocab_ident, "")
-                    if isinstance(item_orc, str) and item_orc.lower() == orc.lower():
-                        print(
-                            f"DEBUG found existing ORCID in collab space: {item['@id']}", file=sys.stderr)
-                        return item["@id"]
-                if len(items) < page_size:
-                    break
-                from_offset += page_size
-            else:
-                print(
-                    f"DEBUG could not search ORCID in collab space: {resp.status_code}", file=sys.stderr)
-                break
-    except Exception as e:
+        existing = find_orcid_in_collab(orc)
+        if existing:
+            return existing
+    except KGLookupError as e:
         print(
-            f"DEBUG error searching ORCID in collab space: {e}", file=sys.stderr)
+            f"DEBUG could not confirm whether ORCID '{orc}' already exists in collab space — "
+            f"NOT creating, to avoid a duplicate: {e}", file=sys.stderr)
+        return None
 
     # ── 3. not found anywhere — create in collab space ────────────────────────
     orcid_uuid = str(uuid4())
@@ -396,48 +459,41 @@ def create_person(first_name, family_name, orcid=None):
 
 
 def check_person_exists_in_collab(first_name, family_name, orcid=None):
-    try:
-        headers = {"accept": "*/*",
-                   "Authorization": "Bearer " + personal_token}
-        from_offset = 0
-        page_size = 100
-        while True:
-            url = (
-                f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
-                f"&type=https://openminds.om-i.org/types/Person"
-                f"&size={page_size}&from={from_offset}"
-            )
-            resp = rq.get(url=url, headers=headers)
-            if not resp.ok:
-                return None
-            items = resp.json().get("data", [])
-            orc = normalize_orcid(orcid)
-            for item in items:
-                if orc:
-                    item_ids = item.get(f"{V}digitalIdentifier", [])
-                    if isinstance(item_ids, dict):
-                        item_ids = [item_ids]
-                    for ident in item_ids:
-                        if isinstance(ident, dict) and ident.get("@id", "").lower() == orc.lower():
-                            print(
-                                f"DEBUG found existing Person in collab by ORCID: {item['@id']}", file=sys.stderr)
-                            return item["@id"]
-                item_given = item.get(f"{V}givenName",  "") or ""
-                item_family = item.get(f"{V}familyName", "") or ""
-                fn = nonempty(first_name) or ""
-                fam = nonempty(family_name) or ""
-                if fn and fam and item_given.lower() == fn.lower() and item_family.lower() == fam.lower():
-                    print(
-                        f"DEBUG found existing Person in collab by name: {item['@id']}", file=sys.stderr)
-                    return item["@id"]
-            if len(items) < page_size:
-                return None
-            from_offset += page_size
-    except Exception as e:
-        print(
-            f"DEBUG check_person_exists_in_collab error: {e}", file=sys.stderr)
-        return None
+    headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
+    from_offset = 0
+    page_size = 100
+    while True:
+        url = (
+            f"https://core.kg.ebrains.eu/v3/instances"
+            f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
+            f"&type=https://openminds.om-i.org/types/Person"
+            f"&size={page_size}&from={from_offset}"
+        )
+        # raises KGLookupError on failure
+        resp = kg_get_with_retry(url, headers)
+        items = resp.json().get("data", [])
+        orc = normalize_orcid(orcid)
+        for item in items:
+            if orc:
+                item_ids = item.get(f"{V}digitalIdentifier", [])
+                if isinstance(item_ids, dict):
+                    item_ids = [item_ids]
+                for ident in item_ids:
+                    if isinstance(ident, dict) and ident.get("@id", "").lower() == orc.lower():
+                        print(
+                            f"DEBUG found existing Person in collab by ORCID: {item['@id']}", file=sys.stderr)
+                        return item["@id"]
+            item_given = item.get(f"{V}givenName",  "") or ""
+            item_family = item.get(f"{V}familyName", "") or ""
+            fn = nonempty(first_name) or ""
+            fam = nonempty(family_name) or ""
+            if fn and fam and item_given.lower() == fn.lower() and item_family.lower() == fam.lower():
+                print(
+                    f"DEBUG found existing Person in collab by name: {item['@id']}", file=sys.stderr)
+                return item["@id"]
+        if len(items) < page_size:
+            return None  # genuinely confirmed: paged through everything, not found
+        from_offset += page_size
 
 
 def ensure_person_has_orcid(person_url, orcid_url):
@@ -479,6 +535,12 @@ def ensure_person_has_orcid(person_url, orcid_url):
 
 
 def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
+    """
+    Raises KGLookupError if the collab-space existence check could not be
+    completed — callers MUST catch this and skip, not treat it as "not
+    found", since falling through to create_person() here would create a
+    duplicate Person if one already existed but just couldn't be confirmed.
+    """
     url = find_person_uuid(first_name, family_name, orcid)
     if url:
         return url
@@ -520,6 +582,11 @@ techniques = experiments.get("techniques",        [])
 preparation_types = experiments.get("preparationTypes",  [])
 study_targets = experiments.get("studyTargets",      [])
 
+# Declared here (rather than right before its first heavy use further down)
+# because author/custodian resolution below can now append error entries to
+# it directly when a KG lookup can't be confirmed.
+results = []
+
 # ── resolve authors ───────────────────────────────────────────────────────────
 
 author_ids = []
@@ -528,12 +595,25 @@ for entry in data.get("contribution", {}).get("authors", []):
     if selected:
         author_ids.append(selected)
     elif entry.get("isCustom"):
-        person_url = resolve_person(
-            entry.get("firstName", ""),
-            entry.get("lastName",  ""),
-            normalize_orcid(entry.get("orcid", "")),
-            create_if_missing=True
-        )
+        try:
+            person_url = resolve_person(
+                entry.get("firstName", ""),
+                entry.get("lastName",  ""),
+                normalize_orcid(entry.get("orcid", "")),
+                create_if_missing=True
+            )
+        except KGLookupError as e:
+            author_name = f"{entry.get('firstName', '')} {entry.get('lastName', '')}".strip(
+            )
+            print(
+                f"DEBUG could not resolve author '{author_name}' due to a KG connectivity "
+                f"issue — skipped to avoid creating a duplicate Person: {e}", file=sys.stderr)
+            results.append({"author": {
+                "error": f"Could not verify author '{author_name}' due to a KG connectivity "
+                         f"issue — skipped to avoid a duplicate. Please retry the submission.",
+                "skipped": True,
+            }})
+            continue
         if person_url and isinstance(person_url, str) and person_url.startswith("http"):
             author_ids.append(person_url)
             print(f"DEBUG custom author → {person_url}", file=sys.stderr)
@@ -541,12 +621,24 @@ for entry in data.get("contribution", {}).get("authors", []):
 # ── resolve custodian ─────────────────────────────────────────────────────────
 
 custodian_data = data.get("custodian", {})
-custodian_url = resolve_person(
-    first_name=custodian_data.get("firstName",  ""),
-    family_name=custodian_data.get("familyName", ""),
-    orcid=normalize_orcid(custodian_data.get("orcid", "")),
-    create_if_missing=True
-)
+try:
+    custodian_url = resolve_person(
+        first_name=custodian_data.get("firstName",  ""),
+        family_name=custodian_data.get("familyName", ""),
+        orcid=normalize_orcid(custodian_data.get("orcid", "")),
+        create_if_missing=True
+    )
+except KGLookupError as e:
+    print(
+        f"DEBUG could not resolve custodian due to a KG connectivity issue — "
+        f"skipped to avoid creating a duplicate Person: {e}", file=sys.stderr)
+    results.append({"custodian": {
+        "error": "Could not verify the custodian due to a KG connectivity issue — "
+                 "skipped to avoid a duplicate. Please retry the submission.",
+        "skipped": True,
+    }})
+    custodian_url = None
+
 if custodian_url:
     print(f"DEBUG custodian → {custodian_url}", file=sys.stderr)
 else:
@@ -601,8 +693,6 @@ if study_targets:
 print(
     f"DEBUG dsv_attributes:\n{json.dumps(dsv_attributes, indent=2)}", file=sys.stderr)
 
-results = []
-
 # ── 1. contributions ──────────────────────────────────────────────────────────
 
 
@@ -611,12 +701,25 @@ def build_contribution_nodes(data):
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
         person_url = nonempty(entry.get("selectedOtherContr", ""))
         if not person_url and entry.get("isCustom"):
-            person_url = resolve_person(
-                entry.get("firstName", ""),
-                entry.get("lastName",  ""),
-                normalize_orcid(entry.get("orcid", "")),
-                create_if_missing=True
-            )
+            try:
+                person_url = resolve_person(
+                    entry.get("firstName", ""),
+                    entry.get("lastName",  ""),
+                    normalize_orcid(entry.get("orcid", "")),
+                    create_if_missing=True
+                )
+            except KGLookupError as e:
+                contributor_name = f"{entry.get('firstName', '')} {entry.get('lastName', '')}".strip(
+                )
+                print(
+                    f"DEBUG could not resolve contributor '{contributor_name}' due to a KG "
+                    f"connectivity issue — skipped to avoid creating a duplicate Person: {e}", file=sys.stderr)
+                results.append({"contribution": {
+                    "error": f"Could not verify contributor '{contributor_name}' due to a KG "
+                             f"connectivity issue — skipped to avoid a duplicate. Please retry.",
+                    "skipped": True,
+                }})
+                continue
         if not person_url or not isinstance(person_url, str) or not person_url.startswith("http"):
             print(f"DEBUG skipping contribution — no valid person URL",
                   file=sys.stderr)
@@ -655,35 +758,29 @@ def find_dataset_via_neighbors(dsv_uuid):
     """
     Fetch neighbors of the DatasetVersion and find the parent Dataset
     in the inbound list (Dataset points to DSV via hasVersion).
-    Returns the Dataset UUID string or None.
+    Returns the Dataset UUID string, or None if genuinely not found. Raises
+    KGLookupError if the lookup could not be completed — the caller must
+    not treat that as "not found", since creating a new Dataset in that
+    case risks a duplicate parent record for this DatasetVersion.
     """
-    try:
-        headers = {"accept": "*/*",
-                   "Authorization": "Bearer " + personal_token}
-        url = f"https://core.kg.ebrains.eu/v3/instances/{dsv_uuid}/neighbors?stage=IN_PROGRESS"
-        resp = rq.get(url=url, headers=headers)
-        print(f"DEBUG neighbors {url} → {resp.status_code}", file=sys.stderr)
-        if not resp.ok:
-            print(f"DEBUG neighbors error: {resp.text[:200]}", file=sys.stderr)
-            return None
+    headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
+    url = f"https://core.kg.ebrains.eu/v3/instances/{dsv_uuid}/neighbors?stage=IN_PROGRESS"
+    resp = kg_get_with_retry(url, headers)  # raises KGLookupError on failure
+    print(f"DEBUG neighbors {url} → {resp.status_code}", file=sys.stderr)
 
-        neighbors = resp.json().get("data", {})
-        inbound = neighbors.get("inbound", []) or []
+    neighbors = resp.json().get("data", {})
+    inbound = neighbors.get("inbound", []) or []
 
-        dataset_type = "https://openminds.om-i.org/types/Dataset"
-        for item in inbound:
-            if dataset_type in (item.get("types") or []):
-                dataset_uuid = item["id"]
-                print(
-                    f"DEBUG found parent Dataset via neighbors: {dataset_uuid}", file=sys.stderr)
-                return dataset_uuid
+    dataset_type = "https://openminds.om-i.org/types/Dataset"
+    for item in inbound:
+        if dataset_type in (item.get("types") or []):
+            dataset_uuid = item["id"]
+            print(
+                f"DEBUG found parent Dataset via neighbors: {dataset_uuid}", file=sys.stderr)
+            return dataset_uuid
 
-        print(f"DEBUG no parent Dataset found in neighbors inbound", file=sys.stderr)
-        return None
-
-    except Exception as e:
-        print(f"DEBUG find_dataset_via_neighbors error: {e}", file=sys.stderr)
-        return None
+    print(f"DEBUG no parent Dataset found in neighbors inbound", file=sys.stderr)
+    return None
 
 
 def create_dataset(dsv_uuid, dataset_attributes):
@@ -745,107 +842,125 @@ if custodian_url and isinstance(custodian_url, str) and custodian_url.startswith
 
 # ── find existing Dataset or create new one ───────────────────────────────────
 
-dataset_uuid = find_dataset_via_neighbors(dsv_id)
-
-if dataset_uuid:
-    print(f"DEBUG updating existing Dataset {dataset_uuid}", file=sys.stderr)
-    dataset_result = patch_dataset(dataset_uuid, dataset_attributes)
-    results.append({"dataset": dataset_result})
+try:
+    dataset_uuid = find_dataset_via_neighbors(dsv_id)
+except KGLookupError as e:
+    print(
+        f"DEBUG could not confirm whether a parent Dataset already exists for this "
+        f"DatasetVersion — NOT creating one, to avoid a duplicate: {e}", file=sys.stderr)
+    results.append({"dataset": {
+        "error": "Could not verify whether a parent Dataset already exists, due to a KG "
+                 "connectivity issue — skipped to avoid creating a duplicate. Please retry.",
+        "skipped": True,
+    }})
+    dataset_uuid = None
 else:
-    print(f"DEBUG no existing Dataset found — creating new one", file=sys.stderr)
-    dataset_uuid = create_dataset(dsv_id, dataset_attributes)
     if dataset_uuid:
-        results.append({"dataset": {"created": dataset_uuid}})
+        print(
+            f"DEBUG updating existing Dataset {dataset_uuid}", file=sys.stderr)
+        dataset_result = patch_dataset(dataset_uuid, dataset_attributes)
+        results.append({"dataset": dataset_result})
     else:
-        results.append({"dataset": {"error": "failed to create Dataset"}})
+        print(f"DEBUG no existing Dataset found — creating new one", file=sys.stderr)
+        dataset_uuid = create_dataset(dsv_id, dataset_attributes)
+        if dataset_uuid:
+            results.append({"dataset": {"created": dataset_uuid}})
+        else:
+            results.append({"dataset": {"error": "failed to create Dataset"}})
 
 # ── 3. subject helpers ────────────────────────────────────────────────────────
 
 
+def find_instance_by_label(lookup_label, type_name):
+    """
+    Page through instances of `type_name` in this collab space looking for
+    one whose lookupLabel matches. Returns the @id if found, None if the
+    search completed and genuinely found nothing. Raises KGLookupError if the
+    search could not be completed (network failure, KG error) — this is a
+    DIFFERENT outcome from "not found" and callers must not conflate them.
+    """
+    headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
+    from_offset = 0
+    page_size = 100
+    vocab_label = "https://openminds.om-i.org/props/lookupLabel"
+    while True:
+        url = (
+            f"https://core.kg.ebrains.eu/v3/instances"
+            f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
+            f"&type=https://openminds.om-i.org/types/{type_name}"
+            f"&size={page_size}&from={from_offset}"
+        )
+        # raises KGLookupError on failure
+        resp = kg_get_with_retry(url, headers)
+        items = resp.json().get("data", [])
+        for item in items:
+            if item.get(vocab_label) == lookup_label:
+                print(
+                    f"DEBUG found existing {type_name} '{lookup_label}' → {item['@id']}", file=sys.stderr)
+                return item["@id"]
+        if len(items) < page_size:
+            return None  # genuinely confirmed: paged through everything, not found
+        from_offset += page_size
+
+
 def check_subject_exists(lookup_label):
-    try:
-        headers = {"accept": "*/*",
-                   "Authorization": "Bearer " + personal_token}
-        from_offset = 0
-        page_size = 100
-        while True:
-            url = (
-                f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
-                f"&type=https://openminds.om-i.org/types/Subject"
-                f"&size={page_size}&from={from_offset}"
-            )
-            resp = rq.get(url=url, headers=headers)
-            if not resp.ok:
-                return None
-            items = resp.json().get("data", [])
-            vocab_label = "https://openminds.om-i.org/props/lookupLabel"
-            for item in items:
-                if item.get(vocab_label) == lookup_label:
-                    print(
-                        f"DEBUG found existing Subject '{lookup_label}' → {item['@id']}", file=sys.stderr)
-                    return item["@id"]
-            if len(items) < page_size:
-                return None
-            from_offset += page_size
-    except Exception as e:
-        print(f"DEBUG check_subject_exists error: {e}", file=sys.stderr)
-        return None
+    return find_instance_by_label(lookup_label, "Subject")
 
 
 def check_state_exists(lookup_label, state_type):
+    return find_instance_by_label(lookup_label, state_type)
+
+
+def post_or_patch_by_label(local_uuid, node, lookup_label, type_name):
+    """
+    Generic check-then-create-or-update: looks for an existing instance of
+    `type_name` with a matching lookupLabel; patches it if found, creates a
+    new one (with `local_uuid`) if genuinely not found.
+
+    Returns (final_uuid, result_dict). final_uuid is None if the existence
+    check could not be confirmed (KGLookupError) — the caller MUST treat
+    that as "skip this item", never fall back to creating one anyway, since
+    that's exactly how duplicates happened during the DNS outage.
+    """
     try:
-        headers = {"accept": "*/*",
-                   "Authorization": "Bearer " + personal_token}
-        from_offset = 0
-        page_size = 100
-        while True:
-            url = (
-                f"https://core.kg.ebrains.eu/v3/instances"
-                f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
-                f"&type=https://openminds.om-i.org/types/{state_type}"
-                f"&size={page_size}&from={from_offset}"
-            )
-            resp = rq.get(url=url, headers=headers)
-            if not resp.ok:
-                return None
-            items = resp.json().get("data", [])
-            vocab_label = "https://openminds.om-i.org/props/lookupLabel"
-            for item in items:
-                if item.get(vocab_label) == lookup_label:
-                    print(
-                        f"DEBUG found existing {state_type} '{lookup_label}' → {item['@id']}", file=sys.stderr)
-                    return item["@id"]
-            if len(items) < page_size:
-                return None
-            from_offset += page_size
-    except Exception as e:
-        print(f"DEBUG check_state_exists error: {e}", file=sys.stderr)
-        return None
+        existing_id = find_instance_by_label(lookup_label, type_name)
+    except KGLookupError as e:
+        print(
+            f"DEBUG could not confirm whether {type_name} '{lookup_label}' already exists — "
+            f"NOT creating, to avoid a duplicate: {e}", file=sys.stderr)
+        return None, {
+            "error": f"Could not verify {type_name} '{lookup_label}' due to a KG connectivity "
+                     f"issue — skipped to avoid creating a duplicate. Please retry the submission.",
+            "skipped": True,
+        }
+    if existing_id:
+        existing_uuid = existing_id.split("/")[-1]
+        result = KG_patch(existing_uuid, node)
+        print(
+            f"DEBUG updated existing {type_name} '{lookup_label}'", file=sys.stderr)
+        return existing_uuid, result
+    result = KG_post(local_uuid, node)
+    return local_uuid, result
 
 
 def post_or_patch_subject(subject_uuid, subject_node, subject_id_str):
-    existing_id = check_subject_exists(subject_id_str)
-    if existing_id:
-        existing_uuid = existing_id.split("/")[-1]
-        result = KG_patch(existing_uuid, subject_node)
-        print(
-            f"DEBUG updated existing Subject '{subject_id_str}'", file=sys.stderr)
-        return existing_uuid, result
-    result = KG_post(subject_uuid, subject_node)
-    return subject_uuid, result
+    return post_or_patch_by_label(subject_uuid, subject_node, subject_id_str, "Subject")
 
 
 def post_or_patch_state(state_uuid, state_node, lookup_label, state_type):
-    existing_url = check_state_exists(lookup_label, state_type)
-    if existing_url:
-        existing_uuid = existing_url.split("/")[-1]
-        result = KG_patch(existing_uuid, state_node)
-        print(
-            f"DEBUG updated existing {state_type} '{lookup_label}'", file=sys.stderr)
-        return existing_uuid, result
-    result = KG_post(state_uuid, state_node)
-    return state_uuid, result
+    return post_or_patch_by_label(state_uuid, state_node, lookup_label, state_type)
+
+
+def post_or_patch_tissue_sample(sample_uuid, sample_node, sample_id_str):
+    return post_or_patch_by_label(sample_uuid, sample_node, sample_id_str, "TissueSample")
+
+
+def post_or_patch_subject_group(group_uuid, group_node, lookup_label):
+    return post_or_patch_by_label(group_uuid, group_node, lookup_label, "SubjectGroup")
+
+
+def post_or_patch_tissue_sample_collection(collection_uuid, collection_node, lookup_label):
+    return post_or_patch_by_label(collection_uuid, collection_node, lookup_label, "TissueSampleCollection")
 
 
 def build_subject_instance(subject, group_uuid=None):
@@ -938,12 +1053,22 @@ if subject_metadata.get("subjectGroups"):
             )
             results.append({"subjectState": state_result})
 
+            if final_state_uuid is None:
+                # couldn't confirm whether the state exists — already reported
+                # in state_result; skip this subject rather than risk creating
+                # it without a valid state link or duplicating it later
+                continue
+
             # ── update subject node to reference correct state UUID ───────────
             subj_node["studiedState"] = {"@id": KG_PREFIX + final_state_uuid}
 
             final_uuid, subj_result = post_or_patch_subject(
                 subj_uuid, subj_node, subject_id_str)
             results.append({"subject": subj_result})
+
+            if final_uuid is None:
+                # couldn't confirm whether the subject exists — already reported
+                continue
 
             group_state_uuids.append(final_state_uuid)   # ← correct UUID
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
@@ -965,9 +1090,17 @@ if subject_metadata.get("subjectGroups"):
         if remarks:
             group_node["additionalRemarks"] = remarks
 
-        group_result = KG_post(group_uuid_placeholder, group_node)
+        group_label = safe_trim(group.get("name", group_uuid_placeholder))
+        final_group_uuid, group_result = post_or_patch_subject_group(
+            group_uuid_placeholder, group_node, group_label)
         results.append({"subjectGroup": group_result})
-        specimen_list.append({"@id": KG_PREFIX + group_uuid_placeholder})
+
+        if final_group_uuid is None:
+            # couldn't confirm — already reported in group_result; don't
+            # attach an unconfirmed/non-existent group to the DatasetVersion
+            continue
+
+        specimen_list.append({"@id": KG_PREFIX + final_group_uuid})
         print(
             f"DEBUG posted SubjectGroup '{group.get('name')}' with {len(subjects)} subjects", file=sys.stderr)
 
@@ -984,12 +1117,19 @@ elif subject_metadata.get("subjects"):
         )
         results.append({"subjectState": state_result})
 
+        if final_state_uuid is None:
+            continue  # couldn't confirm — already reported in state_result
+
         # ── update subject node to reference correct state UUID ───────────────
         subj_node["studiedState"] = {"@id": KG_PREFIX + final_state_uuid}
 
         final_uuid, subj_result = post_or_patch_subject(
             subj_uuid, subj_node, subject_id_str)
         results.append({"subject": subj_result})
+
+        if final_uuid is None:
+            continue  # couldn't confirm — already reported in subj_result
+
         specimen_list.append({"@id": KG_PREFIX + final_uuid})
         sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
 
@@ -1068,9 +1208,19 @@ for sample in subject_metadata.get("tissueSamples", []):
         st_uuid, st_node, state_label, "TissueSampleState")
     results.append({"tissueSampleState": st_result})
 
+    if final_st_uuid is None:
+        continue  # couldn't confirm — already reported in st_result
+
     s_node["studiedState"] = {"@id": KG_PREFIX + final_st_uuid}
-    results.append({"tissueSample": KG_post(s_uuid, s_node)})
-    specimen_list.append({"@id": KG_PREFIX + s_uuid})
+
+    final_s_uuid, s_result = post_or_patch_tissue_sample(
+        s_uuid, s_node, sample_id_str)
+    results.append({"tissueSample": s_result})
+
+    if final_s_uuid is None:
+        continue  # couldn't confirm — already reported in s_result
+
+    specimen_list.append({"@id": KG_PREFIX + final_s_uuid})
 
 # ── tissue sample collections ─────────────────────────────────────────────────
 
@@ -1094,10 +1244,20 @@ for collection in subject_metadata.get("tissueCollections", []):
             st_uuid, st_node, state_label, "TissueSampleState")
         results.append({"tissueSampleState": st_result})
 
+        if final_st_uuid is None:
+            continue  # couldn't confirm — already reported in st_result
+
         s_node["studiedState"] = {"@id": KG_PREFIX + final_st_uuid}
-        results.append({"tissueSample": KG_post(s_uuid, s_node)})
+
+        final_s_uuid, s_result = post_or_patch_tissue_sample(
+            s_uuid, s_node, sample_id_str)
+        results.append({"tissueSample": s_result})
+
+        if final_s_uuid is None:
+            continue  # couldn't confirm — already reported in s_result
+
         collection_state_uuids.append(final_st_uuid)   # ← correct UUID
-        specimen_list.append({"@id": KG_PREFIX + s_uuid})
+        specimen_list.append({"@id": KG_PREFIX + final_s_uuid})
 
         if nonempty(sample.get("biologicalSex", "")):
             collection_bio_sex.append(sample["biologicalSex"])
@@ -1133,9 +1293,16 @@ for collection in subject_metadata.get("tissueCollections", []):
     if coll_remarks:
         collection_node["additionalRemarks"] = coll_remarks
 
-    coll_result = KG_post(collection_uuid, collection_node)
+    final_coll_uuid, coll_result = post_or_patch_tissue_sample_collection(
+        collection_uuid, collection_node, coll_id_str)
     results.append({"tissueSampleCollection": coll_result})
-    specimen_list.append({"@id": KG_PREFIX + collection_uuid})
+
+    if final_coll_uuid is None:
+        # couldn't confirm — already reported in coll_result; don't attach
+        # an unconfirmed/non-existent collection to the DatasetVersion
+        continue
+
+    specimen_list.append({"@id": KG_PREFIX + final_coll_uuid})
     print(
         f"DEBUG posted TissueSampleCollection '{coll_id_str}' with {len(collection.get('samples', []))} samples", file=sys.stderr)
 

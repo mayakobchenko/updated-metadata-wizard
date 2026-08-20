@@ -1,5 +1,6 @@
 import dotenv        from 'dotenv'
 import express       from 'express'
+import { readFile }  from 'fs/promises'
 import logger        from '../logger.js'
 
 dotenv.config()
@@ -376,23 +377,17 @@ async function getNettskjemaInfo(req, res) {
 
 // ── POST /api/zammad/save-json ────────────────────────────────────────────────
 // Saves the form JSON as an internal note attachment on a Zammad ticket.
-// Body: { ticketId: number|string, formData: object, datasetTitle?: string }
+// Body: { ticketId: number|string, jsonFilePath: string, datasetTitle?: string }
 // No email is sent — article type is 'note' and internal: true.
-// NOTE: formData is sent directly in the request body rather than read from a
-// file on disk — this used to read a file written as a side effect of the KG
-// upload route, which meant Zammad save could only ever run *after* KG upload
-// (and broke entirely if KG upload hadn't run yet, or wrote to a different
-// path). Sending the JSON directly means this route has no dependency on any
-// other route's execution order or file layout.
 
 async function saveJsonToTicket(req, res) {
-  const { ticketId, formData, datasetTitle } = req.body
+  const { ticketId, jsonFilePath, datasetTitle } = req.body
 
   if (!ticketId) {
     return res.status(400).json({ error: 'ticketId is required' })
   }
-  if (!formData) {
-    return res.status(400).json({ error: 'formData is required' })
+  if (!jsonFilePath) {
+    return res.status(400).json({ error: 'jsonFilePath is required' })
   }
   if (!ZAMMAD_TOKEN) {
     logger.error('MAYA_ZAMMAD_TOKEN is not set in environment')
@@ -400,7 +395,8 @@ async function saveJsonToTicket(req, res) {
   }
 
   try {
-    const jsonContent = JSON.stringify(formData, null, 2)
+    // read the JSON file written by the KG upload flow
+    const jsonContent = await readFile(jsonFilePath, 'utf-8')
     const base64Data  = Buffer.from(jsonContent, 'utf-8').toString('base64')
     const title       = datasetTitle || 'dataset'
     const filename    = `metadata_${title.replace(/[^a-z0-9_-]/gi, '_')}_${Date.now()}.json`

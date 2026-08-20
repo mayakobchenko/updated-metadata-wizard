@@ -7,14 +7,35 @@ import {
   SendOutlined,
   WarningOutlined,
   ReloadOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons'
 
-export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicketId }) {
+export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicketId, formData }) {
 
   const [status, setStatus]             = useState(null)
-  // null | 'loading' | 'success' | 'success_no_ticket' | 'error_but_json_saved' | 'error' | 'session_expired'
   const [errorDetail, setErrorDetail]   = useState('')
   const [modalVisible, setModalVisible] = useState(false)
+
+  // ── download the form data as a JSON file ─────────────────────────────────
+  const handleDownloadJson = () => {
+    try {
+      const dataToSave = formData || {}
+      const blob       = new Blob(
+        [JSON.stringify(dataToSave, null, 2)],
+        { type: 'application/json' }
+      )
+      const url      = URL.createObjectURL(blob)
+      const link     = document.createElement('a')
+      link.href      = url
+      link.download  = `ebrains_metadata_${Date.now()}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Download failed:', e.message)
+    }
+  }
 
   const handleSubmit = async () => {
     setStatus('loading')
@@ -22,7 +43,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     setModalVisible(true)
 
     // ── step 1: fetch ticket ID silently ──────────────────────────────────────
-    // Always do this first so we have it regardless of what happens next.
     let ticketId = null
     try {
       const ticketRes  = await getTicketId()
@@ -43,7 +63,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
       if (!kgResponse) {
         kgErrorDetail = 'No response from the upload server.'
       } else if (kgResponse.status === 401) {
-        // check if it is a session expiry specifically
         try {
           const errData = await kgResponse.json()
           if (errData.code === 'SESSION_EXPIRED') {
@@ -75,10 +94,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     }
 
     // ── step 3: save JSON to Zammad ───────────────────────────────────────────
-    // This is always attempted if a ticket ID is available — regardless of
-    // whether the KG upload succeeded, failed, or the session expired.
-    // The JSON file is written to disk by the Node route before the Python
-    // script runs, so it is always present even on KG failure or session expiry.
     let zammadSucceeded = false
     if (ticketId && saveJsonToZammad) {
       try {
@@ -93,7 +108,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     }
 
     // ── step 4: set final status ──────────────────────────────────────────────
-    // Session expired is special — show its own screen regardless of Zammad.
     if (sessionExpired) {
       setStatus('session_expired')
       return
@@ -104,7 +118,6 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
       return
     }
 
-    // KG failed
     setErrorDetail(kgErrorDetail)
     setStatus(zammadSucceeded ? 'error_but_json_saved' : 'error')
   }
@@ -118,6 +131,16 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
   }
 
   const handleReload = () => window.location.reload()
+
+  const downloadButton = (
+    <Button
+      key="download"
+      icon={<DownloadOutlined />}
+      onClick={handleDownloadJson}
+    >
+      Download JSON
+    </Button>
+  )
 
   return (
     <>
@@ -171,6 +194,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             title="Metadata uploaded successfully"
             subTitle="Your metadata is in the Knowledge Graph, but could not be saved to your support ticket automatically."
             extra={[
+              downloadButton,
               <Button type="primary" key="close" onClick={handleClose}>Close</Button>
             ]}
           >
@@ -198,7 +222,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             title="Knowledge Graph upload failed"
             subTitle="Your metadata could not be uploaded to the Knowledge Graph, but your JSON has been saved to your support ticket so the curation team can assist you."
             extra={[
-              <Button type="primary" key="retry" onClick={handleSubmit}>Try again</Button>,
+              downloadButton,
               <Button key="close" onClick={handleClose}>Close</Button>
             ]}
           >
@@ -232,6 +256,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             title="Your session has expired"
             subTitle="Your login session timed out before the upload could complete. Your form data is safe — please reload the page to log back in, then submit again."
             extra={[
+              downloadButton,
               <Button
                 type="primary"
                 key="reload"
@@ -249,8 +274,8 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
               message="Your data will not be lost"
               description={
                 <span>
-                  Before reloading, use the <strong>Download JSON</strong> button
-                  to save your current form data. After logging back in, use{' '}
+                  Use <strong>Download JSON</strong> to save your current form
+                  data before reloading. After logging back in, use{' '}
                   <strong>Import JSON</strong> to restore it instantly.
                 </span>
               }
@@ -265,7 +290,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             icon={<CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 56 }} />}
             title="Submission failed"
             extra={[
-              <Button type="primary" key="retry" onClick={handleSubmit}>Try again</Button>,
+              downloadButton,
               <Button key="close" onClick={handleClose}>Close</Button>
             ]}
           >

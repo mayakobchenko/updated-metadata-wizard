@@ -18,17 +18,6 @@ import dayjs from 'dayjs'
 
 const { Text } = Typography
 
-// ── feature flag: Data Descriptor step ──────────────────────────────────────
-// Controlled via VITE_ENABLE_DATA_DESCRIPTOR in .env (set to the literal
-// string "false" to disable). Defaults to enabled when unset, so dev/local
-// setups don't need to configure anything — only environments that
-// deliberately want it hidden (e.g. production, while the feature is still
-// being finished on main) need to set it explicitly. This replaces the
-// previous approach of commenting the step in/out by hand before syncing
-// main into production — that required editing two files in lockstep every
-// time and was easy to get subtly wrong or forget to revert.
-const DATA_DESCRIPTOR_ENABLED = import.meta.env.VITE_ENABLE_DATA_DESCRIPTOR !== 'false'
-
 const readJsonFile = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -213,8 +202,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   //    4    Contributors     always
   //    5    Experiments      always
   //    6    Subjects         only when subjectschoice === 'Yes'
-  //    7    DataDescriptor   always (last step) — only when
-  //                          VITE_ENABLE_DATA_DESCRIPTOR !== 'false'
+  //    7    DataDescriptor   always (last step)
 
   const steps = [
     { id: 0, component: Intro          },
@@ -224,35 +212,26 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     { id: 4, component: Contributors   },
     { id: 5, component: Experiments    },
     { id: 6, component: Subjects       },  // may be skipped
-    ...(DATA_DESCRIPTOR_ENABLED
-      ? [{ id: 7, component: DataDescriptor }]  // always last, when enabled
-      : []),
+    { id: 7, component: DataDescriptor },  // always last
   ]
 
-  const SUBJECTS_INDEX = 6
-  // Last real step index, derived from the actual steps array rather than
-  // hardcoded — automatically tracks whichever step is really last:
-  // DataDescriptor (7) when the flag is on, Subjects (6) when it's off.
-  const lastStepIndex = steps.length - 1
+  const SUBJECTS_INDEX      = 6
+  const DATA_DESCRIPTOR_INDEX = 7
 
   const subjectStepEnabled = formData?.experiments?.subjectschoice === 'Yes'
   const subjectStepVisible = formData?.experiments?.subjectschoice !== 'No'
 
-  // When DataDescriptor is enabled, it's always the last step regardless of
-  // Subjects, so no falling back further. When disabled, the last step is
-  // Subjects if enabled, or Experiments (5) otherwise — same behavior as
-  // before DataDescriptor existed.
-  const lastLogicalStepIndex = DATA_DESCRIPTOR_ENABLED
-    ? lastStepIndex
-    : (subjectStepEnabled ? SUBJECTS_INDEX : SUBJECTS_INDEX - 1)
+  // Last logical step is always DataDescriptor (index 7).
+  // When subjects are disabled we jump from 5 → 7 skipping 6.
+  const lastLogicalStepIndex = DATA_DESCRIPTOR_INDEX
 
-  // If subjects get disabled while the user is on (or past) the Subjects
-  // step, jump to wherever the real last step now is.
+  // If subjects get disabled while the user is on the Subjects step,
+  // jump forward to DataDescriptor.
   useEffect(() => {
-    if (!subjectStepEnabled && currentStepIndex > lastLogicalStepIndex) {
-      setCurrentStepIndex(lastLogicalStepIndex)
+    if (!subjectStepEnabled && currentStepIndex === SUBJECTS_INDEX) {
+      setCurrentStepIndex(DATA_DESCRIPTOR_INDEX)
     }
-  }, [subjectStepEnabled, currentStepIndex, lastLogicalStepIndex])
+  }, [subjectStepEnabled])
 
   // ── navigation ────────────────────────────────────────────────────────────
 
@@ -338,88 +317,32 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return fetch(`/api/zammad/zammadinfo?TicketNumber=${ticketNumber}`)
   }
 
+  const PYTHON_JSON_PATH = '/usr/src/app/server/routes/data.json'
+
   const saveJsonToZammad = async (ticketId) => {
     try {
-      const payload  = await mapDataset1OptionsToIds(formDataRef.current)
-      const response = await fetch('/api/zammad/save-json', {
+      return await fetch('/api/zammad/save-json', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketId,
-          formData: payload,
+          jsonFilePath: PYTHON_JSON_PATH,
           datasetTitle: formDataRef.current?.dataset1?.dataTitle || 'dataset'
         })
       })
-      return response
     } catch (err) {
       console.error('Error saving to Zammad:', err)
       throw err
     }
   }
 
-  // KG upload can take several minutes for large submissions. Rather than
-  // holding one HTTP request open the whole time (fragile against any
-  // proxy/browser idle timeout along the way — this is what caused
-  // "Failed to fetch" even though the upload was completing fine
-  // server-side), this starts a background job and polls for its result.
-  // Each poll is a fast, independent request, so no single connection stays
-  // open long enough to hit anyone's timeout.
-  const KG_POLL_INTERVAL_MS = 3000
-  const KG_MAX_WAIT_MS      = 15 * 60 * 1000 // 15 min safety cap
-
   const savePythonKG = async () => {
-    const payload  = await mapDataset1OptionsToIds(formDataRef.current)
-    const startRes = await fetch('api/python/runpython', {
+    const payload = await mapDataset1OptionsToIds(formDataRef.current)
+    return fetch('api/python/runpython', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload, null, 2),
     })
-
-    // auth/write errors are still reported synchronously, no job started
-    if (!startRes.ok) {
-      const data = await startRes.json().catch(() => ({}))
-      return { ok: false, status: startRes.status, data }
-    }
-
-    const { jobId } = await startRes.json()
-    const pollStart = Date.now()
-
-    while (true) {
-      await new Promise((resolve) => setTimeout(resolve, KG_POLL_INTERVAL_MS))
-
-      let statusRes
-      try {
-        statusRes = await fetch(`api/python/runpython/status/${jobId}`)
-      } catch (err) {
-        // a single dropped poll isn't fatal — try again next interval
-        console.warn('KG status poll failed, retrying:', err.message)
-        continue
-      }
-
-      if (!statusRes.ok) {
-        const data = await statusRes.json().catch(() => ({}))
-        return { ok: false, status: statusRes.status, data }
-      }
-
-      const statusData = await statusRes.json()
-
-      if (statusData.status === 'running') {
-        if (Date.now() - pollStart > KG_MAX_WAIT_MS) {
-          return {
-            ok: false, status: 504,
-            data: { error: 'Upload is taking unusually long. It may still complete in the background — check with support if unsure.' },
-          }
-        }
-        continue
-      }
-
-      if (statusData.status === 'success') {
-        return { ok: true, status: 200, data: statusData.result }
-      }
-
-      // status === 'error'
-      return { ok: false, status: 500, data: statusData }
-    }
   }
 
   const saveJsonToDrive = async () => {
@@ -451,7 +374,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         status={statuses}
         onChanged={goToWizardStep}
         subjectStepVisible={subjectStepVisible}
-        dataDescriptorEnabled={DATA_DESCRIPTOR_ENABLED}
       />
 
       {/* ── JSON toolbar ────────────────────────────────────────────────── */}

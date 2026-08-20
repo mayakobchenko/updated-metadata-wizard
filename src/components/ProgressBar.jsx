@@ -14,6 +14,7 @@ const BASE_STEP_NAMES = [
 ]
 
 const SUBJECTS_INDEX = 6
+const DATA_DESCRIPTOR_INDEX = 7
 
 const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
   let label
@@ -29,7 +30,7 @@ const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
   )
 }
 
-const ProgressBar = ({ step, status, onChanged, subjectStepVisible }) => {
+const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescriptorEnabled = true }) => {
   const [, setCurrent] = useState(0)
 
   const onChange = (value) => {
@@ -37,10 +38,12 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible }) => {
     onChanged(value)
   }
 
-  // Build visible items — skip Subjects (index 6) when not needed
+  // Build visible items — skip Subjects (index 6) when not needed, and skip
+  // Data Descriptor (index 7) when the feature flag has it disabled.
   const items = []
   for (let i = 0; i < BASE_STEP_NAMES.length; i++) {
     if (i === SUBJECTS_INDEX && !subjectStepVisible) continue
+    if (i === DATA_DESCRIPTOR_INDEX && !dataDescriptorEnabled) continue
 
     let thisStatus      = 'wait'
     let thisDescription = 'Incomplete'

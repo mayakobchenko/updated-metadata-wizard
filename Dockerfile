@@ -4,6 +4,15 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps --silent --no-audit --no-fund
 COPY . .
+
+# Feature flag: Data Descriptor step. Vite bakes VITE_* vars into the bundle
+# at build time (not read from the running container), so this has to be a
+# build-arg passed via `docker build --build-arg`, not a Kubernetes/runtime
+# env var — a Kubernetes Secret set on the Deployment would have no effect
+# here, since the build already happened before the container ever runs.
+ARG VITE_ENABLE_DATA_DESCRIPTOR=true
+ENV VITE_ENABLE_DATA_DESCRIPTOR=$VITE_ENABLE_DATA_DESCRIPTOR
+
 RUN npm run build
 
 # Stage 2 — install production dependencies only

@@ -333,6 +333,7 @@ def create_orcid_instance(orcid_url):
     except Exception as e:
         print(f"DEBUG error creating ORCID instance: {e}", file=sys.stderr)
         return None
+
 # ── person helpers ────────────────────────────────────────────────────────────
 
 
@@ -604,7 +605,7 @@ results = []
 
 # ── 1. contributions ──────────────────────────────────────────────────────────
 
-"""
+
 def build_contribution_nodes(data):
     contributions = []
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
@@ -626,7 +627,7 @@ def build_contribution_nodes(data):
         contrib_node = {
             "@type":            [f"{T}Contribution"],
             "contributor":      {"@id": person_url},
-            "type": [{"@id": ct} for ct in contribution_types if ct],
+            "contributionType": [{"@id": ct} for ct in contribution_types if ct],
         }
         contributions.append((contrib_uuid, contrib_node))
     return contributions
@@ -641,80 +642,122 @@ for contrib_uuid, contrib_node in contribution_nodes:
 
 if contribution_ids:
     dsv_attributes["otherContribution"] = contribution_ids
-"""
-# ── 1. contributions ──────────────────────────────────────────────────────────
-
-
-def build_contribution_nodes(data):
-    contributions = []
-    for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
-        person_url = nonempty(entry.get("selectedOtherContr", ""))
-        if not person_url and entry.get("isCustom"):
-            person_url = resolve_person(
-                entry.get("firstName", ""),
-                entry.get("lastName",  ""),
-                normalize_orcid(entry.get("orcid", "")),
-                create_if_missing=True
-            )
-        if not person_url or not isinstance(person_url, str) or not person_url.startswith("http"):
-            print(f"DEBUG skipping contribution — no valid person URL",
-                  file=sys.stderr)
-            continue
-
-        contribution_types = (
-            entry.get("selectedTypeContr") or
-            entry.get("contributionTypes") or
-            []
-        )
-
-        print(
-            f"DEBUG contribution: person={person_url} types={contribution_types}", file=sys.stderr)
-
-        # ── try as a separate instance first, fall back to inline if it fails ──
-        contrib_uuid = str(uuid4())
-        contrib_node = {
-            "@type":       [f"{T}Contribution"],
-            "contributor": {"@id": person_url},
-            "type":        [{"@id": ct} for ct in contribution_types if ct],
-        }
-        contributions.append((contrib_uuid, contrib_node))
-    return contributions
-
-
-contribution_nodes = build_contribution_nodes(data)
-contribution_ids = []
-inline_contributions = []
-
-for contrib_uuid, contrib_node in contribution_nodes:
-    result = KG_post(contrib_uuid, contrib_node)
-    results.append({"contribution": result})
-
-    if isinstance(result, dict) and "error" in result:
-        # ── KG rejected as separate instance — embed inline instead ──────────
-        print(
-            f"DEBUG contribution POST failed, will embed inline: {result}", file=sys.stderr)
-        inline_contributions.append({
-            "@type":       contrib_node["@type"],
-            "contributor": contrib_node["contributor"],
-            "type":        contrib_node["type"],
-        })
-    else:
-        contribution_ids.append({"@id": KG_PREFIX + contrib_uuid})
-
-# ── attach to DatasetVersion — use whichever worked ───────────────────────────
-if contribution_ids:
-    dsv_attributes["otherContribution"] = contribution_ids
-    print(
-        f"DEBUG using {len(contribution_ids)} separate Contribution instances", file=sys.stderr)
-elif inline_contributions:
-    dsv_attributes["otherContribution"] = inline_contributions
-    print(
-        f"DEBUG using {len(inline_contributions)} inline embedded contributions", file=sys.stderr)
 
 # ── 2. patch DatasetVersion ───────────────────────────────────────────────────
 
 dsv_result = KG_patch(dsv_id, dsv_attributes)
 results.append({"datasetVersion": dsv_result})
+
+# ── 2b. find or create parent Dataset and update it ──────────────────────────
+
+
+def find_dataset_via_neighbors(dsv_uuid):
+    """
+    Fetch neighbors of the DatasetVersion and find the parent Dataset
+    in the inbound list (Dataset points to DSV via hasVersion).
+    Returns the Dataset UUID string or None.
+    """
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        url = f"https://core.kg.ebrains.eu/v3/instances/{dsv_uuid}/neighbors?stage=IN_PROGRESS"
+        resp = rq.get(url=url, headers=headers)
+        print(f"DEBUG neighbors {url} → {resp.status_code}", file=sys.stderr)
+        if not resp.ok:
+            print(f"DEBUG neighbors error: {resp.text[:200]}", file=sys.stderr)
+            return None
+
+        neighbors = resp.json().get("data", {})
+        inbound = neighbors.get("inbound", []) or []
+
+        dataset_type = "https://openminds.om-i.org/types/Dataset"
+        for item in inbound:
+            if dataset_type in (item.get("types") or []):
+                dataset_uuid = item["id"]
+                print(
+                    f"DEBUG found parent Dataset via neighbors: {dataset_uuid}", file=sys.stderr)
+                return dataset_uuid
+
+        print(f"DEBUG no parent Dataset found in neighbors inbound", file=sys.stderr)
+        return None
+
+    except Exception as e:
+        print(f"DEBUG find_dataset_via_neighbors error: {e}", file=sys.stderr)
+        return None
+
+
+def create_dataset(dsv_uuid, dataset_attributes):
+    """
+    Create a new Dataset instance in the collab space and link it to the DSV.
+    """
+    dataset_uuid = str(uuid4())
+    dataset_node = {
+        "@type":      [f"{T}Dataset"],
+        "hasVersion": [{"@id": KG_PREFIX + dsv_uuid}],
+        **dataset_attributes,
+    }
+    print(f"DEBUG creating new Dataset {dataset_uuid}", file=sys.stderr)
+    result = KG_post(dataset_uuid, dataset_node)
+    if isinstance(result, dict) and "error" in result:
+        print(f"DEBUG FAILED to create Dataset: {result}", file=sys.stderr)
+        return None
+    print(f"DEBUG new Dataset → {KG_PREFIX + dataset_uuid}", file=sys.stderr)
+    return dataset_uuid
+
+
+def patch_dataset(dataset_uuid, dataset_attributes):
+    """
+    Patch an existing Dataset with updated metadata.
+    Always ensures hasVersion references the current DSV.
+    """
+    dataset_node = {
+        "@type":      [f"{T}Dataset"],
+        "hasVersion": [{"@id": KG_PREFIX + dsv_id}],
+        **dataset_attributes,
+    }
+    result = KG_patch(dataset_uuid, dataset_node)
+    print(f"DEBUG patched Dataset {dataset_uuid} → {result}", file=sys.stderr)
+    return result
+
+
+# ── build Dataset attributes from form data ───────────────────────────────────
+# Dataset shares title, authors and custodian with DatasetVersion
+# but does NOT have description, license, embargo etc. — those live on DSV.
+
+dataset_attributes = {}
+
+if dsv_title:
+    dataset_attributes["fullName"] = dsv_title
+if dsv_short_title:
+    dataset_attributes["shortName"] = dsv_short_title
+# change later for the data descriptor
+"""   
+if brief_summary:
+    dataset_attributes["description"] = brief_summary
+"""
+# authors — same list resolved above for DSV
+if valid_authors:
+    dataset_attributes["author"] = [{"@id": a} for a in valid_authors]
+
+# custodian
+if custodian_url and isinstance(custodian_url, str) and custodian_url.startswith("http"):
+    dataset_attributes["custodian"] = {"@id": custodian_url}
+
+# ── find existing Dataset or create new one ───────────────────────────────────
+
+dataset_uuid = find_dataset_via_neighbors(dsv_id)
+
+if dataset_uuid:
+    print(f"DEBUG updating existing Dataset {dataset_uuid}", file=sys.stderr)
+    dataset_result = patch_dataset(dataset_uuid, dataset_attributes)
+    results.append({"dataset": dataset_result})
+else:
+    print(f"DEBUG no existing Dataset found — creating new one", file=sys.stderr)
+    dataset_uuid = create_dataset(dsv_id, dataset_attributes)
+    if dataset_uuid:
+        results.append({"dataset": {"created": dataset_uuid}})
+    else:
+        results.append({"dataset": {"error": "failed to create Dataset"}})
 
 # ── 3. subject helpers ────────────────────────────────────────────────────────
 
