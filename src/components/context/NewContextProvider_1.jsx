@@ -110,55 +110,34 @@ export default function NewContextProvider({ children }) {
         const ticketNumber = hasTicket.current
         if (!ticketNumber) return
         if (!mountedRef.current) return
-
-        // datasetVersionId comes from Zammad, not Nettskjema — store it as
-        // soon as we have it, independent of whether the Nettskjema fetch
-        // below (which only pre-fills other fields like contact/custodian
-        // info) succeeds. Previously this dispatch sat AFTER the Nettskjema
-        // call, so when Nettskjema was down, its thrown error skipped this
-        // dispatch entirely (caught by the outer try/catch further down) —
-        // even though the ID had already been fetched successfully from
-        // Zammad on the line above. That's why it appeared to "get lost"
-        // whenever Nettskjema had an outage.
         const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
+        const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
         dispatch({ type: 'dsvId', text: datasetVersionId })
-
-        try {
-          const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
-          const skjemaInfo = {
-              ticketNumber: ticketNumber, 
-              contactFirstName: nettskjemaInfo.ContactInfo[0],
-              contactSurname: nettskjemaInfo.ContactInfo[1],
-              contactEmail: nettskjemaInfo.ContactInfo[2],
-              custodionaFirstName: nettskjemaInfo.CustodianInfo[0],  //typo
-              custodianSurname: nettskjemaInfo.CustodianInfo[1],
-              custodianEmail: nettskjemaInfo.CustodianInfo[2],
-              custodianORCID: nettskjemaInfo.CustodianInfo[3],
-              custodianInstitution: nettskjemaInfo.CustodianInfo[4],
-              GroupLeaderName: nettskjemaInfo.GroupLeader[0],
-              GroupLeaderOrcid: nettskjemaInfo.GroupLeader[1],
-              dataTitle: nettskjemaInfo.DataInfo[0],
-              briefSummary: nettskjemaInfo.DataInfo[1],
-              embargo: nettskjemaInfo.DataInfo[2],
-              optionsData: nettskjemaInfo.DataInfo[3],
-              otherDataType: nettskjemaInfo.DataInfo[4],
-              dataStandart: nettskjemaInfo.DataInfo[5],
-              otherDataStandart: nettskjemaInfo.DataInfo[6],
-              embargoReview: nettskjemaInfo.DataInfo[7],
-              submitJournalName: nettskjemaInfo.DataInfo[8],
-              Data2UrlDoiRepo: nettskjemaInfo.Data2Info[0],
-              Data2DoiJournal: nettskjemaInfo.Data2Info[1]
-          }
-          dispatch({ type: 'nettskjemaInfo', text: skjemaInfo })
-        } catch (nettskjemaErr) {
-          // Nettskjema being down should only mean "some fields won't be
-          // pre-filled" — not "the wizard is unusable". Still dispatch a
-          // minimal skjemaInfo with ticketNumber, since other parts of the
-          // wizard (e.g. the Zammad JSON-save safety net) read
-          // skjemaInfo?.ticketNumber and need it regardless of Nettskjema.
-          console.error('Nettskjema fetch failed — dataset version ID is unaffected, but other fields will not be pre-filled:', nettskjemaErr)
-          dispatch({ type: 'nettskjemaInfo', text: { ticketNumber } })
+        const skjemaInfo = {
+            ticketNumber: ticketNumber, 
+            contactFirstName: nettskjemaInfo.ContactInfo[0],
+            contactSurname: nettskjemaInfo.ContactInfo[1],
+            contactEmail: nettskjemaInfo.ContactInfo[2],
+            custodionaFirstName: nettskjemaInfo.CustodianInfo[0],  //typo
+            custodianSurname: nettskjemaInfo.CustodianInfo[1],
+            custodianEmail: nettskjemaInfo.CustodianInfo[2],
+            custodianORCID: nettskjemaInfo.CustodianInfo[3],
+            custodianInstitution: nettskjemaInfo.CustodianInfo[4],
+            GroupLeaderName: nettskjemaInfo.GroupLeader[0],
+            GroupLeaderOrcid: nettskjemaInfo.GroupLeader[1],
+            dataTitle: nettskjemaInfo.DataInfo[0],
+            briefSummary: nettskjemaInfo.DataInfo[1],
+            embargo: nettskjemaInfo.DataInfo[2],
+            optionsData: nettskjemaInfo.DataInfo[3],
+            otherDataType: nettskjemaInfo.DataInfo[4],
+            dataStandart: nettskjemaInfo.DataInfo[5],
+            otherDataStandart: nettskjemaInfo.DataInfo[6],
+            embargoReview: nettskjemaInfo.DataInfo[7],
+            submitJournalName: nettskjemaInfo.DataInfo[8],
+            Data2UrlDoiRepo: nettskjemaInfo.Data2Info[0],
+            Data2DoiJournal: nettskjemaInfo.Data2Info[1]
         }
+        dispatch({ type: 'nettskjemaInfo', text: skjemaInfo })
       })()
     }
     } catch (err) {
@@ -231,3 +210,5 @@ export function authReducer(state, action) {
 
 export function useAuthContext() {return useContext(AuthContext)}
 export function useAuthDispatch() { return useContext(AuthDispatch) }
+
+//https://127.0.0.1:8080/?TicketNumber=4826029
