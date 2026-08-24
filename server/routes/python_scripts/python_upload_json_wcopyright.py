@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import re
 import time
 import requests as rq
 from uuid import uuid4
@@ -556,170 +555,6 @@ def resolve_person(first_name, family_name, orcid=None, create_if_missing=True):
         return create_person(first_name, family_name, orcid)
     return None
 
-
-# ── organization (copyright holder) ────────────────────────────────────────────
-
-def find_organization_in_collab(name):
-    """
-    Search the collab space for an existing Organization matching `name`.
-    Returns the @id if found, None if genuinely not found. Raises
-    KGLookupError if the search could not be completed.
-    """
-    headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
-    from_offset = 0
-    page_size = 100
-    vocab_name = f"{V}name"
-    while True:
-        url = (
-            f"https://core.kg.ebrains.eu/v3/instances"
-            f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
-            f"&type={T}Organization"
-            f"&size={page_size}&from={from_offset}"
-        )
-        # raises KGLookupError on failure
-        resp = kg_get_with_retry(url, headers)
-        items = resp.json().get("data", [])
-        for item in items:
-            item_name = item.get(vocab_name, "") or ""
-            if isinstance(item_name, str) and item_name.strip().lower() == name.strip().lower():
-                print(
-                    f"DEBUG found existing Organization '{name}' → {item['@id']}", file=sys.stderr)
-                return item["@id"]
-        if len(items) < page_size:
-            return None
-        from_offset += page_size
-
-
-def find_or_create_organization(name):
-    """
-    Find-or-create an Organization by name. Returns the KG URL, or None if
-    `name` is empty or the lookup couldn't be confirmed (fail-closed — never
-    falls through to create if the existence check itself failed).
-    """
-    name = nonempty(name)
-    if not name:
-        return None
-    try:
-        existing = find_organization_in_collab(name)
-    except KGLookupError as e:
-        print(f"DEBUG could not confirm whether Organization '{name}' already exists — "
-              f"NOT creating, to avoid a duplicate: {e}", file=sys.stderr)
-        return None
-    if existing:
-        return existing
-
-    org_uuid = str(uuid4())
-    org_node = {"@type": [f"{T}Organization"], "name": name}
-    print(f"DEBUG creating new Organization '{name}'", file=sys.stderr)
-    result = KG_post(org_uuid, org_node)
-    if isinstance(result, dict) and "error" in result:
-        print(
-            f"DEBUG FAILED to create Organization '{name}': {result}", file=sys.stderr)
-        return None
-    return KG_PREFIX + org_uuid
-
-
-# ── DOI (related publications) ──────────────────────────────────────────────
-
-def find_doi_in_collab(doi_iri):
-    """
-    Search the collab space for an existing DOI instance matching doi_iri.
-    Returns the @id if found, None if genuinely not found. Raises
-    KGLookupError if the search could not be completed.
-    """
-    headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
-    from_offset = 0
-    page_size = 100
-    vocab_ident = f"{V}identifier"
-    while True:
-        url = (
-            f"https://core.kg.ebrains.eu/v3/instances"
-            f"?stage=IN_PROGRESS&space=collab-d-{dsv_id}"
-            f"&type={T}DOI"
-            f"&size={page_size}&from={from_offset}"
-        )
-        # raises KGLookupError on failure
-        resp = kg_get_with_retry(url, headers)
-        items = resp.json().get("data", [])
-        for item in items:
-            item_ident = item.get(vocab_ident, "") or ""
-            if isinstance(item_ident, str) and item_ident.strip().lower() == doi_iri.strip().lower():
-                print(
-                    f"DEBUG found existing DOI '{doi_iri}' → {item['@id']}", file=sys.stderr)
-                return item["@id"]
-        if len(items) < page_size:
-            return None
-        from_offset += page_size
-
-
-def normalize_doi(raw):
-    """Return a proper 'https://doi.org/...' IRI, or None if raw is empty."""
-    s = nonempty(raw)
-    if not s:
-        return None
-    if s.startswith("https://doi.org/") or s.startswith("http://doi.org/"):
-        return s.replace("http://doi.org/", "https://doi.org/")
-    if s.lower().startswith("doi:"):
-        s = s[4:].strip()
-    return f"https://doi.org/{s}"
-
-
-def normalize_homepage(raw):
-    """
-    Return a well-formed homepage IRI, or None if empty or clearly not a
-    usable URL. The wizard form validates this client-side, but this is a
-    server-side safety net for older saved data or a direct JSON import
-    that bypassed the form — openMINDS' `homepage` property requires a
-    proper IRI (with scheme), not a bare domain like "example.com".
-    """
-    s = nonempty(raw)
-    if not s:
-        return None
-    if re.search(r"\s", s):
-        print(
-            f"DEBUG homepage '{raw}' contains whitespace — not a valid URL, omitting", file=sys.stderr)
-        return None
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", s):
-        # no scheme present — assume https, matching how users usually type
-        # domains without one (e.g. "example.com")
-        s = f"https://{s}"
-    # must be scheme:// followed by at least one non-whitespace char, and
-    # nothing else after — a full match, not just a prefix match
-    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://\S+$", s):
-        return s
-    print(
-        f"DEBUG homepage '{raw}' does not look like a usable URL — omitting", file=sys.stderr)
-    return None
-
-
-def find_or_create_doi(raw_doi):
-    """
-    Find-or-create a DOI instance for a given raw DOI string/IRI. Returns
-    the KG URL, or None if empty or the lookup couldn't be confirmed
-    (fail-closed).
-    """
-    doi_iri = normalize_doi(raw_doi)
-    if not doi_iri:
-        return None
-    try:
-        existing = find_doi_in_collab(doi_iri)
-    except KGLookupError as e:
-        print(f"DEBUG could not confirm whether DOI '{doi_iri}' already exists — "
-              f"NOT creating, to avoid a duplicate: {e}", file=sys.stderr)
-        return None
-    if existing:
-        return existing
-
-    doi_uuid = str(uuid4())
-    doi_node = {"@type": [f"{T}DOI"], "identifier": doi_iri}
-    print(f"DEBUG creating new DOI '{doi_iri}'", file=sys.stderr)
-    result = KG_post(doi_uuid, doi_node)
-    if isinstance(result, dict) and "error" in result:
-        print(
-            f"DEBUG FAILED to create DOI '{doi_iri}': {result}", file=sys.stderr)
-        return None
-    return KG_PREFIX + doi_uuid
-
 # ── extract dataset fields ────────────────────────────────────────────────────
 
 
@@ -729,7 +564,7 @@ brief_summary = safe_trim(data.get("dataset1", {}).get("briefSummary", ""))
 license_id = safe_trim(data.get("dataset1", {}).get("license",      ""))
 embargo = data.get("dataset1", {}).get("embargo", False)
 embargo_date = data.get("dataset1", {}).get("embargoDate") if embargo else None
-homepage = normalize_homepage(data.get("dataset2", {}).get("homePage", ""))
+homepage = safe_trim(data.get("dataset2", {}).get("homePage", ""))
 
 data_type_list = data.get("dataset1", {}).get("optionsData", [])
 if isinstance(data_type_list, str):
@@ -854,100 +689,6 @@ if preparation_types:
     dsv_attributes["preparationDesign"] = as_id_list(preparation_types)
 if study_targets:
     dsv_attributes["studyTarget"] = as_id_list(study_targets)
-
-# ── copyright ──────────────────────────────────────────────────────────────
-# Copyright is an EMBEDDED object (unlike author/custodian/license, which are
-# links to separately-created instances) — it's inlined directly as the
-# value of DatasetVersion.copyright. Its `holder` field is still a link,
-# though, so we still need to resolve/create the actual Person or
-# Organization first.
-d1 = data.get("dataset1", {})
-if d1.get("copyright") in ("Yes", "yes", True, "true"):
-    copyright_holder_type = d1.get("copyrightHolder", "Person")
-    holder_url = None
-    try:
-        if copyright_holder_type == "Organization":
-            holder_url = find_or_create_organization(
-                d1.get("copyrightOrganization", ""))
-        else:  # "Person" (default)
-            holder_url = resolve_person(
-                d1.get("copyrightFirstName", ""),
-                d1.get("copyrightLastName", ""),
-                create_if_missing=True,
-            )
-    except KGLookupError as e:
-        print(f"DEBUG could not resolve copyright holder due to a KG connectivity issue — "
-              f"skipping copyright info: {e}", file=sys.stderr)
-        results.append({"copyright": {
-            "error": "Could not verify the copyright holder due to a KG connectivity issue — "
-                     "copyright info skipped. Please retry the submission.",
-            "skipped": True,
-        }})
-
-    if holder_url and isinstance(holder_url, str) and holder_url.startswith("http"):
-        # copyrightYear arrives as an ISO datetime string (e.g. from a date
-        # picker: "2020-08-12T22:00:00.000Z") — Copyright.year wants just
-        # the year, as an array of strings.
-        raw_year = safe_trim(d1.get("copyrightYear", ""))
-        year_str = raw_year[:4] if raw_year and raw_year[:4].isdigit(
-        ) else None
-
-        copyright_node = {
-            "@type": [f"{T}Copyright"],
-            "holder": [{"@id": holder_url}],
-        }
-        if year_str:
-            copyright_node["year"] = [year_str]
-        dsv_attributes["copyright"] = copyright_node
-        print(
-            f"DEBUG copyright → holder={holder_url} year={year_str}", file=sys.stderr)
-    elif copyright_holder_type == "Organization" and nonempty(d1.get("copyrightOrganization")):
-        print("DEBUG copyright organization could not be resolved/created — skipping copyright info",
-              file=sys.stderr)
-    elif copyright_holder_type != "Organization" and (nonempty(d1.get("copyrightFirstName")) or nonempty(d1.get("copyrightLastName"))):
-        print("DEBUG copyright person could not be resolved/created — skipping copyright info",
-              file=sys.stderr)
-
-# ── related publications ──────────────────────────────────────────────────────
-# Collected from two places in the form: the single "already published in a
-# journal?" DOI field, and the free-form list of related-publication DOIs.
-# Each becomes (or reuses) a DOI instance, linked via relatedPublication.
-d2 = data.get("dataset2", {})
-raw_dois = []
-
-journal_doi_field = safe_trim(d2.get("Data2DoiJournal", ""))
-if journal_doi_field:
-    # the field's own hint text allows more than one DOI; split on common separators
-    raw_dois.extend([p.strip() for p in re.split(
-        r"[,\s]+", journal_doi_field) if p.strip()])
-
-for pub in d2.get("relatedPublications", []):
-    raw = safe_trim(pub.get("newPublication", ""))
-    if raw:
-        raw_dois.append(raw)
-
-related_publication_ids = []
-seen_dois = set()
-for raw_doi in raw_dois:
-    normalized = normalize_doi(raw_doi)
-    if not normalized or normalized.lower() in seen_dois:
-        continue
-    seen_dois.add(normalized.lower())
-    doi_url = find_or_create_doi(raw_doi)
-    if doi_url and isinstance(doi_url, str) and doi_url.startswith("http"):
-        related_publication_ids.append({"@id": doi_url})
-    else:
-        print(f"DEBUG related publication DOI '{raw_doi}' could not be resolved/created — skipping",
-              file=sys.stderr)
-        results.append({"relatedPublication": {
-            "error": f"Could not verify or create DOI '{normalized}' — skipped. Please retry the submission.",
-            "skipped": True,
-        }})
-
-if related_publication_ids:
-    dsv_attributes["relatedPublication"] = related_publication_ids
-    print(
-        f"DEBUG relatedPublication → {len(related_publication_ids)} DOI(s)", file=sys.stderr)
 
 print(
     f"DEBUG dsv_attributes:\n{json.dumps(dsv_attributes, indent=2)}", file=sys.stderr)

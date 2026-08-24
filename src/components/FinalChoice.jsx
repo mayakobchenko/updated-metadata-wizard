@@ -244,7 +244,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
           <Result
             icon={<WarningOutlined style={{ color: '#faad14', fontSize: 56 }} />}
             title="Your session has expired"
-            subTitle="Your login session timed out before the upload could complete. Your form data is safe — please reload the page to log back in, then submit again."
+            subTitle="Your login session timed out before the upload could complete. Please make sure to download the metadata json file before reloading the page. Please reload the page to log back in, then uploade the saved json file and submit again."
             extra={[
               downloadButton,
               <Button
@@ -261,7 +261,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             <Alert
               type="info"
               showIcon
-              message="Your data will not be lost"
+              message=""
               description={
                 <span>
                   Use <strong>Download JSON</strong> to save your current form

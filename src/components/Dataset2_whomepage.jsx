@@ -82,16 +82,9 @@ export default function Dataset2({ form, onChange, data = {}}) {
       <Form form={form} layout="vertical" initialValues={initialValues} onValuesChange={handleValuesChange}>
         <Form.Item
           label="Home Page"
-          name={['dataset2', 'homePage']}
-          extra="Add the URL to the homepage describing this dataset (if applicable). Must be a full URL, including https:// — e.g. https://example.com/my-dataset"
-          rules={[
-            {
-              type: 'url',
-              message: 'Please enter a valid URL, including the scheme (e.g. https://example.com).',
-            },
-          ]}
-        >
-          <Input placeholder="https://example.com/my-dataset" />
+          name={['dataset2', 'homePage']} 
+          extra="Add the URL to the homepage describing this dataset (if applicable)">
+          <Input />
         </Form.Item>
         { data.dataset2?.Data2UrlDoiRepo ?
           (<Form.Item
