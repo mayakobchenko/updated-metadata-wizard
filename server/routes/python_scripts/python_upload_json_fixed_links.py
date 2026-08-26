@@ -1360,7 +1360,6 @@ if subject_metadata.get("subjectGroups"):
             "lookupLabel":        group_label,
             "internalIdentifier": group_label,
             "quantity":           len(subjects),
-            "numberOfSubjects":   len(subjects),
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
         apply_strain_species_group(group_node, subjects)
@@ -1569,12 +1568,11 @@ for collection in subject_metadata.get("tissueCollections", []):
             collection_origins.append(sample["origin"])
 
     collection_node = {
-        "@type":                  [f"{T}TissueSampleCollection"],
-        "lookupLabel":            coll_id_str,
-        "internalIdentifier":     coll_id_str,
-        "quantity":               len(collection.get("samples", [])),
-        "numberOfTissueSamples":  len(collection.get("samples", [])),
-        "studiedState":           [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
+        "@type":              [f"{T}TissueSampleCollection"],
+        "lookupLabel":        coll_id_str,
+        "internalIdentifier": coll_id_str,
+        "quantity":           len(collection.get("samples", [])),
+        "studiedState":       [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
     }
     apply_strain_species_group(collection_node, collection.get("samples", []))
 
