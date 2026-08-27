@@ -116,7 +116,7 @@ async function getContributors(req, res) {
             }
             personKG.push(typeInstanceList)
         } else { throw new Error('Error fetching contributors. Status code: ' + response.status)}
-      console.log(personKG)
+      //console.log(personKG)
       res.json({personKG})
     } catch (error) {
       console.error('Error fetching contributors from backend', error.message)

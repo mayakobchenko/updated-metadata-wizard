@@ -956,18 +956,6 @@ print(
 
 
 def build_contribution_nodes(data):
-    """
-    Build EMBEDDED Contribution objects for DatasetVersion.otherContribution.
-
-    IMPORTANT: Contribution is an embedded object type in openMINDS (per the
-    schema docs: "otherContribution — value type: embedded object array (1-N)
-    of type Contribution"), NOT a linked type. It must NOT be created as a
-    separate KG instance and referenced via {"@id": ...} — the KG schema
-    doesn't accept that shape for an embedded property, which is why this
-    previously silently failed to end up on the DatasetVersion at all.
-    Confirmed against real KG data: the type-classification field on
-    Contribution is named "type", not "contributionType".
-    """
     contributions = []
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
         person_url = nonempty(entry.get("selectedOtherContr", ""))
@@ -995,24 +983,27 @@ def build_contribution_nodes(data):
             print(f"DEBUG skipping contribution — no valid person URL",
                   file=sys.stderr)
             continue
-        # the frontend writes this under different keys depending on whether
-        # the contributor is custom vs selected from the KG — check both
         contribution_types = entry.get(
             "selectedTypeContr") or entry.get("contributionTypes") or []
+        contrib_uuid = str(uuid4())
         contrib_node = {
-            "@type":       [f"{T}Contribution"],
-            "contributor": {"@id": person_url},
-            "type":        [{"@id": ct} for ct in contribution_types if ct],
+            "@type":            [f"{T}Contribution"],
+            "contributor":      {"@id": person_url},
+            "contributionType": [{"@id": ct} for ct in contribution_types if ct],
         }
-        contributions.append(contrib_node)
+        contributions.append((contrib_uuid, contrib_node))
     return contributions
 
 
 contribution_nodes = build_contribution_nodes(data)
-if contribution_nodes:
-    dsv_attributes["otherContribution"] = contribution_nodes
-    print(
-        f"DEBUG otherContribution → {len(contribution_nodes)} embedded contribution(s)", file=sys.stderr)
+contribution_ids = []
+for contrib_uuid, contrib_node in contribution_nodes:
+    contrib_result = KG_post(contrib_uuid, contrib_node)
+    results.append({"contribution": contrib_result})
+    contribution_ids.append({"@id": KG_PREFIX + contrib_uuid})
+
+if contribution_ids:
+    dsv_attributes["otherContribution"] = contribution_ids
 
 # ── 2. patch DatasetVersion ───────────────────────────────────────────────────
 

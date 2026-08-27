@@ -32,14 +32,14 @@ router.post('/submit-metadata', async (req, res) => {
 
 // test GET endpoint
 router.get('/hello', (req, res) => {
-  res.json({ message: 'Hello from backend' });
-  console.log(`${req.method} ${req.url}`);
-});
+  res.json({ message: 'Hello from backend' })
+  //console.log(`${req.method} ${req.url}`)
+})
 
 // test POST endpoint
 router.post('/testpost', (req, res) => {
   const data = req.body;
-  console.log('Received data:', data);
+  //console.log('Received data:', data)
   res.status(200).json({ status: 'success test', received: data })
 });
 

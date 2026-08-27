@@ -150,7 +150,7 @@ async function getToken(req, res) {
 
     const tokenData = JSON.parse(text)
     console.log('token expires in:', tokenData["expires_in"])
-    console.log('token id_token:', tokenData["id_token"])
+    //console.log('token id_token:', tokenData["id_token"])
 
     if (tokenData) {
       const expiresIn = tokenData.expires_in
