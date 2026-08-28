@@ -956,6 +956,18 @@ print(
 
 
 def build_contribution_nodes(data):
+    """
+    Build EMBEDDED Contribution objects for DatasetVersion.otherContribution.
+
+    IMPORTANT: Contribution is an embedded object type in openMINDS (per the
+    schema docs: "otherContribution — value type: embedded object array (1-N)
+    of type Contribution"), NOT a linked type. It must NOT be created as a
+    separate KG instance and referenced via {"@id": ...} — the KG schema
+    doesn't accept that shape for an embedded property, which is why this
+    previously silently failed to end up on the DatasetVersion at all.
+    Confirmed against real KG data: the type-classification field on
+    Contribution is named "type", not "contributionType".
+    """
     contributions = []
     for entry in data.get("contribution", {}).get("contributor", {}).get("othercontr", []):
         person_url = nonempty(entry.get("selectedOtherContr", ""))
@@ -983,27 +995,24 @@ def build_contribution_nodes(data):
             print(f"DEBUG skipping contribution — no valid person URL",
                   file=sys.stderr)
             continue
+        # the frontend writes this under different keys depending on whether
+        # the contributor is custom vs selected from the KG — check both
         contribution_types = entry.get(
             "selectedTypeContr") or entry.get("contributionTypes") or []
-        contrib_uuid = str(uuid4())
         contrib_node = {
-            "@type":            [f"{T}Contribution"],
-            "contributor":      {"@id": person_url},
-            "contributionType": [{"@id": ct} for ct in contribution_types if ct],
+            "@type":       [f"{T}Contribution"],
+            "contributor": {"@id": person_url},
+            "type":        [{"@id": ct} for ct in contribution_types if ct],
         }
-        contributions.append((contrib_uuid, contrib_node))
+        contributions.append(contrib_node)
     return contributions
 
 
 contribution_nodes = build_contribution_nodes(data)
-contribution_ids = []
-for contrib_uuid, contrib_node in contribution_nodes:
-    contrib_result = KG_post(contrib_uuid, contrib_node)
-    results.append({"contribution": contrib_result})
-    contribution_ids.append({"@id": KG_PREFIX + contrib_uuid})
-
-if contribution_ids:
-    dsv_attributes["otherContribution"] = contribution_ids
+if contribution_nodes:
+    dsv_attributes["otherContribution"] = contribution_nodes
+    print(
+        f"DEBUG otherContribution → {len(contribution_nodes)} embedded contribution(s)", file=sys.stderr)
 
 # ── 2. patch DatasetVersion ───────────────────────────────────────────────────
 
@@ -1214,14 +1223,6 @@ def post_or_patch_tissue_sample(sample_uuid, sample_node, sample_id_str):
     return post_or_patch_by_label(sample_uuid, sample_node, sample_id_str, "TissueSample")
 
 
-def post_or_patch_subject_group(group_uuid, group_node, lookup_label):
-    return post_or_patch_by_label(group_uuid, group_node, lookup_label, "SubjectGroup")
-
-
-def post_or_patch_tissue_sample_collection(collection_uuid, collection_node, lookup_label):
-    return post_or_patch_by_label(collection_uuid, collection_node, lookup_label, "TissueSampleCollection")
-
-
 def build_subject_instance(subject, group_uuid=None):
     subject_uuid = str(uuid4())
     state_uuid = str(uuid4())
@@ -1296,12 +1297,40 @@ sample_id_to_kg_uuid = {}
 if subject_metadata.get("subjectGroups"):
     for group in subject_metadata["subjectGroups"]:
         subjects = group.get("subjects", [])
-        group_uuid_placeholder = str(uuid4())
+        group_label = safe_trim(group.get("name", str(uuid4())))
+
+        # ── determine the group's REAL final UUID first ────────────────────
+        # This must happen BEFORE building any subjects below, because each
+        # subject's isPartOf link needs to point at whatever UUID the group
+        # will actually end up with. Building subjects first against a
+        # freshly-generated placeholder UUID only worked when the group was
+        # always newly created — once an existence check was added (to stop
+        # duplicate SubjectGroups), a group that already existed would get
+        # PATCHed using ITS OWN uuid, leaving every subject's isPartOf
+        # pointing at a placeholder that was never actually written to the
+        # KG (shows as "Not found" in the KG editor).
+        try:
+            existing_group_id = find_instance_by_label(
+                group_label, "SubjectGroup")
+        except KGLookupError as e:
+            print(f"DEBUG could not confirm whether SubjectGroup '{group_label}' already exists — "
+                  f"skipping this group entirely to avoid a duplicate or a broken isPartOf link: {e}",
+                  file=sys.stderr)
+            results.append({"subjectGroup": {
+                "error": f"Could not verify SubjectGroup '{group_label}' due to a KG connectivity "
+                         f"issue — skipped. Please retry the submission.",
+                "skipped": True,
+            }})
+            continue
+
+        group_uuid = existing_group_id.split(
+            "/")[-1] if existing_group_id else str(uuid4())
+        group_is_new = existing_group_id is None
         group_state_uuids = []
 
         for subject in subjects:
             (subj_uuid, subj_node), (state_uuid, state_node) = build_subject_instance(
-                subject, group_uuid=group_uuid_placeholder
+                subject, group_uuid=group_uuid
             )
             subject_id_str = safe_trim(subject.get("subjectID", subj_uuid))
             state_label = subject_id_str + "_state"
@@ -1337,9 +1366,10 @@ if subject_metadata.get("subjectGroups"):
 
         group_node = {
             "@type":              [f"{T}SubjectGroup"],
-            "lookupLabel":        safe_trim(group.get("name", group_uuid_placeholder)),
-            "internalIdentifier": safe_trim(group.get("name", group_uuid_placeholder)),
+            "lookupLabel":        group_label,
+            "internalIdentifier": group_label,
             "quantity":           len(subjects),
+            "numberOfSubjects":   len(subjects),
             "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
         }
         apply_strain_species_group(group_node, subjects)
@@ -1349,17 +1379,16 @@ if subject_metadata.get("subjectGroups"):
         if remarks:
             group_node["additionalRemarks"] = remarks
 
-        group_label = safe_trim(group.get("name", group_uuid_placeholder))
-        final_group_uuid, group_result = post_or_patch_subject_group(
-            group_uuid_placeholder, group_node, group_label)
+        # group_uuid was already confirmed above (new or existing) — post or
+        # patch using that SAME uuid, so it matches what the subjects above
+        # already linked to via isPartOf.
+        if group_is_new:
+            group_result = KG_post(group_uuid, group_node)
+        else:
+            group_result = KG_patch(group_uuid, group_node)
         results.append({"subjectGroup": group_result})
 
-        if final_group_uuid is None:
-            # couldn't confirm — already reported in group_result; don't
-            # attach an unconfirmed/non-existent group to the DatasetVersion
-            continue
-
-        specimen_list.append({"@id": KG_PREFIX + final_group_uuid})
+        specimen_list.append({"@id": KG_PREFIX + group_uuid})
         print(
             f"DEBUG posted SubjectGroup '{group.get('name')}' with {len(subjects)} subjects", file=sys.stderr)
 
@@ -1484,8 +1513,29 @@ for sample in subject_metadata.get("tissueSamples", []):
 # ── tissue sample collections ─────────────────────────────────────────────────
 
 for collection in subject_metadata.get("tissueCollections", []):
-    collection_uuid = str(uuid4())
-    coll_id_str = safe_trim(collection.get("collectionID", collection_uuid))
+    coll_id_str = safe_trim(collection.get("collectionID", str(uuid4())))
+
+    # ── determine the collection's REAL final UUID first ───────────────────
+    # Same fix as SubjectGroup above: this must happen before building any
+    # tissue samples below, since each sample's isPartOf link needs to point
+    # at whatever UUID the collection actually ends up with.
+    try:
+        existing_coll_id = find_instance_by_label(
+            coll_id_str, "TissueSampleCollection")
+    except KGLookupError as e:
+        print(f"DEBUG could not confirm whether TissueSampleCollection '{coll_id_str}' already "
+              f"exists — skipping this collection entirely to avoid a duplicate or a broken "
+              f"isPartOf link: {e}", file=sys.stderr)
+        results.append({"tissueSampleCollection": {
+            "error": f"Could not verify TissueSampleCollection '{coll_id_str}' due to a KG "
+                     f"connectivity issue — skipped. Please retry the submission.",
+            "skipped": True,
+        }})
+        continue
+
+    collection_uuid = existing_coll_id.split(
+        "/")[-1] if existing_coll_id else str(uuid4())
+    collection_is_new = existing_coll_id is None
     collection_state_uuids = []
     collection_bio_sex = []
     collection_types = []
@@ -1528,11 +1578,12 @@ for collection in subject_metadata.get("tissueCollections", []):
             collection_origins.append(sample["origin"])
 
     collection_node = {
-        "@type":              [f"{T}TissueSampleCollection"],
-        "lookupLabel":        coll_id_str,
-        "internalIdentifier": coll_id_str,
-        "quantity":           len(collection.get("samples", [])),
-        "studiedState":       [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
+        "@type":                  [f"{T}TissueSampleCollection"],
+        "lookupLabel":            coll_id_str,
+        "internalIdentifier":     coll_id_str,
+        "quantity":               len(collection.get("samples", [])),
+        "numberOfTissueSamples":  len(collection.get("samples", [])),
+        "studiedState":           [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
     }
     apply_strain_species_group(collection_node, collection.get("samples", []))
 
@@ -1552,16 +1603,16 @@ for collection in subject_metadata.get("tissueCollections", []):
     if coll_remarks:
         collection_node["additionalRemarks"] = coll_remarks
 
-    final_coll_uuid, coll_result = post_or_patch_tissue_sample_collection(
-        collection_uuid, collection_node, coll_id_str)
+    # collection_uuid was already confirmed above (new or existing) — post
+    # or patch using that SAME uuid, so it matches what the tissue samples
+    # above already linked to via isPartOf.
+    if collection_is_new:
+        coll_result = KG_post(collection_uuid, collection_node)
+    else:
+        coll_result = KG_patch(collection_uuid, collection_node)
     results.append({"tissueSampleCollection": coll_result})
 
-    if final_coll_uuid is None:
-        # couldn't confirm — already reported in coll_result; don't attach
-        # an unconfirmed/non-existent collection to the DatasetVersion
-        continue
-
-    specimen_list.append({"@id": KG_PREFIX + final_coll_uuid})
+    specimen_list.append({"@id": KG_PREFIX + collection_uuid})
     print(
         f"DEBUG posted TissueSampleCollection '{coll_id_str}' with {len(collection.get('samples', []))} samples", file=sys.stderr)
 

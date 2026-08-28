@@ -1326,7 +1326,6 @@ if subject_metadata.get("subjectGroups"):
         group_uuid = existing_group_id.split(
             "/")[-1] if existing_group_id else str(uuid4())
         group_is_new = existing_group_id is None
-        group_state_uuids = []
 
         for subject in subjects:
             (subj_uuid, subj_node), (state_uuid, state_node) = build_subject_instance(
@@ -1358,7 +1357,6 @@ if subject_metadata.get("subjectGroups"):
                 # couldn't confirm whether the subject exists — already reported
                 continue
 
-            group_state_uuids.append(final_state_uuid)   # ← correct UUID
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
 
@@ -1370,7 +1368,20 @@ if subject_metadata.get("subjectGroups"):
             "internalIdentifier": group_label,
             "quantity":           len(subjects),
             "numberOfSubjects":   len(subjects),
-            "studiedState":       [{"@id": KG_PREFIX + su} for su in group_state_uuids],
+            # NOTE: SubjectGroup.studiedState expects SubjectGroupState
+            # objects — a different type from the SubjectState objects used
+            # by individual Subjects (same property name, different type,
+            # per the openMINDS schema). Previously this field was
+            # incorrectly populated with the member subjects' own
+            # SubjectState @ids, which caused the KG's browse/tree view to
+            # display those states as siblings of the subjects instead of
+            # as a nested property. Each Subject already correctly links
+            # its own SubjectState below — that's unaffected by this. Not
+            # setting a SubjectGroupState here since the wizard doesn't
+            # currently collect group-level state data (age/handedness/
+            # pathology *for the group as a whole*, distinct from each
+            # member) — add real SubjectGroupState support later if that's
+            # ever needed.
         }
         apply_strain_species_group(group_node, subjects)
         if all_bio_sex:
@@ -1536,7 +1547,6 @@ for collection in subject_metadata.get("tissueCollections", []):
     collection_uuid = existing_coll_id.split(
         "/")[-1] if existing_coll_id else str(uuid4())
     collection_is_new = existing_coll_id is None
-    collection_state_uuids = []
     collection_bio_sex = []
     collection_types = []
     collection_lats = []
@@ -1565,7 +1575,6 @@ for collection in subject_metadata.get("tissueCollections", []):
         if final_s_uuid is None:
             continue  # couldn't confirm — already reported in s_result
 
-        collection_state_uuids.append(final_st_uuid)   # ← correct UUID
         specimen_list.append({"@id": KG_PREFIX + final_s_uuid})
 
         if nonempty(sample.get("biologicalSex", "")):
@@ -1583,7 +1592,12 @@ for collection in subject_metadata.get("tissueCollections", []):
         "internalIdentifier":     coll_id_str,
         "quantity":               len(collection.get("samples", [])),
         "numberOfTissueSamples":  len(collection.get("samples", [])),
-        "studiedState":           [{"@id": KG_PREFIX + su} for su in collection_state_uuids],
+        # NOTE: same fix as SubjectGroup above — TissueSampleCollection.
+        # studiedState expects TissueSampleCollectionState objects, a
+        # different type from the individual TissueSamples' own
+        # TissueSampleState. Not populated here for the same reason: the
+        # wizard doesn't currently collect collection-level state data
+        # distinct from each member sample.
     }
     apply_strain_species_group(collection_node, collection.get("samples", []))
 
