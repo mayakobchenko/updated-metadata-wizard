@@ -1293,11 +1293,6 @@ def build_subject_instance(subject, group_uuid=None):
 subject_metadata = data.get("subjectMetadata", {})
 specimen_list = []
 sample_id_to_kg_uuid = {}
-# Maps the wizard's local subject id -> that subject's SubjectState KG URL
-# (distinct from sample_id_to_kg_uuid, which maps to the Subject itself).
-# Used to link TissueSampleState/TissueSampleCollectionState.descendedFrom
-# back to the correct subject's state, per openMINDS' provenance pattern.
-subject_id_to_state_uuid = {}
 
 if subject_metadata.get("subjectGroups"):
     for group in subject_metadata["subjectGroups"]:
@@ -1364,8 +1359,6 @@ if subject_metadata.get("subjectGroups"):
 
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
-            subject_id_to_state_uuid[subject.get(
-                "id")] = KG_PREFIX + final_state_uuid
 
         all_bio_sex = list({s["bioSex"] for s in subjects if s.get("bioSex")})
 
@@ -1438,8 +1431,6 @@ elif subject_metadata.get("subjects"):
 
         specimen_list.append({"@id": KG_PREFIX + final_uuid})
         sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
-        subject_id_to_state_uuid[subject.get(
-            "id")] = KG_PREFIX + final_state_uuid
 
 # ── 5. tissue samples ─────────────────────────────────────────────────────────
 
@@ -1470,6 +1461,11 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     apply_strain_species(sample_node, sample.get(
         "strain", ""), sample.get("species", ""))
 
+    linked_subj_id = sample.get("linkedSubjectId")
+    if linked_subj_id and linked_subj_id in sample_id_to_kg_uuid:
+        sample_node["wasDerivedFrom"] = {
+            "@id": sample_id_to_kg_uuid[linked_subj_id]}
+
     remarks = nonempty(sample.get("additionalRemarks", ""))
     if remarks:
         sample_node["additionalRemarks"] = remarks
@@ -1483,16 +1479,6 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     }
     if remarks:
         state_node["additionalRemarks"] = remarks
-
-    # "Extracted from subject" — linked via descendedFrom on the STATE, not
-    # a property on the sample itself. The sample previously set
-    # `wasDerivedFrom` directly on itself, which isn't actually a valid
-    # TissueSample property in openMINDS (confirmed against the schema —
-    # that field was silently never persisting to the KG at all).
-    linked_subj_id = sample.get("linkedSubjectId")
-    if linked_subj_id and linked_subj_id in subject_id_to_state_uuid:
-        state_node["descendedFrom"] = {
-            "@id": subject_id_to_state_uuid[linked_subj_id]}
 
     if nonempty(sample.get("age", "")):
         state_node["age"] = {
@@ -1600,41 +1586,19 @@ for collection in subject_metadata.get("tissueCollections", []):
         if nonempty(sample.get("origin",        "")):
             collection_origins.append(sample["origin"])
 
-    # ── collection-level "extracted from subject" ───────────────────────────
-    # Builds a genuine TissueSampleCollectionState (a different type from the
-    # individual samples' TissueSampleState) carrying descendedFrom, linking
-    # the whole collection back to the subject's own state. Only created if
-    # the collection is actually linked to a subject — otherwise
-    # TissueSampleCollection.studiedState is correctly left unset, same as
-    # before.
-    collection_studied_state = None
-    coll_linked_subj_id = collection.get("linkedSubjectId")
-    if coll_linked_subj_id and coll_linked_subj_id in subject_id_to_state_uuid:
-        coll_state_node = {
-            "@type":              [f"{T}TissueSampleCollectionState"],
-            "lookupLabel":        coll_id_str + "_state",
-            "internalIdentifier": coll_id_str + "_state",
-            "descendedFrom":      {"@id": subject_id_to_state_uuid[coll_linked_subj_id]},
-        }
-        final_coll_state_uuid, coll_state_result = post_or_patch_state(
-            str(uuid4()), coll_state_node, coll_id_str + "_state", "TissueSampleCollectionState")
-        results.append({"tissueSampleCollectionState": coll_state_result})
-        if final_coll_state_uuid is not None:
-            collection_studied_state = [
-                {"@id": KG_PREFIX + final_coll_state_uuid}]
-        # if final_coll_state_uuid is None, the failure is already reported
-        # in coll_state_result — the collection itself still gets created,
-        # just without this link, rather than blocking the whole collection
-
     collection_node = {
         "@type":                  [f"{T}TissueSampleCollection"],
         "lookupLabel":            coll_id_str,
         "internalIdentifier":     coll_id_str,
         "quantity":               len(collection.get("samples", [])),
         "numberOfTissueSamples":  len(collection.get("samples", [])),
+        # NOTE: same fix as SubjectGroup above — TissueSampleCollection.
+        # studiedState expects TissueSampleCollectionState objects, a
+        # different type from the individual TissueSamples' own
+        # TissueSampleState. Not populated here for the same reason: the
+        # wizard doesn't currently collect collection-level state data
+        # distinct from each member sample.
     }
-    if collection_studied_state:
-        collection_node["studiedState"] = collection_studied_state
     apply_strain_species_group(collection_node, collection.get("samples", []))
 
     if collection_bio_sex:

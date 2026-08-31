@@ -71,7 +71,6 @@ const newTissueSampleCollection = () => ({
   id: Date.now() + Math.random(),
   collectionID: '',
   additionalRemarks: '',
-  linkedSubjectId: null,
   samples: [newTissueSample()]
 })
 
@@ -810,8 +809,6 @@ export default function Subjects({ form, onChange, data = {} }) {
   const removeCollection    = (ci)        => updateCollections(tissueCollections.filter((_, i) => i !== ci))
   const renameCollection    = (ci, id)    => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, collectionID: id } : c))
   const updateCollRemarks   = (ci, r)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, additionalRemarks: r } : c))
-  const updateCollLinkedSubject = (ci, subjectId) =>
-    updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, linkedSubjectId: subjectId ?? null } : c))
 
   const duplicateCollection = (ci) => {
     const copy = {
@@ -870,15 +867,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     allSubjects: subjectsData,
     allGroups:   groups,
   }
-
-  // Same list TissueSampleRow builds for individual samples — reused here
-  // for the whole-collection "extracted from" selector.
-  const allSubjectsForCollectionLinking = [
-    ...subjectsData.map(s => ({ id: s.id, label: s.subjectID || `Subject ${s.id}` })),
-    ...groups.flatMap(g =>
-      g.subjects.map(s => ({ id: s.id, label: `[${g.name}] ${s.subjectID || `Subject ${s.id}`}` }))
-    )
-  ]
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -1027,21 +1015,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                         placeholder="Additional remarks about this collection..."
                       />
                     </Form.Item>
-
-                    {/* ── extracted from subject (whole collection) ──────────── */}
-                    {allSubjectsForCollectionLinking.length > 0 && (
-                      <Form.Item label={<span style={LABEL_STYLE}>Extracted from subject</span>} style={{ marginBottom: 12, maxWidth: 320 }}>
-                        <Select {...sel()} size="small"
-                          value={collection.linkedSubjectId || undefined}
-                          onChange={(v) => updateCollLinkedSubject(ci, v ?? null)}
-                          placeholder="link this whole collection to a subject..."
-                        >
-                          {allSubjectsForCollectionLinking.map(s => (
-                            <Option key={s.id} value={s.id}>{s.label}</Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
-                    )}
 
                     {collection.samples.map((field, si) => (
                       <TissueSampleRow key={field.id} field={field} index={si}
