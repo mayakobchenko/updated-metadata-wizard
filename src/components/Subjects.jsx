@@ -589,6 +589,47 @@ export default function Subjects({ form, onChange, data = {} }) {
       subjects: g.subjects.map(s => s.id === targetId ? { ...s, ...patch } : s)
     }))
 
+  // ── dangling-reference cleanup ──────────────────────────────────────────
+  // Deleting a sample or a subject only removes it from its own list —
+  // nothing automatically clears the OTHER side's reference to it. Left
+  // alone, a subject's "Extracted tissue samples" list (or a sample's
+  // "Extracted from subject" link) keeps pointing at an id that no longer
+  // exists, which Ant Design can't resolve to a label — it just falls back
+  // to showing the raw numeric id, exactly the "not displayed by name"
+  // symptom. These two helpers strip any now-deleted id out of every
+  // subject/sample that might still reference it, called right before the
+  // actual deletion so they still have the id(s) to clean up.
+  const stripSampleIdsFromSubjects = (flatSubjects, grps, deletedSampleIds) => {
+    if (!deletedSampleIds.length) return { flatSubjects, grps }
+    const idSet = new Set(deletedSampleIds.map(String))
+    const strip = (s) => {
+      if (!s.linkedSampleIds?.length) return s
+      const next = s.linkedSampleIds.filter(id => !idSet.has(String(id)))
+      return next.length === s.linkedSampleIds.length ? s : { ...s, linkedSampleIds: next }
+    }
+    return {
+      flatSubjects: flatSubjects.map(strip),
+      grps: grps.map(g => ({ ...g, subjects: g.subjects.map(strip) })),
+    }
+  }
+
+  const clearSubjectIdFromSamples = (flatSamples, collections, deletedSubjectIds) => {
+    if (!deletedSubjectIds.length) return { flatSamples, collections }
+    const idSet = new Set(deletedSubjectIds.map(String))
+    const clear = (s) =>
+      s.linkedSubjectId && idSet.has(String(s.linkedSubjectId))
+        ? { ...s, linkedSubjectId: null }
+        : s
+    return {
+      flatSamples: flatSamples.map(clear),
+      collections: collections.map(c => ({
+        ...c,
+        linkedSubjectId: c.linkedSubjectId && idSet.has(String(c.linkedSubjectId)) ? null : c.linkedSubjectId,
+        samples: c.samples.map(clear),
+      })),
+    }
+  }
+
   // ── subject links samples → prefill tissues + set their linkedSubjectId ───
   const syncSubjectLinkedSamples = (
     subjectId, newSampleIds, prevSampleIds = [],
@@ -706,7 +747,16 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   const addNewSubject    = () => { const u = [...subjectsData, newSubject()]; setSubjectData(u); emit({ subjects: u }) }
-  const removeSubject    = (i) => { const u = subjectsData.filter((_, idx) => idx !== i); setSubjectData(u); emit({ subjects: u }) }
+  const removeSubject    = (i) => {
+    const deletedId = subjectsData[i]?.id
+    const u = subjectsData.filter((_, idx) => idx !== i)
+    const { flatSamples, collections } = clearSubjectIdFromSamples(
+      tissueSamples, tissueCollections, deletedId ? [deletedId] : [])
+    setSubjectData(u)
+    setTissueSamples(flatSamples)
+    setTissueCollections(collections)
+    emit({ subjects: u, tissueSamples: flatSamples, tissueCollections: collections })
+  }
   const duplicateSubject = (i) => {
     const u = [
       ...subjectsData.slice(0, i + 1),
@@ -720,7 +770,16 @@ export default function Subjects({ form, onChange, data = {} }) {
   const updateGroups = (next) => { setGroups(next); emit({ subjectGroups: next }) }
 
   const addGroup           = ()         => updateGroups([...groups, newGroup(groups.length)])
-  const removeGroup        = (gi)       => updateGroups(groups.filter((_, i) => i !== gi))
+  const removeGroup        = (gi)       => {
+    const deletedIds = (groups[gi]?.subjects || []).map(s => s.id)
+    const nextGroups = groups.filter((_, i) => i !== gi)
+    const { flatSamples, collections } = clearSubjectIdFromSamples(
+      tissueSamples, tissueCollections, deletedIds)
+    setGroups(nextGroups)
+    setTissueSamples(flatSamples)
+    setTissueCollections(collections)
+    emit({ subjectGroups: nextGroups, tissueSamples: flatSamples, tissueCollections: collections })
+  }
   const renameGroup        = (gi, name) => updateGroups(groups.map((g, i) => i === gi ? { ...g, name } : g))
   const updateGroupRemarks = (gi, r)    => updateGroups(groups.map((g, i) => i === gi ? { ...g, additionalRemarks: r } : g))
   const addSubjectToGroup  = (gi)       => updateGroups(groups.map((g, i) => i === gi ? { ...g, subjects: [...g.subjects, newSubject()] } : g))
@@ -799,7 +858,16 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   const addTissueSample    = () => { const u = [...tissueSamples, newTissueSample()]; setTissueSamples(u); emit({ tissueSamples: u }) }
-  const removeTissueSample = (i) => { const u = tissueSamples.filter((_, idx) => idx !== i); setTissueSamples(u); emit({ tissueSamples: u }) }
+  const removeTissueSample = (i) => {
+    const deletedId = tissueSamples[i]?.id
+    const u = tissueSamples.filter((_, idx) => idx !== i)
+    const { flatSubjects, grps } = stripSampleIdsFromSubjects(
+      subjectsData, groups, deletedId ? [deletedId] : [])
+    setTissueSamples(u)
+    setSubjectData(flatSubjects)
+    setGroups(grps)
+    emit({ tissueSamples: u, subjects: flatSubjects, subjectGroups: grps })
+  }
   const duplicateTissueSample = (i) => {
     const u = [
       ...tissueSamples.slice(0, i + 1),
@@ -813,7 +881,16 @@ export default function Subjects({ form, onChange, data = {} }) {
   const updateCollections = (next) => { setTissueCollections(next); emit({ tissueCollections: next }) }
 
   const addCollection       = ()          => updateCollections([...tissueCollections, newTissueSampleCollection()])
-  const removeCollection    = (ci)        => updateCollections(tissueCollections.filter((_, i) => i !== ci))
+  const removeCollection    = (ci)        => {
+    const deletedIds = (tissueCollections[ci]?.samples || []).map(s => s.id)
+    const nextCollections = tissueCollections.filter((_, i) => i !== ci)
+    const { flatSubjects, grps } = stripSampleIdsFromSubjects(
+      subjectsData, groups, deletedIds)
+    setTissueCollections(nextCollections)
+    setSubjectData(flatSubjects)
+    setGroups(grps)
+    emit({ tissueCollections: nextCollections, subjects: flatSubjects, subjectGroups: grps })
+  }
   const renameCollection    = (ci, id)    => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, collectionID: id } : c))
   const updateCollRemarks   = (ci, r)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, additionalRemarks: r } : c))
   // ── whole collection links subject → cascade prefill to every sample in it ──
@@ -904,7 +981,17 @@ export default function Subjects({ form, onChange, data = {} }) {
       : newTissueSample()
     return { ...c, samples: [...c.samples, newSample] }
   }))
-  const removeSampleFromCollection  = (ci, si) => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: c.samples.filter((_, j) => j !== si) } : c))
+  const removeSampleFromCollection  = (ci, si) => {
+    const deletedId = tissueCollections[ci]?.samples?.[si]?.id
+    const nextCollections = tissueCollections.map((c, i) =>
+      i === ci ? { ...c, samples: c.samples.filter((_, j) => j !== si) } : c)
+    const { flatSubjects, grps } = stripSampleIdsFromSubjects(
+      subjectsData, groups, deletedId ? [deletedId] : [])
+    setTissueCollections(nextCollections)
+    setSubjectData(flatSubjects)
+    setGroups(grps)
+    emit({ tissueCollections: nextCollections, subjects: flatSubjects, subjectGroups: grps })
+  }
   const duplicateSampleInCollection = (ci, si) =>
     updateCollections(tissueCollections.map((c, i) => {
       if (i !== ci) return c
