@@ -810,69 +810,8 @@ export default function Subjects({ form, onChange, data = {} }) {
   const removeCollection    = (ci)        => updateCollections(tissueCollections.filter((_, i) => i !== ci))
   const renameCollection    = (ci, id)    => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, collectionID: id } : c))
   const updateCollRemarks   = (ci, r)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, additionalRemarks: r } : c))
-  // ── whole collection links subject → cascade prefill to every sample in it ──
-  // Same idea as syncTissueLinkedSubject (per individual sample), just
-  // applied to every sample in the collection at once, since picking a
-  // subject for the whole collection means every sample in it was
-  // extracted from that same subject.
-  const updateCollLinkedSubject = (ci, subjectId) => {
-    const collection = tissueCollections[ci]
-    if (!collection) return
-
-    const prevSubjectId = collection.linkedSubjectId || null
-    const newSubjectId  = subjectId ?? null
-    const sampleIds     = collection.samples.map(s => s.id)
-    const subject       = findSubjectById(newSubjectId)
-    const patch         = subject
-      ? buildTissuePatchFromSubject(subject)
-      : { linkedSubjectId: newSubjectId }
-
-    // 1. set the collection's own link + prefill every sample inside it
-    const nextCollections = tissueCollections.map((c, i) => {
-      if (i !== ci) return c
-      return {
-        ...c,
-        linkedSubjectId: newSubjectId,
-        samples: c.samples.map(s => ({ ...s, ...patch })),
-      }
-    })
-
-    // 2. add all of this collection's sampleIds to the new subject's linkedSampleIds
-    let nextFlatSubjects = subjectsData
-    let nextGroups       = groups
-
-    if (newSubjectId && subject) {
-      const subjPatch = {
-        linkedSampleIds: [...new Set([...(subject.linkedSampleIds || []), ...sampleIds])]
-      }
-      nextFlatSubjects = patchFlatSubjects(subjectsData, newSubjectId, subjPatch)
-      nextGroups       = patchGroupSubjects(groups, newSubjectId, subjPatch)
-    }
-
-    // 3. remove them from the previous subject's linkedSampleIds, if changed
-    if (prevSubjectId && prevSubjectId !== newSubjectId) {
-      const prevSubject = findSubjectById(prevSubjectId, nextFlatSubjects, nextGroups)
-      if (prevSubject) {
-        const idSet = new Set(sampleIds.map(String))
-        const removePatch = {
-          linkedSampleIds: (prevSubject.linkedSampleIds || [])
-            .filter(id => !idSet.has(String(id)))
-        }
-        nextFlatSubjects = patchFlatSubjects(nextFlatSubjects, prevSubjectId, removePatch)
-        nextGroups       = patchGroupSubjects(nextGroups, prevSubjectId, removePatch)
-      }
-    }
-
-    setTissueCollections(nextCollections)
-    setSubjectData(nextFlatSubjects)
-    setGroups(nextGroups)
-
-    emit({
-      tissueCollections: nextCollections,
-      subjects:          nextFlatSubjects,
-      subjectGroups:     nextGroups,
-    })
-  }
+  const updateCollLinkedSubject = (ci, subjectId) =>
+    updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, linkedSubjectId: subjectId ?? null } : c))
 
   const duplicateCollection = (ci) => {
     const copy = {
