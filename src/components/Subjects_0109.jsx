@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Radio, Tabs, Alert } from 'antd'
+import { Form, Input, Select, Button, Radio, Tabs } from 'antd'
 
 const { Option } = Select
 const { TabPane } = Tabs
@@ -447,14 +447,8 @@ const TissueSampleRow = ({
         </Form.Item>
 
         {allSubjectsForLinking.length > 0 && (
-          <Form.Item
-            label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
-            style={itemStyle('220px')}
-            validateStatus={field.linkedSubjectId ? '' : 'error'}
-            help={field.linkedSubjectId ? '' : 'Required'}
-          >
+          <Form.Item label={<span style={LABEL_STYLE}>Extracted from subject</span>} style={itemStyle('220px')}>
             <Select {...sel()} size="small"
-              status={field.linkedSubjectId ? '' : 'error'}
               value={field.linkedSubjectId || undefined}
               onChange={(v) => onRowChange(index, 'linkedSubjectId', v ?? null)}
               placeholder="link to subject..."
@@ -891,19 +885,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     updateCollections([...tissueCollections.slice(0, ci + 1), copy, ...tissueCollections.slice(ci + 1)])
   }
 
-  const addSampleToCollection = (ci) => updateCollections(tissueCollections.map((c, i) => {
-    if (i !== ci) return c
-    // If this collection is already linked to a subject, a brand-new sample
-    // added to it was extracted from that same subject — inherit its data
-    // immediately rather than leaving the new sample unlinked until the
-    // user remembers to set it by hand (exactly the kind of gap that let a
-    // sample slip through with no linked subject at all).
-    const subject  = findSubjectById(c.linkedSubjectId)
-    const newSample = subject
-      ? { ...newTissueSample(), ...buildTissuePatchFromSubject(subject) }
-      : newTissueSample()
-    return { ...c, samples: [...c.samples, newSample] }
-  }))
+  const addSampleToCollection       = (ci)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: [...c.samples, newTissueSample()] } : c))
   const removeSampleFromCollection  = (ci, si) => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, samples: c.samples.filter((_, j) => j !== si) } : c))
   const duplicateSampleInCollection = (ci, si) =>
     updateCollections(tissueCollections.map((c, i) => {
@@ -958,15 +940,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       g.subjects.map(s => ({ id: s.id, label: `[${g.name}] ${s.subjectID || `Subject ${s.id}`}` }))
     )
   ]
-
-  // Count of tissue samples (flat + within every collection) missing their
-  // required "extracted from subject" link — surfaced as a warning banner
-  // so a single missed dropdown, among many samples, doesn't silently slip
-  // through unnoticed the way it did before.
-  const missingSubjectLinkCount = allSubjectsForCollectionLinking.length > 0
-    ? [...tissueSamples, ...tissueCollections.flatMap(c => c.samples)]
-        .filter(s => !s.linkedSubjectId).length
-    : 0
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -1065,14 +1038,6 @@ export default function Subjects({ form, onChange, data = {} }) {
               <Radio.Button value="collections">Yes — collections</Radio.Button>
             </Radio.Group>
           </Form.Item>
-
-          {missingSubjectLinkCount > 0 && (
-            <Alert
-              type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`${missingSubjectLinkCount} tissue sample${missingSubjectLinkCount === 1 ? '' : 's'} missing a linked subject`}
-              description='Every tissue sample must be linked to the subject it was extracted from — look for the fields outlined in red below.'
-            />
-          )}
 
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
