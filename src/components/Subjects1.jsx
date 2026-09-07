@@ -79,12 +79,7 @@ const newTissueSample = () => ({
   biologicalSex: '', laterality: '', origin: '',
   age: '', ageUnit: '', weight: '', weightUnit: '',
   pathology: [], tissueSampleAttribute: [], additionalRemarks: '',
-  linkedSubjectId: null,
-  // which of the linked subject's states (time points) this was extracted
-  // at — only relevant/shown when that subject has more than one state.
-  // Not used at all for samples that belong to a collection — those
-  // inherit the collection's own link + state instead (see below).
-  linkedSubjectStateId: null,
+  linkedSubjectId: null
 })
 
 const newTissueSampleCollection = () => ({
@@ -92,7 +87,6 @@ const newTissueSampleCollection = () => ({
   collectionID: '',
   additionalRemarks: '',
   linkedSubjectId: null,
-  linkedSubjectStateId: null,
   samples: [newTissueSample()]
 })
 
@@ -355,11 +349,6 @@ const TissueSampleRow = ({
   tissueSampleTypeData, diseaseData, diseaseModelData,
   tissueSampleAttributeData, ageUnits, weightUnits,
   allSubjects, allGroups,
-  // true for samples that live inside a collection — the collection now
-  // owns "extracted from subject/state" exclusively (every sample in it
-  // must match the collection's own subject+state), so this sample's own
-  // link fields are neither shown nor used.
-  hideSubjectLink = false,
 }) => {
   const filteredStrain = field.species
     ? strainData.filter(s => s.species === field.species)
@@ -373,15 +362,6 @@ const TissueSampleRow = ({
       g.subjects.map(s => ({ id: s.id, label: `[${g.name}] ${s.subjectID || `Subject ${s.id}`}` }))
     )
   ]
-
-  const findLinkedSubject = (subjectId) => {
-    if (!subjectId) return null
-    return allSubjects.find(s => s.id === subjectId) ||
-      allGroups.flatMap(g => g.subjects).find(s => s.id === subjectId) ||
-      null
-  }
-  const linkedSubject = !hideSubjectLink ? findLinkedSubject(field.linkedSubjectId) : null
-  const linkedSubjectStates = linkedSubject?.states || []
 
   return (
     <div style={{ marginBottom: 20, paddingBottom: 10, borderBottom: '1px solid #f0f0f0' }}>
@@ -532,40 +512,24 @@ const TissueSampleRow = ({
           </Select>
         </Form.Item>
 
-        {!hideSubjectLink && allSubjectsForLinking.length > 0 && (
-          <>
-            <Form.Item
-              label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
-              style={itemStyle('220px')}
-              validateStatus={field.linkedSubjectId ? '' : 'error'}
-              help={field.linkedSubjectId ? '' : 'Required'}
+        {allSubjectsForLinking.length > 0 && (
+          <Form.Item
+            label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
+            style={itemStyle('220px')}
+            validateStatus={field.linkedSubjectId ? '' : 'error'}
+            help={field.linkedSubjectId ? '' : 'Required'}
+          >
+            <Select {...sel()} size="small"
+              status={field.linkedSubjectId ? '' : 'error'}
+              value={field.linkedSubjectId || undefined}
+              onChange={(v) => onRowChange(index, 'linkedSubjectId', v ?? null)}
+              placeholder="link to subject..."
             >
-              <Select {...sel()} size="small"
-                status={field.linkedSubjectId ? '' : 'error'}
-                value={field.linkedSubjectId || undefined}
-                onChange={(v) => onRowChange(index, { linkedSubjectId: v ?? null, linkedSubjectStateId: null })}
-                placeholder="link to subject..."
-              >
-                {allSubjectsForLinking.map(s => (
-                  <Option key={s.id} value={s.id}>{s.label}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            {linkedSubjectStates.length > 1 && (
-              <Form.Item label={<span style={LABEL_STYLE}>Time point</span>} style={itemStyle('170px')}>
-                <Select {...sel()} size="small"
-                  value={field.linkedSubjectStateId || undefined}
-                  onChange={(v) => onRowChange(index, 'linkedSubjectStateId', v ?? null)}
-                  placeholder="which time point?"
-                >
-                  {linkedSubjectStates.map((st, i) => (
-                    <Option key={st.id} value={st.id}>{i === 0 ? 'State (time point 1)' : `Time point ${i + 1}`}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            )}
-          </>
+              {allSubjectsForLinking.map(s => (
+                <Option key={s.id} value={s.id}>{s.label}</Option>
+              ))}
+            </Select>
+          </Form.Item>
         )}
 
         <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={{ flex: '1 1 150px', marginBottom: 0 }}>
@@ -1014,11 +978,10 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   const addSubjectStateInGroup = (gi, si) => {
-    let nextGroups = groups.map((g, i) => {
+    const nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
       return { ...g, subjects: g.subjects.map((s, j) => j === si ? addStateToSubject(s) : s) }
     })
-    nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
     setGroups(nextGroups)
     emit({ subjectGroups: nextGroups })
   }
@@ -1127,7 +1090,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       return {
         ...c,
         linkedSubjectId: newSubjectId,
-        linkedSubjectStateId: null, // a state picked for the old subject wouldn't be valid for a new one
         samples: c.samples.map(s => ({ ...s, ...patch })),
       }
     })
@@ -1167,14 +1129,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       subjects:          nextFlatSubjects,
       subjectGroups:     nextGroups,
     })
-  }
-
-  const updateCollLinkedSubjectState = (ci, stateId) => {
-    const nextCollections = tissueCollections.map((c, i) =>
-      i === ci ? { ...c, linkedSubjectStateId: stateId ?? null } : c
-    )
-    setTissueCollections(nextCollections)
-    emit({ tissueCollections: nextCollections })
   }
 
   const duplicateCollection = (ci) => {
@@ -1267,14 +1221,13 @@ export default function Subjects({ form, onChange, data = {} }) {
     )
   ]
 
-  // Count of "required extracted-from link" gaps: flat tissue samples
-  // (individually) plus whole tissue sample collections (as a single unit
-  // each, since samples inside a collection no longer have their own link
-  // — they inherit the collection's). Surfaced as a warning banner so a
-  // single missed dropdown doesn't silently slip through unnoticed.
+  // Count of tissue samples (flat + within every collection) missing their
+  // required "extracted from subject" link — surfaced as a warning banner
+  // so a single missed dropdown, among many samples, doesn't silently slip
+  // through unnoticed the way it did before.
   const missingSubjectLinkCount = allSubjectsForCollectionLinking.length > 0
-    ? tissueSamples.filter(s => !s.linkedSubjectId).length +
-      tissueCollections.filter(c => !c.linkedSubjectId).length
+    ? [...tissueSamples, ...tissueCollections.flatMap(c => c.samples)]
+        .filter(s => !s.linkedSubjectId).length
     : 0
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -1288,8 +1241,8 @@ export default function Subjects({ form, onChange, data = {} }) {
         <TabPane tab="Subjects" key="subjects">
           <Form.Item label={<span style={LABEL_STYLE}>Are subjects organised into groups?</span>}>
             <Radio.Group value={mode} onChange={handleModeChange}>
-              <Radio.Button value="flat">No — single list</Radio.Button>
-              <Radio.Button value="grouped">Yes — groups</Radio.Button>
+              <Radio.Button value="flat">No — individual subjects</Radio.Button>
+              <Radio.Button value="grouped">Yes — subject groups</Radio.Button>
             </Radio.Group>
           </Form.Item>
 
@@ -1427,19 +1380,19 @@ export default function Subjects({ form, onChange, data = {} }) {
         {/* ══ TISSUE SAMPLES ════════════════════════════════════════════════ */}
         <TabPane tab="Tissue Samples" key="tissue">
           <Form.Item
-            label={<span style={LABEL_STYLE}>Are tissue samples organised into collections?</span>}
+            label={<span style={LABEL_STYLE}>How many tissue samples do you have per subject?</span>}
             style={{ marginBottom: 12 }}
           >
             <Radio.Group value={tissueMode} onChange={(e) => setTissueMode(e.target.value)}>
-              <Radio.Button value="flat">No — single list</Radio.Button>
-              <Radio.Button value="collections">Yes — collections</Radio.Button>
+              <Radio.Button value="flat">One tissue sample per subject</Radio.Button>
+              <Radio.Button value="collections">More than one tissue sample per subject</Radio.Button>
             </Radio.Group>
           </Form.Item>
 
           {missingSubjectLinkCount > 0 && (
             <Alert
               type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`${missingSubjectLinkCount} tissue sample${missingSubjectLinkCount === 1 ? '' : 's'} or collection${missingSubjectLinkCount === 1 ? '' : 's'} missing a linked subject`}
+              message={`${missingSubjectLinkCount} tissue sample${missingSubjectLinkCount === 1 ? '' : 's'} missing a linked subject`}
               description='Every tissue sample must be linked to the subject it was extracted from — look for the fields outlined in red below.'
             />
           )}
@@ -1494,49 +1447,19 @@ export default function Subjects({ form, onChange, data = {} }) {
                       />
                     </Form.Item>
 
-                    {/* ── extracted from subject (whole collection) — now required,
-                         since every sample in a collection must share the
-                         same subject+state as the collection itself ────── */}
+                    {/* ── extracted from subject (whole collection) ──────────── */}
                     {allSubjectsForCollectionLinking.length > 0 && (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
-                        <Form.Item
-                          label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                          style={{ flex: '0 0 320px', marginBottom: 0 }}
-                          validateStatus={collection.linkedSubjectId ? '' : 'error'}
-                          help={collection.linkedSubjectId ? '' : 'Required'}
+                      <Form.Item label={<span style={LABEL_STYLE}>Extracted from subject</span>} style={{ marginBottom: 12, maxWidth: 320 }}>
+                        <Select {...sel()} size="small"
+                          value={collection.linkedSubjectId || undefined}
+                          onChange={(v) => updateCollLinkedSubject(ci, v ?? null)}
+                          placeholder="link this whole collection to a subject..."
                         >
-                          <Select {...sel()} size="small"
-                            status={collection.linkedSubjectId ? '' : 'error'}
-                            value={collection.linkedSubjectId || undefined}
-                            onChange={(v) => updateCollLinkedSubject(ci, v ?? null)}
-                            placeholder="link this whole collection to a subject..."
-                          >
-                            {allSubjectsForCollectionLinking.map(s => (
-                              <Option key={s.id} value={s.id}>{s.label}</Option>
-                            ))}
-                          </Select>
-                        </Form.Item>
-
-                        {(() => {
-                          const linkedSubj = [...subjectsData, ...groups.flatMap(g => g.subjects)]
-                            .find(s => s.id === collection.linkedSubjectId)
-                          const states = linkedSubj?.states || []
-                          if (states.length <= 1) return null
-                          return (
-                            <Form.Item label={<span style={LABEL_STYLE}>Time point</span>} style={{ flex: '0 0 170px', marginBottom: 0 }}>
-                              <Select {...sel()} size="small"
-                                value={collection.linkedSubjectStateId || undefined}
-                                onChange={(v) => updateCollLinkedSubjectState(ci, v ?? null)}
-                                placeholder="which time point?"
-                              >
-                                {states.map((st, i) => (
-                                  <Option key={st.id} value={st.id}>{i === 0 ? 'State (time point 1)' : `Time point ${i + 1}`}</Option>
-                                ))}
-                              </Select>
-                            </Form.Item>
-                          )
-                        })()}
-                      </div>
+                          {allSubjectsForCollectionLinking.map(s => (
+                            <Option key={s.id} value={s.id}>{s.label}</Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
                     )}
 
                     {collection.samples.map((field, si) => (
@@ -1544,7 +1467,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                         onRemove={(i)            => removeSampleFromCollection(ci, i)}
                         onDuplicate={(i)         => duplicateSampleInCollection(ci, i)}
                         onChange={(i, fOrP, val) => handleCollectionSampleChange(ci, i, fOrP, val)}
-                        hideSubjectLink
                         {...tissueRowProps}
                       />
                     ))}

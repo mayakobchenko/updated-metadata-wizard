@@ -1346,31 +1346,11 @@ def resolve_subject_states(built_states, results):
 subject_metadata = data.get("subjectMetadata", {})
 specimen_list = []
 sample_id_to_kg_uuid = {}
-# Maps the wizard's local subject id -> ALL of that subject's SubjectState
-# KG URLs, in order, each tagged with its wizard-local state id. Used to
-# link TissueSampleState/TissueSampleCollectionState.descendedFrom back to
-# a SPECIFIC time point of the correct subject, per openMINDS' provenance
-# pattern — not just always the first/baseline state, since a tissue sample
-# can now be extracted at any of a subject's recorded time points.
-subject_id_to_states = {}
-
-
-def resolve_descended_state_uuid(subject_id, requested_state_id=None):
-    """
-    Given a wizard-local subject id and (optionally) a specific wizard-local
-    state id, return the matching SubjectState's KG uuid. Falls back to the
-    subject's first/baseline state if no specific state was requested, or
-    if the requested one can't be found (e.g. stale reference).
-    """
-    entries = subject_id_to_states.get(subject_id)
-    if not entries:
-        return None
-    if requested_state_id:
-        for local_state_id, kg_uuid in entries:
-            if str(local_state_id) == str(requested_state_id):
-                return kg_uuid
-    return entries[0][1]
-
+# Maps the wizard's local subject id -> that subject's SubjectState KG URL
+# (distinct from sample_id_to_kg_uuid, which maps to the Subject itself).
+# Used to link TissueSampleState/TissueSampleCollectionState.descendedFrom
+# back to the correct subject's state, per openMINDS' provenance pattern.
+subject_id_to_state_uuid = {}
 
 if subject_metadata.get("subjectGroups"):
     for group in subject_metadata["subjectGroups"]:
@@ -1432,14 +1412,11 @@ if subject_metadata.get("subjectGroups"):
 
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
-            # register every state (time point) this subject has, so tissue
-            # samples/collections can later pick a SPECIFIC one, not just
-            # the baseline/first state
-            state_entries_raw = subject.get("states") or [{}]
-            subject_id_to_states[subject.get("id")] = [
-                (state_entries_raw[idx].get("id"), KG_PREFIX + su)
-                for idx, su in enumerate(final_state_uuids)
-            ]
+            # tissue-sample provenance (descendedFrom) targets the subject's
+            # FIRST/baseline state — the wizard doesn't currently let a
+            # tissue sample pick which specific time point it came from.
+            subject_id_to_state_uuid[subject.get(
+                "id")] = KG_PREFIX + final_state_uuids[0]
 
         all_bio_sex = list({s["bioSex"] for s in subjects if s.get("bioSex")})
 
@@ -1546,25 +1523,13 @@ elif subject_metadata.get("subjects"):
 
         specimen_list.append({"@id": KG_PREFIX + final_uuid})
         sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
-        state_entries_raw = subject.get("states") or [{}]
-        subject_id_to_states[subject.get("id")] = [
-            (state_entries_raw[idx].get("id"), KG_PREFIX + su)
-            for idx, su in enumerate(final_state_uuids)
-        ]
+        subject_id_to_state_uuid[subject.get(
+            "id")] = KG_PREFIX + final_state_uuids[0]
 
 # ── 5. tissue samples ─────────────────────────────────────────────────────────
 
 
-def build_tissue_sample_instance(sample, collection_uuid=None, inherited_descended_from=None):
-    """
-    inherited_descended_from: when set (a KG url), used directly as this
-    sample's state's descendedFrom target, ignoring the sample's own
-    linkedSubjectId/linkedSubjectStateId entirely. Used for samples that
-    belong to a collection — they must share the same subject+state as
-    the collection itself, resolved once by the caller rather than read
-    per-sample. Flat (non-collection) samples pass None here and fall back
-    to their own fields below.
-    """
+def build_tissue_sample_instance(sample, collection_uuid=None):
     sample_uuid = str(uuid4())
     state_uuid = str(uuid4())
     sample_id_str = safe_trim(sample.get("sampleID", sample_uuid))
@@ -1605,20 +1570,14 @@ def build_tissue_sample_instance(sample, collection_uuid=None, inherited_descend
         state_node["additionalRemarks"] = remarks
 
     # "Extracted from subject" — linked via descendedFrom on the STATE, not
-    # a property on the sample itself (the sample previously set
+    # a property on the sample itself. The sample previously set
     # `wasDerivedFrom` directly on itself, which isn't actually a valid
-    # TissueSample property in openMINDS — confirmed against the schema,
+    # TissueSample property in openMINDS (confirmed against the schema —
     # that field was silently never persisting to the KG at all).
-    if inherited_descended_from:
-        state_node["descendedFrom"] = {"@id": inherited_descended_from}
-    else:
-        linked_subj_id = sample.get("linkedSubjectId")
-        linked_state_id = sample.get("linkedSubjectStateId")
-        if linked_subj_id:
-            resolved = resolve_descended_state_uuid(
-                linked_subj_id, linked_state_id)
-            if resolved:
-                state_node["descendedFrom"] = {"@id": resolved}
+    linked_subj_id = sample.get("linkedSubjectId")
+    if linked_subj_id and linked_subj_id in subject_id_to_state_uuid:
+        state_node["descendedFrom"] = {
+            "@id": subject_id_to_state_uuid[linked_subj_id]}
 
     if nonempty(sample.get("age", "")):
         state_node["age"] = {
@@ -1692,22 +1651,9 @@ for collection in subject_metadata.get("tissueCollections", []):
     collection_lats = []
     collection_origins = []
 
-    # Resolved ONCE for the whole collection — every sample inside it must
-    # share the same subject+state as the collection itself, so this is
-    # passed into each sample's build call below rather than read
-    # per-sample (individual samples no longer carry their own link at all
-    # once they're part of a collection).
-    coll_linked_subj_id = collection.get("linkedSubjectId")
-    coll_linked_state_id = collection.get("linkedSubjectStateId")
-    coll_descended_from = (
-        resolve_descended_state_uuid(coll_linked_subj_id, coll_linked_state_id)
-        if coll_linked_subj_id else None
-    )
-
     for sample in collection.get("samples", []):
         (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(
-            sample, collection_uuid=collection_uuid,
-            inherited_descended_from=coll_descended_from,
+            sample, collection_uuid=collection_uuid
         )
         sample_id_str = safe_trim(sample.get("sampleID", s_uuid))
         state_label = sample_id_str + "_state"
@@ -1742,18 +1688,18 @@ for collection in subject_metadata.get("tissueCollections", []):
     # ── collection-level "extracted from subject" ───────────────────────────
     # Builds a genuine TissueSampleCollectionState (a different type from the
     # individual samples' TissueSampleState) carrying descendedFrom, linking
-    # the whole collection back to the subject's own state — the SAME
-    # target every sample above was just linked to (coll_descended_from,
-    # resolved once earlier). Only created if the collection is actually
-    # linked to a subject — otherwise TissueSampleCollection.studiedState is
-    # correctly left unset, same as before.
+    # the whole collection back to the subject's own state. Only created if
+    # the collection is actually linked to a subject — otherwise
+    # TissueSampleCollection.studiedState is correctly left unset, same as
+    # before.
     collection_studied_state = None
-    if coll_descended_from:
+    coll_linked_subj_id = collection.get("linkedSubjectId")
+    if coll_linked_subj_id and coll_linked_subj_id in subject_id_to_state_uuid:
         coll_state_node = {
             "@type":              [f"{T}TissueSampleCollectionState"],
             "lookupLabel":        coll_id_str + "_state",
             "internalIdentifier": coll_id_str + "_state",
-            "descendedFrom":      {"@id": coll_descended_from},
+            "descendedFrom":      {"@id": subject_id_to_state_uuid[coll_linked_subj_id]},
         }
         final_coll_state_uuid, coll_state_result = post_or_patch_state(
             str(uuid4()), coll_state_node, coll_id_str + "_state", "TissueSampleCollectionState")
