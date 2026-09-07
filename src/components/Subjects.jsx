@@ -849,17 +849,14 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   // ── subject mode switch ───────────────────────────────────────────────────
-  const handleModeChange = (e) => {
-    const next = e.target.value
-    setMode(next)
-    if (next === 'grouped') {
-      const migrated = [{ ...newGroup(0), subjects: subjectsData.length ? subjectsData : [newSubject()] }]
-      setGroups(migrated); emit({ subjectGroups: migrated, subjects: undefined })
-    } else {
-      const flat = groups.flatMap(g => g.subjects)
-      setSubjectData(flat); emit({ subjects: flat, subjectGroups: undefined })
-    }
-  }
+  // Purely a display filter — which section is shown — NOT a migration.
+  // Previously this converted subjectsData <-> groups and explicitly wiped
+  // whichever one wasn't active (emit({..., subjects: undefined}) or
+  // {subjectGroups: undefined}), which silently deleted real data the
+  // moment someone switched the toggle. Both are now tracked independently
+  // at all times, same as tissueSamples/tissueCollections already were —
+  // switching this toggle only changes which section is visible.
+  const handleModeChange = (e) => setMode(e.target.value)
 
   // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {

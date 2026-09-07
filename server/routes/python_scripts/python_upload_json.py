@@ -1525,7 +1525,7 @@ if subject_metadata.get("subjectGroups"):
         print(
             f"DEBUG posted SubjectGroup '{group.get('name')}' with {len(subjects)} subjects", file=sys.stderr)
 
-elif subject_metadata.get("subjects"):
+if subject_metadata.get("subjects"):
     for subject in subject_metadata["subjects"]:
         (subj_uuid, subj_node), built_states = build_subject_instance(subject)
         subject_id_str = safe_trim(subject.get("subjectID", subj_uuid))
@@ -1556,16 +1556,7 @@ elif subject_metadata.get("subjects"):
 # ── 5. tissue samples ─────────────────────────────────────────────────────────
 
 
-def build_tissue_sample_instance(sample, collection_uuid=None, inherited_descended_from=None):
-    """
-    inherited_descended_from: when set (a KG url), used directly as this
-    sample's state's descendedFrom target, ignoring the sample's own
-    linkedSubjectId/linkedSubjectStateId entirely. Used for samples that
-    belong to a collection — they must share the same subject+state as
-    the collection itself, resolved once by the caller rather than read
-    per-sample. Flat (non-collection) samples pass None here and fall back
-    to their own fields below.
-    """
+def build_tissue_sample_instance(sample, collection_uuid=None):
     sample_uuid = str(uuid4())
     state_uuid = str(uuid4())
     sample_id_str = safe_trim(sample.get("sampleID", sample_uuid))
@@ -1610,9 +1601,18 @@ def build_tissue_sample_instance(sample, collection_uuid=None, inherited_descend
     # `wasDerivedFrom` directly on itself, which isn't actually a valid
     # TissueSample property in openMINDS — confirmed against the schema,
     # that field was silently never persisting to the KG at all).
-    if inherited_descended_from:
-        state_node["descendedFrom"] = {"@id": inherited_descended_from}
-    else:
+    #
+    # IMPORTANT: samples that belong to a collection (collection_uuid set)
+    # must NOT also get a direct descendedFrom here. The collection's own
+    # TissueSampleCollectionState already carries descendedFrom to the
+    # subject's state — connection to the subject for a sample-in-a-
+    # collection goes ONLY through isPartOf -> the collection. Setting
+    # descendedFrom directly on the sample too created a second path that
+    # bypassed the collection entirely, which the KG's browse tree
+    # rendered as the same sample appearing twice: once correctly nested
+    # under the collection, and once again as a direct "descendant" of the
+    # subject state.
+    if not collection_uuid:
         linked_subj_id = sample.get("linkedSubjectId")
         linked_state_id = sample.get("linkedSubjectStateId")
         if linked_subj_id:
@@ -1693,11 +1693,11 @@ for collection in subject_metadata.get("tissueCollections", []):
     collection_lats = []
     collection_origins = []
 
-    # Resolved ONCE for the whole collection — every sample inside it must
-    # share the same subject+state as the collection itself, so this is
-    # passed into each sample's build call below rather than read
-    # per-sample (individual samples no longer carry their own link at all
-    # once they're part of a collection).
+    # Resolved ONCE for the whole collection — used for the collection's
+    # OWN TissueSampleCollectionState below. NOT passed down to individual
+    # samples anymore: a sample's connection to the subject goes only via
+    # isPartOf -> this collection, never a direct descendedFrom on the
+    # sample's own state (see build_tissue_sample_instance for why).
     coll_linked_subj_id = collection.get("linkedSubjectId")
     coll_linked_state_id = collection.get("linkedSubjectStateId")
     coll_descended_from = (
@@ -1708,7 +1708,6 @@ for collection in subject_metadata.get("tissueCollections", []):
     for sample in collection.get("samples", []):
         (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(
             sample, collection_uuid=collection_uuid,
-            inherited_descended_from=coll_descended_from,
         )
         sample_id_str = safe_trim(sample.get("sampleID", s_uuid))
         state_label = sample_id_str + "_state"
