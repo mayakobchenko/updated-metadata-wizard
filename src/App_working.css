@@ -142,17 +142,8 @@ color: var(-button-color-primary-active-hover);
   background-color:#1F2933;
   position: fixed;
   bottom: 0;
-  left: 0;
   width: 100%;
   margin: 0.5rem 0 0 0;
-  z-index: 1000; /* always above the sticky subheader (z-index: 100) and
-                    page content, so any overlap resolves predictably
-                    instead of leaving ambiguous, unclickable dead zones
-                    where clicks land on whichever element happened to
-                    paint on top */
-  min-height: 2.5rem; /* keeps the footer's actual height predictable
-                          regardless of whether its content wraps at
-                          narrow viewport widths */
 }
 /* top | right | bottom | left */
 .container-footer {
@@ -160,7 +151,6 @@ color: var(-button-color-primary-active-hover);
   padding: 0.3rem 0;
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
   justify-content: space-between;
   font-size: 0.9rem;
 }
@@ -179,7 +169,7 @@ color: var(-button-color-primary-active-hover);
 /*steps wizard wrapping div, config provider - colors*/
 .container-form {
   margin-top: 1rem;
-  margin-bottom: 6rem;
+  margin-bottom: 3rem;
   margin-left: 3rem;
   margin-right: 3rem;
   padding: 40px 60px 60px 60px;
