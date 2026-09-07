@@ -168,7 +168,7 @@ const SubjectRow = ({
       </div>
 
       {/* ── subject-level fields (state-independent) ──────────────────────── */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
         <Form.Item label={<span style={LABEL_STYLE}>Sex</span>} style={itemStyle('130px')}>
           <Select {...sel()} size="small"
@@ -253,7 +253,7 @@ const SubjectRow = ({
               </Form.Item>
             )}
 
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
               <Form.Item label={<span style={LABEL_STYLE}>Age category</span>} style={itemStyle('150px')}>
                 <Select {...sel()} size="small"
@@ -408,7 +408,7 @@ const TissueSampleRow = ({
         <Button size="small" type="text" onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
         <Form.Item label={<span style={LABEL_STYLE}>Type</span>} style={itemStyle('160px')}>
           <Select {...sel()} size="small"
@@ -513,7 +513,7 @@ const TissueSampleRow = ({
           />
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Disease/Disease model</span>} style={itemStyle('220px')}>
+        <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
           <Select {...sel()} size="small" mode="multiple"
             value={field.pathology || []}
             onChange={(v) => onRowChange(index, 'pathology', v)}
@@ -1422,7 +1422,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 8 }}>
                         Group state
                       </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                         <Form.Item label={<span style={LABEL_STYLE}>Age category</span>} style={{ flex: '0 0 220px', marginBottom: 0 }}>
                           <Select {...sel()} size="small" mode="multiple"
                             value={group.groupState?.ageCategory || []}
@@ -1598,7 +1598,7 @@ export default function Subjects({ form, onChange, data = {} }) {
 
                     {/* ── extracted from subject (whole collection) — required ── */}
                     {allSubjectsForCollectionLinking.length > 0 && (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
                         <Form.Item
                           label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
                           style={{ flex: '0 0 320px', marginBottom: 0 }}
