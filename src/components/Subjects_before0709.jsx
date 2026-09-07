@@ -49,28 +49,13 @@ const ValueUnitField = ({ value, unit, onValueChange, onUnitChange, units, value
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const newSubjectState = () => ({
-  id: Date.now() + Math.random(),
-  ageCategory: '', age: '', ageUnit: '', weight: '', weightUnit: '',
-  handedness: '', disease: [], diseaseModel: [], subjectAttribute: [],
-  additionalRemarks: '',
-  // only meaningful for states after the first — time elapsed since the
-  // previous state, used to build relativeTimeIndication
-  relativeTimeValue: '', relativeTimeUnit: '',
-})
-
-const newGroupState = () => ({
-  ageCategory: [], attribute: [],
-  ageMin: '', ageMax: '', ageUnit: '',
-})
-
 const newSubject = () => ({
   id: Date.now() + Math.random(),
-  subjectID: '', bioSex: '', species: '', strain: '',
-  file_path: '',
-  linkedSampleIds: [],
-  // a subject can have several states (time points) — always at least one
-  states: [newSubjectState()],
+  subjectID: '', age: '', ageUnit: '', weight: '', weightUnit: '',
+  ageCategory: '', bioSex: '', disease: [], diseaseModel: [],
+  handedness: '', species: '', strain: '',
+  subjectAttribute: [], additionalRemarks: '', file_path: '',
+  linkedSampleIds: []
 })
 
 const newTissueSample = () => ({
@@ -94,11 +79,6 @@ const newGroup = (index) => ({
   id: Date.now() + Math.random(),
   name: `Group ${index + 1}`,
   additionalRemarks: '',
-  // group-level state (SubjectGroupState) — describes the group as a
-  // whole; the individual subjects' own per-time-point states are
-  // separate. See updateGroupState / recomputeGroupStateFromSubjects for
-  // how the two stay in sync.
-  groupState: newGroupState(),
   subjects: [newSubject()]
 })
 
@@ -115,10 +95,9 @@ const sel = (extraStyle = {}) => ({
 
 const SubjectRow = ({
   field, index, onRemove, onDuplicate, onChange: onRowChange, label,
-  onStateChange, onAddState, onRemoveState,
   biosex, agecategory, species, strainData,
   diseaseData, diseaseModelData, subjectAttributeData,
-  handedness, ageUnits, weightUnits, timeUnits,
+  handedness, ageUnits, weightUnits,
   allTissueSamples, allTissueCollections,
 }) => {
   const filteredStrain = field.species
@@ -126,7 +105,6 @@ const SubjectRow = ({
     : []
 
   const itemStyle = (w) => ({ flex: `0 0 ${w}`, marginBottom: 0, minWidth: 0 })
-  const states = field.states && field.states.length ? field.states : [newSubjectState()]
 
   const allSamplesForLinking = [
     ...allTissueSamples.map(s => ({
@@ -159,7 +137,6 @@ const SubjectRow = ({
         <Button size="small" type="text" onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
-      {/* ── subject-level fields (state-independent) ──────────────────────── */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
         <Form.Item label={<span style={LABEL_STYLE}>Sex</span>} style={itemStyle('130px')}>
@@ -169,6 +146,16 @@ const SubjectRow = ({
             placeholder="sex"
           >
             {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+
+        <Form.Item label={<span style={LABEL_STYLE}>Age category</span>} style={itemStyle('150px')}>
+          <Select {...sel()} size="small"
+            value={field.ageCategory || undefined}
+            onChange={(v) => onRowChange(index, 'ageCategory', v ?? '')}
+            placeholder="age category"
+          >
+            {agecategory.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
           </Select>
         </Form.Item>
 
@@ -197,6 +184,70 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
+        <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
+          <ValueUnitField
+            value={field.age}
+            unit={field.ageUnit}
+            onValueChange={(e) => onRowChange(index, 'age', e.target.value)}
+            onUnitChange={(v) => onRowChange(index, 'ageUnit', v ?? '')}
+            units={ageUnits}
+          />
+        </Form.Item>
+
+        <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
+          <ValueUnitField
+            value={field.weight}
+            unit={field.weightUnit}
+            onValueChange={(e) => onRowChange(index, 'weight', e.target.value)}
+            onUnitChange={(v) => onRowChange(index, 'weightUnit', v ?? '')}
+            units={weightUnits}
+          />
+        </Form.Item>
+
+        <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
+          <Select {...sel()} size="small" mode="multiple"
+            value={[...(field.disease || []), ...(field.diseaseModel || [])]}
+            onChange={(v) => {
+              const diseaseIds    = v.filter(id => diseaseData.find(d => d.identifier === id))
+              const diseaseModIds = v.filter(id => diseaseModelData.find(d => d.identifier === id))
+              onRowChange(index, { disease: diseaseIds, diseaseModel: diseaseModIds })
+            }}
+            placeholder="disease / model"
+            optionFilterProp="label"
+            filterOption={(input, option) => {
+              if (!option || option.options) return false
+              return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
+            }}
+          >
+            <Select.OptGroup label="Disease">
+              {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+            </Select.OptGroup>
+            <Select.OptGroup label="Disease Model">
+              {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+            </Select.OptGroup>
+          </Select>
+        </Form.Item>
+
+        <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('130px')}>
+          <Select {...sel()} size="small"
+            value={field.handedness || undefined}
+            onChange={(v) => onRowChange(index, 'handedness', v ?? '')}
+            placeholder="handedness"
+          >
+            {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+
+        <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
+          <Select {...sel()} size="small" mode="multiple"
+            value={field.subjectAttribute || []}
+            onChange={(v) => onRowChange(index, 'subjectAttribute', v)}
+            placeholder="attribute"
+          >
+            {subjectAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+
         {allSamplesForLinking.length > 0 && (
           <Form.Item label={<span style={LABEL_STYLE}>Extracted tissue samples</span>} style={itemStyle('220px')}>
             <Select {...sel()} size="small" mode="multiple"
@@ -210,132 +261,15 @@ const SubjectRow = ({
             </Select>
           </Form.Item>
         )}
-      </div>
 
-      {/* ── states (time points) — visually separated in their own boxes ──── */}
-      <div style={{ marginTop: 12 }}>
-        {states.map((st, si) => (
-          <div key={st.id ?? si} style={{
-            border: '1px solid #d9d9d9', borderRadius: 6, padding: '10px 12px',
-            marginBottom: 8, background: '#fff',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
-                {si === 0 ? 'State (time point 1)' : `Time point ${si + 1}`}
-              </span>
-              {si > 0 && (
-                <Button size="small" type="text" danger
-                  onClick={() => onRemoveState(index, si)}
-                  style={{ marginLeft: 'auto', fontSize: 11 }}
-                >
-                  Remove time point
-                </Button>
-              )}
-            </div>
+        <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={{ flex: '1 1 150px', marginBottom: 0, minWidth: 0 }}>
+          <Input size="small"
+            value={field.additionalRemarks || ''}
+            onChange={(e) => onRowChange(index, 'additionalRemarks', e.target.value)}
+            placeholder="remarks..."
+          />
+        </Form.Item>
 
-            {si > 0 && (
-              <Form.Item label={<span style={LABEL_STYLE}>Time since previous state</span>} style={{ ...itemStyle('220px'), marginBottom: 8 }}>
-                <ValueUnitField
-                  value={st.relativeTimeValue}
-                  unit={st.relativeTimeUnit}
-                  onValueChange={(e) => onStateChange(index, si, 'relativeTimeValue', e.target.value)}
-                  onUnitChange={(v) => onStateChange(index, si, 'relativeTimeUnit', v ?? '')}
-                  units={timeUnits}
-                />
-              </Form.Item>
-            )}
-
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Age category</span>} style={itemStyle('150px')}>
-                <Select {...sel()} size="small"
-                  value={st.ageCategory || undefined}
-                  onChange={(v) => onStateChange(index, si, 'ageCategory', v ?? '')}
-                  placeholder="age category"
-                >
-                  {agecategory.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
-                <ValueUnitField
-                  value={st.age}
-                  unit={st.ageUnit}
-                  onValueChange={(e) => onStateChange(index, si, 'age', e.target.value)}
-                  onUnitChange={(v) => onStateChange(index, si, 'ageUnit', v ?? '')}
-                  units={ageUnits}
-                />
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
-                <ValueUnitField
-                  value={st.weight}
-                  unit={st.weightUnit}
-                  onValueChange={(e) => onStateChange(index, si, 'weight', e.target.value)}
-                  onUnitChange={(v) => onStateChange(index, si, 'weightUnit', v ?? '')}
-                  units={weightUnits}
-                />
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
-                <Select {...sel()} size="small" mode="multiple"
-                  value={[...(st.disease || []), ...(st.diseaseModel || [])]}
-                  onChange={(v) => {
-                    const diseaseIds    = v.filter(id => diseaseData.find(d => d.identifier === id))
-                    const diseaseModIds = v.filter(id => diseaseModelData.find(d => d.identifier === id))
-                    onStateChange(index, si, { disease: diseaseIds, diseaseModel: diseaseModIds })
-                  }}
-                  placeholder="disease / model"
-                  optionFilterProp="label"
-                  filterOption={(input, option) => {
-                    if (!option || option.options) return false
-                    return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
-                  }}
-                >
-                  <Select.OptGroup label="Disease">
-                    {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-                  </Select.OptGroup>
-                  <Select.OptGroup label="Disease Model">
-                    {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-                  </Select.OptGroup>
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('130px')}>
-                <Select {...sel()} size="small"
-                  value={st.handedness || undefined}
-                  onChange={(v) => onStateChange(index, si, 'handedness', v ?? '')}
-                  placeholder="handedness"
-                >
-                  {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
-                <Select {...sel()} size="small" mode="multiple"
-                  value={st.subjectAttribute || []}
-                  onChange={(v) => onStateChange(index, si, 'subjectAttribute', v)}
-                  placeholder="attribute"
-                >
-                  {subjectAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={{ flex: '1 1 150px', marginBottom: 0, minWidth: 0 }}>
-                <Input size="small"
-                  value={st.additionalRemarks || ''}
-                  onChange={(e) => onStateChange(index, si, 'additionalRemarks', e.target.value)}
-                  placeholder="remarks..."
-                />
-              </Form.Item>
-
-            </div>
-          </div>
-        ))}
-
-        <Button type="dashed" size="small" onClick={() => onAddState(index)} style={{ width: '100%' }}>
-          + add new time point
-        </Button>
       </div>
     </div>
   )
@@ -812,37 +746,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     emit({ subjects: updated })
   }
 
-  // ── shared state (time-point) helpers, used by both flat and grouped subjects ──
-  const patchStateInSubject = (subject, stateIndex, fieldOrPatch, value) => {
-    const states = subject.states && subject.states.length ? subject.states : [newSubjectState()]
-    const nextStates = states.map((st, idx) => {
-      if (idx !== stateIndex) return st
-      if (typeof fieldOrPatch === 'object') return { ...st, ...fieldOrPatch }
-      return { ...st, [fieldOrPatch]: value }
-    })
-    return { ...subject, states: nextStates }
-  }
-  const addStateToSubject    = (subject) => ({ ...subject, states: [...(subject.states || []), newSubjectState()] })
-  const removeStateFromSubject = (subject, stateIndex) => ({
-    ...subject, states: (subject.states || []).filter((_, idx) => idx !== stateIndex)
-  })
-
-  const handleSubjectStateChange = (i, si, fieldOrPatch, value) => {
-    const updated = subjectsData.map((s, idx) => idx === i ? patchStateInSubject(s, si, fieldOrPatch, value) : s)
-    setSubjectData(updated)
-    emit({ subjects: updated })
-  }
-  const addSubjectState    = (i)     => {
-    const updated = subjectsData.map((s, idx) => idx === i ? addStateToSubject(s) : s)
-    setSubjectData(updated)
-    emit({ subjects: updated })
-  }
-  const removeSubjectState = (i, si) => {
-    const updated = subjectsData.map((s, idx) => idx === i ? removeStateFromSubject(s, si) : s)
-    setSubjectData(updated)
-    emit({ subjects: updated })
-  }
-
   const addNewSubject    = () => { const u = [...subjectsData, newSubject()]; setSubjectData(u); emit({ subjects: u }) }
   const removeSubject    = (i) => {
     const deletedId = subjectsData[i]?.id
@@ -879,14 +782,7 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
   const renameGroup        = (gi, name) => updateGroups(groups.map((g, i) => i === gi ? { ...g, name } : g))
   const updateGroupRemarks = (gi, r)    => updateGroups(groups.map((g, i) => i === gi ? { ...g, additionalRemarks: r } : g))
-  const addSubjectToGroup  = (gi)       => updateGroups(groups.map((g, i) => {
-    if (i !== gi) return g
-    const inherited = newSubject()
-    if (g.groupState?.attribute?.length) {
-      inherited.states = [{ ...inherited.states[0], subjectAttribute: g.groupState.attribute }]
-    }
-    return { ...g, subjects: [...g.subjects, inherited] }
-  }))
+  const addSubjectToGroup  = (gi)       => updateGroups(groups.map((g, i) => i === gi ? { ...g, subjects: [...g.subjects, newSubject()] } : g))
 
   const duplicateGroup = (gi) => {
     const copy = {
@@ -941,76 +837,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       return { ...g, subjects }
     })
     updateGroups(nextGroups)
-  }
-
-  // ── group-level state (SubjectGroupState) ───────────────────────────────
-  // Aggregates the group's own state from its members' FIRST state each
-  // time a member's state changes: ageCategory/attribute as the union of
-  // unique values across members, age as the {min, max} range. Only
-  // recomputed from — never cascaded back into — age/ageCategory, since a
-  // group can legitimately span several categories or a wide age range and
-  // there's no single sensible value to push down to one subject for
-  // those. attribute is the one field cascaded both ways, since list -> list
-  // is a clean fit (see updateGroupState below).
-  const recomputeGroupStateFromSubjects = (group) => {
-    const firstStates = group.subjects.map(s => (s.states && s.states[0]) || {})
-    const ageCategories = [...new Set(firstStates.map(st => st.ageCategory).filter(Boolean))]
-    const attributes    = [...new Set(firstStates.flatMap(st => st.subjectAttribute || []))]
-    const ages    = firstStates.map(st => parseFloat(st.age)).filter(v => !isNaN(v))
-    const ageMin  = ages.length ? String(Math.min(...ages)) : ''
-    const ageMax  = ages.length ? String(Math.max(...ages)) : ''
-    const ageUnit = firstStates.map(st => st.ageUnit).find(Boolean) || group.groupState?.ageUnit || ''
-    return {
-      ...group,
-      groupState: { ...(group.groupState || newGroupState()), ageCategory: ageCategories, attribute: attributes, ageMin, ageMax, ageUnit },
-    }
-  }
-
-  const handleGroupSubjectStateChange = (gi, si, stateIdx, fieldOrPatch, value) => {
-    let nextGroups = groups.map((g, i) => {
-      if (i !== gi) return g
-      const subjects = g.subjects.map((s, j) => j === si ? patchStateInSubject(s, stateIdx, fieldOrPatch, value) : s)
-      return { ...g, subjects }
-    })
-    nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
-    setGroups(nextGroups)
-    emit({ subjectGroups: nextGroups })
-  }
-
-  const addSubjectStateInGroup = (gi, si) => {
-    const nextGroups = groups.map((g, i) => {
-      if (i !== gi) return g
-      return { ...g, subjects: g.subjects.map((s, j) => j === si ? addStateToSubject(s) : s) }
-    })
-    setGroups(nextGroups)
-    emit({ subjectGroups: nextGroups })
-  }
-
-  const removeSubjectStateInGroup = (gi, si, stateIdx) => {
-    let nextGroups = groups.map((g, i) => {
-      if (i !== gi) return g
-      return { ...g, subjects: g.subjects.map((s, j) => j === si ? removeStateFromSubject(s, stateIdx) : s) }
-    })
-    nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
-    setGroups(nextGroups)
-    emit({ subjectGroups: nextGroups })
-  }
-
-  // Editing the group's own state: ageCategory/age just update the group
-  // (they don't cascade down — see note above). attribute DOES cascade,
-  // overwriting every member subject's first state's attribute list, since
-  // that mapping is unambiguous.
-  const updateGroupState = (gi, patch) => {
-    const nextGroups = groups.map((g, i) => {
-      if (i !== gi) return g
-      const nextGroupState = { ...(g.groupState || newGroupState()), ...patch }
-      const subjects = 'attribute' in patch
-        ? g.subjects.map(s => patchStateInSubject(s, 0, 'subjectAttribute', nextGroupState.attribute || []))
-        : g.subjects
-      return { ...g, groupState: nextGroupState, subjects }
-    })
-    setGroups(nextGroups)
-    emit({ subjectGroups: nextGroups })
   }
 
   // ── flat tissue handlers ──────────────────────────────────────────────────
@@ -1198,7 +1024,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     biosex, agecategory, species, strainData,
     diseaseData, diseaseModelData, subjectAttributeData,
     handedness, ageUnits, weightUnits,
-    timeUnits: ageUnits,
     allTissueSamples:    tissueSamples,
     allTissueCollections: tissueCollections,
   }
@@ -1254,9 +1079,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                   <SubjectRow key={field.id} field={field} index={index}
                     onRemove={removeSubject} onDuplicate={duplicateSubject}
                     onChange={handleSubjectChange}
-                    onStateChange={handleSubjectStateChange}
-                    onAddState={addSubjectState}
-                    onRemoveState={removeSubjectState}
                     {...subjectRowProps}
                   />
                 ))}
@@ -1291,70 +1113,12 @@ export default function Subjects({ form, onChange, data = {} }) {
                         placeholder="Remarks..."
                       />
                     </Form.Item>
-
-                    {/* ── group-level state (SubjectGroupState) ──────────────── */}
-                    <div style={{
-                      border: '1px solid #d9d9d9', borderRadius: 6, padding: '10px 12px',
-                      marginBottom: 14, background: '#fff',
-                    }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 8 }}>
-                        Group state
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                        <Form.Item label={<span style={LABEL_STYLE}>Age category</span>} style={{ flex: '0 0 220px', marginBottom: 0 }}>
-                          <Select {...sel()} size="small" mode="multiple"
-                            value={group.groupState?.ageCategory || []}
-                            onChange={(v) => updateGroupState(gi, { ageCategory: v })}
-                            placeholder="age category (this group spans)..."
-                          >
-                            {agecategory.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                          </Select>
-                        </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={{ flex: '0 0 220px', marginBottom: 0 }}>
-                          <Select {...sel()} size="small" mode="multiple"
-                            value={group.groupState?.attribute || []}
-                            onChange={(v) => updateGroupState(gi, { attribute: v })}
-                            placeholder="attribute..."
-                          >
-                            {subjectAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                          </Select>
-                        </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Age range (min)</span>} style={{ flex: '0 0 150px', marginBottom: 0 }}>
-                          <Input size="small" value={group.groupState?.ageMin || ''}
-                            onChange={(e) => updateGroupState(gi, { ageMin: e.target.value })}
-                            placeholder="min age" />
-                        </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Age range (max)</span>} style={{ flex: '0 0 150px', marginBottom: 0 }}>
-                          <Input size="small" value={group.groupState?.ageMax || ''}
-                            onChange={(e) => updateGroupState(gi, { ageMax: e.target.value })}
-                            placeholder="max age" />
-                        </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Age unit</span>} style={{ flex: '0 0 150px', marginBottom: 0 }}>
-                          <Select {...sel()} size="small"
-                            value={group.groupState?.ageUnit || undefined}
-                            onChange={(v) => updateGroupState(gi, { ageUnit: v ?? '' })}
-                            placeholder="unit"
-                          >
-                            {ageUnits.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                          </Select>
-                        </Form.Item>
-                      </div>
-                      <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
-                        Age category and age range fill in automatically from the subjects below
-                        as you add their own states. Attribute can be set here and applies to
-                        every subject's first state — or set per-subject below.
-                      </div>
-                    </div>
-
                     {group.subjects.map((field, si) => (
                       <SubjectRow key={field.id} field={field} index={si}
                         label={`Subject ${si + 1}`}
                         onRemove={(i)            => removeSubjectFromGroup(gi, i)}
                         onDuplicate={(i)         => duplicateSubjectInGroup(gi, i)}
                         onChange={(i, fOrP, val) => handleGroupSubjectChange(gi, i, fOrP, val)}
-                        onStateChange={(i, si2, fOrP, val) => handleGroupSubjectStateChange(gi, i, si2, fOrP, val)}
-                        onAddState={(i)          => addSubjectStateInGroup(gi, i)}
-                        onRemoveState={(i, si2)  => removeSubjectStateInGroup(gi, i, si2)}
                         {...subjectRowProps}
                       />
                     ))}

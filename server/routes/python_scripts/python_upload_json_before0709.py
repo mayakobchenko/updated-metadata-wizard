@@ -1225,15 +1225,15 @@ def post_or_patch_tissue_sample(sample_uuid, sample_node, sample_id_str):
 
 def build_subject_instance(subject, group_uuid=None):
     subject_uuid = str(uuid4())
+    state_uuid = str(uuid4())
     subject_id_str = safe_trim(subject.get("subjectID", subject_uuid))
 
     subject_node = {
         "@type":              [f"{T}Subject"],
         "lookupLabel":        subject_id_str,
         "internalIdentifier": subject_id_str,
-        # studiedState is filled in by the caller once every state below has
-        # been resolved — a subject can now have several states (time
-        # points), so this ends up a list rather than a single link.
+        # placeholder — updated after state resolution
+        "studiedState":       {"@id": KG_PREFIX + state_uuid},
     }
 
     if subject.get("bioSex"):
@@ -1245,100 +1245,47 @@ def build_subject_instance(subject, group_uuid=None):
     if group_uuid:
         subject_node["isPartOf"] = {"@id": KG_PREFIX + group_uuid}
 
-    # ── states (time points) ────────────────────────────────────────────────
-    # Every subject has at least one state. Additional states (added via
-    # "+ add new time point" in the UI) represent later time points for the
-    # SAME subject and get chained via descendedFrom -> the previous state.
-    # That link can only be set once the previous state's REAL confirmed
-    # uuid is known (new vs. already-existing) — so building it here would
-    # be premature; the caller wires descendedFrom in while resolving each
-    # state in order, same reasoning as the group/collection uuid-before-
-    # children fix from earlier.
-    state_entries = subject.get("states") or [{}]
-    built_states = []
-    for idx, st in enumerate(state_entries):
-        state_uuid = str(uuid4())
-        label = f"{subject_id_str}_state{idx + 1}"
-        state_node = {
-            "@type":              [f"{T}SubjectState"],
-            "lookupLabel":        label,
-            "internalIdentifier": label,
+    remarks = nonempty(subject.get("additionalRemarks", ""))
+    if remarks:
+        subject_node["additionalRemarks"] = remarks
+
+    state_node = {
+        "@type":              [f"{T}SubjectState"],
+        "lookupLabel":        subject_id_str + "_state",
+        "internalIdentifier": subject_id_str + "_state",
+    }
+
+    if subject.get("ageCategory"):
+        state_node["ageCategory"] = {"@id": subject["ageCategory"]}
+    if subject.get("handedness"):
+        state_node["handedness"] = {"@id": subject["handedness"]}
+
+    pathology_ids = []
+    for d in (subject.get("disease") or []):
+        if d:
+            pathology_ids.append({"@id": d})
+    for d in (subject.get("diseaseModel") or []):
+        if d:
+            pathology_ids.append({"@id": d})
+    state_node["pathology"] = pathology_ids
+    state_node["attribute"] = as_id_list(subject.get("subjectAttribute") or [])
+    if remarks:
+        state_node["additionalRemarks"] = remarks
+
+    if nonempty(subject.get("age", "")):
+        state_node["age"] = {
+            "@type": f"{T}QuantitativeValue",
+            "unit":  {"@id": subject.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
+            "value": subject["age"]
         }
-        if st.get("ageCategory"):
-            state_node["ageCategory"] = {"@id": st["ageCategory"]}
-        if st.get("handedness"):
-            state_node["handedness"] = {"@id": st["handedness"]}
+    if nonempty(subject.get("weight", "")):
+        state_node["weight"] = {
+            "@type": f"{T}QuantitativeValue",
+            "unit":  {"@id": subject.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
+            "value": subject["weight"]
+        }
 
-        pathology_ids = []
-        for d in (st.get("disease") or []):
-            if d:
-                pathology_ids.append({"@id": d})
-        for d in (st.get("diseaseModel") or []):
-            if d:
-                pathology_ids.append({"@id": d})
-        state_node["pathology"] = pathology_ids
-        state_node["attribute"] = as_id_list(st.get("subjectAttribute") or [])
-
-        st_remarks = nonempty(st.get("additionalRemarks", ""))
-        if st_remarks:
-            state_node["additionalRemarks"] = st_remarks
-
-        if nonempty(st.get("age", "")):
-            state_node["age"] = {
-                "@type": f"{T}QuantitativeValue",
-                "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                "value": st["age"]
-            }
-        if nonempty(st.get("weight", "")):
-            state_node["weight"] = {
-                "@type": f"{T}QuantitativeValue",
-                "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                "value": st["weight"]
-            }
-
-        # relativeTimeIndication ("N days/weeks/etc since the previous
-        # state") only applies from the 2nd state onward, and only when
-        # BOTH a value and a unit are actually given — deliberately no
-        # invented default unit here (unlike age/weight above, which reuse
-        # established fallback units already used elsewhere in this file).
-        rel_time = None
-        if idx > 0 and nonempty(st.get("relativeTimeValue", "")) and nonempty(st.get("relativeTimeUnit", "")):
-            rel_time = {
-                "@type": f"{T}QuantitativeValue",
-                "unit":  {"@id": st["relativeTimeUnit"]},
-                "value": st["relativeTimeValue"]
-            }
-
-        built_states.append((state_uuid, state_node, label, rel_time))
-
-    return (subject_uuid, subject_node), built_states
-
-
-def resolve_subject_states(built_states, results):
-    """
-    Sequentially resolve (create-or-reuse) each of a subject's states in
-    order, chaining descendedFrom from state N to state N-1's REAL final
-    uuid — only known once state N-1 has actually been resolved, which is
-    why this can't happen inside build_subject_instance itself. Returns the
-    ordered list of final state uuids, or None if any state in the chain
-    couldn't be confirmed (stopping there rather than resolving further
-    states on top of a broken/skipped link).
-    """
-    final_state_uuids = []
-    prev_state_uuid = None
-    for state_uuid, state_node, label, rel_time in built_states:
-        if prev_state_uuid is not None:
-            state_node["descendedFrom"] = {"@id": KG_PREFIX + prev_state_uuid}
-            if rel_time:
-                state_node["relativeTimeIndication"] = rel_time
-        final_st_uuid, state_result = post_or_patch_state(
-            state_uuid, state_node, label, "SubjectState")
-        results.append({"subjectState": state_result})
-        if final_st_uuid is None:
-            return None
-        final_state_uuids.append(final_st_uuid)
-        prev_state_uuid = final_st_uuid
-    return final_state_uuids
+    return (subject_uuid, subject_node), (state_uuid, state_node)
 
 # ── 4. process subjects ───────────────────────────────────────────────────────
 
@@ -1386,21 +1333,26 @@ if subject_metadata.get("subjectGroups"):
         group_is_new = existing_group_id is None
 
         for subject in subjects:
-            (subj_uuid, subj_node), built_states = build_subject_instance(
+            (subj_uuid, subj_node), (state_uuid, state_node) = build_subject_instance(
                 subject, group_uuid=group_uuid
             )
             subject_id_str = safe_trim(subject.get("subjectID", subj_uuid))
+            state_label = subject_id_str + "_state"
 
-            final_state_uuids = resolve_subject_states(built_states, results)
-            if not final_state_uuids:
-                # couldn't confirm one of the states in the chain — already
-                # reported; skip this subject rather than risk creating it
-                # with a missing/broken state link
+            # ── resolve state (reuse existing or create new) ──────────────────
+            final_state_uuid, state_result = post_or_patch_state(
+                state_uuid, state_node, state_label, "SubjectState"
+            )
+            results.append({"subjectState": state_result})
+
+            if final_state_uuid is None:
+                # couldn't confirm whether the state exists — already reported
+                # in state_result; skip this subject rather than risk creating
+                # it without a valid state link or duplicating it later
                 continue
 
-            # ── update subject node to reference ALL its confirmed states ─────
-            subj_node["studiedState"] = [
-                {"@id": KG_PREFIX + su} for su in final_state_uuids]
+            # ── update subject node to reference correct state UUID ───────────
+            subj_node["studiedState"] = {"@id": KG_PREFIX + final_state_uuid}
 
             final_uuid, subj_result = post_or_patch_subject(
                 subj_uuid, subj_node, subject_id_str)
@@ -1412,65 +1364,10 @@ if subject_metadata.get("subjectGroups"):
 
             specimen_list.append({"@id": KG_PREFIX + final_uuid})
             sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
-            # tissue-sample provenance (descendedFrom) targets the subject's
-            # FIRST/baseline state — the wizard doesn't currently let a
-            # tissue sample pick which specific time point it came from.
             subject_id_to_state_uuid[subject.get(
-                "id")] = KG_PREFIX + final_state_uuids[0]
+                "id")] = KG_PREFIX + final_state_uuid
 
         all_bio_sex = list({s["bioSex"] for s in subjects if s.get("bioSex")})
-
-        # ── group-level state (SubjectGroupState) ───────────────────────────
-        # A genuinely different type from the individual subjects' own
-        # SubjectState (same property name on SubjectGroup.studiedState,
-        # different type — see the earlier fix that stopped incorrectly
-        # reusing member subjects' states here). Built from group.groupState
-        # data collected in the wizard UI; only created when there's
-        # actually something to put in it.
-        group_studied_state = None
-        group_state_data = group.get("groupState") or {}
-        has_group_state_data = bool(
-            group_state_data.get("ageCategory") or
-            group_state_data.get("attribute") or
-            nonempty(group_state_data.get("ageMin", "")) or
-            nonempty(group_state_data.get("ageMax", ""))
-        )
-        if has_group_state_data:
-            gs_label = group_label + "_state"
-            gs_node = {
-                "@type":              [f"{T}SubjectGroupState"],
-                "lookupLabel":        gs_label,
-                "internalIdentifier": gs_label,
-            }
-            if group_state_data.get("ageCategory"):
-                gs_node["ageCategory"] = as_id_list(
-                    group_state_data["ageCategory"])
-            if group_state_data.get("attribute"):
-                gs_node["attribute"] = as_id_list(
-                    group_state_data["attribute"])
-
-            age_min = nonempty(group_state_data.get("ageMin", ""))
-            age_max = nonempty(group_state_data.get("ageMax", ""))
-            if age_min or age_max:
-                age_unit_id = group_state_data.get(
-                    "ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"
-                age_range = {"@type": f"{T}QuantitativeValueRange"}
-                if age_min:
-                    age_range["minValue"] = age_min
-                    age_range["minValueUnit"] = {"@id": age_unit_id}
-                if age_max:
-                    age_range["maxValue"] = age_max
-                    age_range["maxValueUnit"] = {"@id": age_unit_id}
-                gs_node["age"] = age_range
-
-            final_gs_uuid, gs_result = post_or_patch_state(
-                str(uuid4()), gs_node, gs_label, "SubjectGroupState")
-            results.append({"subjectGroupState": gs_result})
-            if final_gs_uuid is not None:
-                group_studied_state = [{"@id": KG_PREFIX + final_gs_uuid}]
-            # if final_gs_uuid is None, the failure is already reported in
-            # gs_result — the group itself still gets created, just without
-            # this link, rather than blocking the whole group
 
         group_node = {
             "@type":              [f"{T}SubjectGroup"],
@@ -1478,9 +1375,21 @@ if subject_metadata.get("subjectGroups"):
             "internalIdentifier": group_label,
             "quantity":           len(subjects),
             "numberOfSubjects":   len(subjects),
+            # NOTE: SubjectGroup.studiedState expects SubjectGroupState
+            # objects — a different type from the SubjectState objects used
+            # by individual Subjects (same property name, different type,
+            # per the openMINDS schema). Previously this field was
+            # incorrectly populated with the member subjects' own
+            # SubjectState @ids, which caused the KG's browse/tree view to
+            # display those states as siblings of the subjects instead of
+            # as a nested property. Each Subject already correctly links
+            # its own SubjectState below — that's unaffected by this. Not
+            # setting a SubjectGroupState here since the wizard doesn't
+            # currently collect group-level state data (age/handedness/
+            # pathology *for the group as a whole*, distinct from each
+            # member) — add real SubjectGroupState support later if that's
+            # ever needed.
         }
-        if group_studied_state:
-            group_node["studiedState"] = group_studied_state
         apply_strain_species_group(group_node, subjects)
         if all_bio_sex:
             group_node["biologicalSex"] = [{"@id": s} for s in all_bio_sex]
@@ -1503,16 +1412,22 @@ if subject_metadata.get("subjectGroups"):
 
 elif subject_metadata.get("subjects"):
     for subject in subject_metadata["subjects"]:
-        (subj_uuid, subj_node), built_states = build_subject_instance(subject)
+        (subj_uuid, subj_node), (state_uuid,
+                                 state_node) = build_subject_instance(subject)
         subject_id_str = safe_trim(subject.get("subjectID", subj_uuid))
+        state_label = subject_id_str + "_state"
 
-        final_state_uuids = resolve_subject_states(built_states, results)
-        if not final_state_uuids:
-            continue  # couldn't confirm one of the states — already reported
+        # ── resolve state (reuse existing or create new) ──────────────────────
+        final_state_uuid, state_result = post_or_patch_state(
+            state_uuid, state_node, state_label, "SubjectState"
+        )
+        results.append({"subjectState": state_result})
 
-        # ── update subject node to reference ALL its confirmed states ─────────
-        subj_node["studiedState"] = [
-            {"@id": KG_PREFIX + su} for su in final_state_uuids]
+        if final_state_uuid is None:
+            continue  # couldn't confirm — already reported in state_result
+
+        # ── update subject node to reference correct state UUID ───────────────
+        subj_node["studiedState"] = {"@id": KG_PREFIX + final_state_uuid}
 
         final_uuid, subj_result = post_or_patch_subject(
             subj_uuid, subj_node, subject_id_str)
@@ -1524,7 +1439,7 @@ elif subject_metadata.get("subjects"):
         specimen_list.append({"@id": KG_PREFIX + final_uuid})
         sample_id_to_kg_uuid[subject.get("id")] = KG_PREFIX + final_uuid
         subject_id_to_state_uuid[subject.get(
-            "id")] = KG_PREFIX + final_state_uuids[0]
+            "id")] = KG_PREFIX + final_state_uuid
 
 # ── 5. tissue samples ─────────────────────────────────────────────────────────
 
