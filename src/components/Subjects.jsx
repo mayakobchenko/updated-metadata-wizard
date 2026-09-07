@@ -725,6 +725,33 @@ export default function Subjects({ form, onChange, data = {} }) {
     }
   }
 
+  // Whenever a subject's own data changes (species/strain/sex, or a
+  // specific state's age/pathology/etc), any tissue sample or collection
+  // already linked to that subject needs to be re-prefilled with the new
+  // values. Without this, the "unchangeable" (disabled) fields on an
+  // already-linked sample would silently go stale — showing whatever the
+  // subject's data happened to be at the moment the link was first made,
+  // with no way for the user to fix it since those fields are disabled.
+  // Each linked sample/collection keeps re-resolving its OWN chosen
+  // linkedSubjectStateId, so this correctly refreshes from the right time
+  // point even when a subject has several.
+  const resyncLinkedTissue = (subject, flatSamples, collections) => {
+    if (!subject) return { flatSamples, collections }
+
+    const nextFlatSamples = flatSamples.map(s =>
+      s.linkedSubjectId === subject.id
+        ? { ...s, ...buildTissuePatchFromSubject(subject, s.linkedSubjectStateId) }
+        : s
+    )
+    const nextCollections = collections.map(c => {
+      if (c.linkedSubjectId !== subject.id) return c
+      const patch = buildTissuePatchFromSubject(subject, c.linkedSubjectStateId)
+      return { ...c, samples: c.samples.map(s => ({ ...s, ...patch })) }
+    })
+
+    return { flatSamples: nextFlatSamples, collections: nextCollections }
+  }
+
   const patchFlatSamples = (samples, targetId, patch) =>
     samples.map(s => s.id === targetId ? { ...s, ...patch } : s)
 
@@ -885,7 +912,10 @@ export default function Subjects({ form, onChange, data = {} }) {
       return { ...s, [fieldOrPatch]: value }
     })
     setSubjectData(updated)
-    emit({ subjects: updated })
+    const { flatSamples, collections } = resyncLinkedTissue(updated[i], tissueSamples, tissueCollections)
+    setTissueSamples(flatSamples)
+    setTissueCollections(collections)
+    emit({ subjects: updated, tissueSamples: flatSamples, tissueCollections: collections })
   }
 
   // ── shared state (time-point) helpers, used by both flat and grouped subjects ──
@@ -906,7 +936,10 @@ export default function Subjects({ form, onChange, data = {} }) {
   const handleSubjectStateChange = (i, si, fieldOrPatch, value) => {
     const updated = subjectsData.map((s, idx) => idx === i ? patchStateInSubject(s, si, fieldOrPatch, value) : s)
     setSubjectData(updated)
-    emit({ subjects: updated })
+    const { flatSamples, collections } = resyncLinkedTissue(updated[i], tissueSamples, tissueCollections)
+    setTissueSamples(flatSamples)
+    setTissueCollections(collections)
+    emit({ subjects: updated, tissueSamples: flatSamples, tissueCollections: collections })
   }
   const addSubjectState    = (i)     => {
     const updated = subjectsData.map((s, idx) => idx === i ? addStateToSubject(s) : s)
@@ -1016,7 +1049,12 @@ export default function Subjects({ form, onChange, data = {} }) {
       })
       return { ...g, subjects }
     })
-    updateGroups(nextGroups)
+    const changedSubject = nextGroups[gi].subjects[si]
+    const { flatSamples, collections } = resyncLinkedTissue(changedSubject, tissueSamples, tissueCollections)
+    setGroups(nextGroups)
+    setTissueSamples(flatSamples)
+    setTissueCollections(collections)
+    emit({ subjectGroups: nextGroups, tissueSamples: flatSamples, tissueCollections: collections })
   }
 
   // ── group-level state (SubjectGroupState) ───────────────────────────────
@@ -1066,8 +1104,12 @@ export default function Subjects({ form, onChange, data = {} }) {
       return { ...g, subjects }
     })
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
+    const changedSubject = nextGroups[gi].subjects[si]
+    const { flatSamples, collections } = resyncLinkedTissue(changedSubject, tissueSamples, tissueCollections)
     setGroups(nextGroups)
-    emit({ subjectGroups: nextGroups })
+    setTissueSamples(flatSamples)
+    setTissueCollections(collections)
+    emit({ subjectGroups: nextGroups, tissueSamples: flatSamples, tissueCollections: collections })
   }
 
   const addSubjectStateInGroup = (gi, si) => {

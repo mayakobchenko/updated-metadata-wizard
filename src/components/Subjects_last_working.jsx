@@ -513,7 +513,7 @@ const TissueSampleRow = ({
           />
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Disease/Disease model</span>} style={itemStyle('220px')}>
+        <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
           <Select {...sel()} size="small" mode="multiple"
             value={field.pathology || []}
             onChange={(v) => onRowChange(index, 'pathology', v)}
@@ -636,7 +636,15 @@ export default function Subjects({ form, onChange, data = {} }) {
   useEffect(() => {
     setSubjectData(data.subjectMetadata?.subjects            || [])
     setGroups(data.subjectMetadata?.subjectGroups            || [])
-    setMode(data.subjectMetadata?.subjectGroups ? 'grouped' : 'flat')
+    // NOTE: mode is intentionally NOT re-derived here. This effect re-runs
+    // on every data-prop change — which includes every keystroke, since
+    // emit() updates the parent's state and the new data comes right back
+    // down as a prop. Setting mode from subjectGroups' presence here used
+    // to force it back to 'grouped' on every single change as soon as any
+    // group had content, even after the user had deliberately switched to
+    // viewing flat subjects — making it impossible to type in a flat
+    // subject's id once any group existed. mode now only changes via the
+    // user's own toggle click (handleModeChange), same as tissueMode.
     setTissueCollections(data.subjectMetadata?.tissueCollections || [])
     setTissueSamples(data.subjectMetadata?.tissueSamples         || [])
   }, [data])
