@@ -179,7 +179,7 @@ color: var(-button-color-primary-active-hover);
 /*steps wizard wrapping div, config provider - colors*/
 .container-form {
   margin-top: 1rem;
-  margin-bottom: 6rem;
+  margin-bottom: 3rem;
   margin-left: 3rem;
   margin-right: 3rem;
   padding: 40px 60px 60px 60px;
