@@ -1475,16 +1475,15 @@ if subject_metadata.get("subjectGroups"):
             age_min = nonempty(group_state_data.get("ageMin", ""))
             age_max = nonempty(group_state_data.get("ageMax", ""))
             if age_min or age_max:
-                default_unit = KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"
+                age_unit_id = group_state_data.get(
+                    "ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"
                 age_range = {"@type": f"{T}QuantitativeValueRange"}
                 if age_min:
                     age_range["minValue"] = age_min
-                    age_range["minValueUnit"] = {
-                        "@id": group_state_data.get("ageMinUnit") or default_unit}
+                    age_range["minValueUnit"] = {"@id": age_unit_id}
                 if age_max:
                     age_range["maxValue"] = age_max
-                    age_range["maxValueUnit"] = {
-                        "@id": group_state_data.get("ageMaxUnit") or default_unit}
+                    age_range["maxValueUnit"] = {"@id": age_unit_id}
                 gs_node["age"] = age_range
 
             final_gs_uuid, gs_result = post_or_patch_state(

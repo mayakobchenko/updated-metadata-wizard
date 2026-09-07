@@ -61,7 +61,7 @@ const newSubjectState = () => ({
 
 const newGroupState = () => ({
   ageCategory: [], attribute: [],
-  ageMin: '', ageMinUnit: '', ageMax: '', ageMaxUnit: '',
+  ageMin: '', ageMax: '', ageUnit: '',
 })
 
 const newSubject = () => ({
@@ -227,7 +227,7 @@ const SubjectRow = ({
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
-                Time point {si + 1}
+                {si === 0 ? 'State (time point 1)' : `Time point ${si + 1}`}
               </span>
               {si > 0 && (
                 <Button size="small" type="text" danger
@@ -560,7 +560,7 @@ const TissueSampleRow = ({
                   placeholder="which time point?"
                 >
                   {linkedSubjectStates.map((st, i) => (
-                    <Option key={st.id} value={st.id}>{`Time point ${i + 1}`}</Option>
+                    <Option key={st.id} value={st.id}>{i === 0 ? 'State (time point 1)' : `Time point ${i + 1}`}</Option>
                   ))}
                 </Select>
               </Form.Item>
@@ -692,6 +692,15 @@ export default function Subjects({ form, onChange, data = {} }) {
     }))
 
   // ── dangling-reference cleanup ──────────────────────────────────────────
+  // Deleting a sample or a subject only removes it from its own list —
+  // nothing automatically clears the OTHER side's reference to it. Left
+  // alone, a subject's "Extracted tissue samples" list (or a sample's
+  // "Extracted from subject" link) keeps pointing at an id that no longer
+  // exists, which Ant Design can't resolve to a label — it just falls back
+  // to showing the raw numeric id, exactly the "not displayed by name"
+  // symptom. These two helpers strip any now-deleted id out of every
+  // subject/sample that might still reference it, called right before the
+  // actual deletion so they still have the id(s) to clean up.
   const stripSampleIdsFromSubjects = (flatSubjects, grps, deletedSampleIds) => {
     if (!deletedSampleIds.length) return { flatSubjects, grps }
     const idSet = new Set(deletedSampleIds.map(String))
@@ -971,42 +980,25 @@ export default function Subjects({ form, onChange, data = {} }) {
   }
 
   // ── group-level state (SubjectGroupState) ───────────────────────────────
-  // Aggregates the group's own state from ALL of its members' states (every
-  // time point, not just the first) each time anything about a member's
-  // states changes: ageCategory/attribute as the union of unique values,
-  // age as the {min, max} range — each end carrying its OWN unit, taken
-  // from whichever specific subject-state actually holds that min/max
-  // value (not a single shared unit blindly applied to both). Only
-  // recomputed FROM — never cascaded back INTO — age/ageCategory, since a
+  // Aggregates the group's own state from its members' FIRST state each
+  // time a member's state changes: ageCategory/attribute as the union of
+  // unique values across members, age as the {min, max} range. Only
+  // recomputed from — never cascaded back into — age/ageCategory, since a
   // group can legitimately span several categories or a wide age range and
   // there's no single sensible value to push down to one subject for
-  // those. attribute is the one field cascaded both ways (see
-  // updateGroupState below), and only applies to each subject's first
-  // state, since that's the one the group-level UI is prefilling.
+  // those. attribute is the one field cascaded both ways, since list -> list
+  // is a clean fit (see updateGroupState below).
   const recomputeGroupStateFromSubjects = (group) => {
-    const allStates = group.subjects.flatMap(s => (s.states && s.states.length) ? s.states : [{}])
-    const ageCategories = [...new Set(allStates.map(st => st.ageCategory).filter(Boolean))]
-    const attributes    = [...new Set(allStates.flatMap(st => st.subjectAttribute || []))]
-
-    const agesWithUnits = allStates
-      .map(st => ({ value: parseFloat(st.age), unit: st.ageUnit }))
-      .filter(a => !isNaN(a.value))
-
-    let ageMin = '', ageMinUnit = '', ageMax = '', ageMaxUnit = ''
-    if (agesWithUnits.length) {
-      const minEntry = agesWithUnits.reduce((a, b) => (a.value <= b.value ? a : b))
-      const maxEntry = agesWithUnits.reduce((a, b) => (a.value >= b.value ? a : b))
-      ageMin = String(minEntry.value); ageMinUnit = minEntry.unit || ''
-      ageMax = String(maxEntry.value); ageMaxUnit = maxEntry.unit || ''
-    }
-
+    const firstStates = group.subjects.map(s => (s.states && s.states[0]) || {})
+    const ageCategories = [...new Set(firstStates.map(st => st.ageCategory).filter(Boolean))]
+    const attributes    = [...new Set(firstStates.flatMap(st => st.subjectAttribute || []))]
+    const ages    = firstStates.map(st => parseFloat(st.age)).filter(v => !isNaN(v))
+    const ageMin  = ages.length ? String(Math.min(...ages)) : ''
+    const ageMax  = ages.length ? String(Math.max(...ages)) : ''
+    const ageUnit = firstStates.map(st => st.ageUnit).find(Boolean) || group.groupState?.ageUnit || ''
     return {
       ...group,
-      groupState: {
-        ...(group.groupState || newGroupState()),
-        ageCategory: ageCategories, attribute: attributes,
-        ageMin, ageMinUnit, ageMax, ageMaxUnit,
-      },
+      groupState: { ...(group.groupState || newGroupState()), ageCategory: ageCategories, attribute: attributes, ageMin, ageMax, ageUnit },
     }
   }
 
@@ -1113,6 +1105,10 @@ export default function Subjects({ form, onChange, data = {} }) {
   const renameCollection    = (ci, id)    => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, collectionID: id } : c))
   const updateCollRemarks   = (ci, r)     => updateCollections(tissueCollections.map((c, i) => i === ci ? { ...c, additionalRemarks: r } : c))
   // ── whole collection links subject → cascade prefill to every sample in it ──
+  // Same idea as syncTissueLinkedSubject (per individual sample), just
+  // applied to every sample in the collection at once, since picking a
+  // subject for the whole collection means every sample in it was
+  // extracted from that same subject.
   const updateCollLinkedSubject = (ci, subjectId) => {
     const collection = tissueCollections[ci]
     if (!collection) return
@@ -1194,6 +1190,11 @@ export default function Subjects({ form, onChange, data = {} }) {
 
   const addSampleToCollection = (ci) => updateCollections(tissueCollections.map((c, i) => {
     if (i !== ci) return c
+    // If this collection is already linked to a subject, a brand-new sample
+    // added to it was extracted from that same subject — inherit its data
+    // immediately rather than leaving the new sample unlinked until the
+    // user remembers to set it by hand (exactly the kind of gap that let a
+    // sample slip through with no linked subject at all).
     const subject  = findSubjectById(c.linkedSubjectId)
     const newSample = subject
       ? { ...newTissueSample(), ...buildTissuePatchFromSubject(subject) }
@@ -1257,6 +1258,8 @@ export default function Subjects({ form, onChange, data = {} }) {
     allGroups:   groups,
   }
 
+  // Same list TissueSampleRow builds for individual samples — reused here
+  // for the whole-collection "extracted from" selector.
   const allSubjectsForCollectionLinking = [
     ...subjectsData.map(s => ({ id: s.id, label: s.subjectID || `Subject ${s.id}` })),
     ...groups.flatMap(g =>
@@ -1264,6 +1267,11 @@ export default function Subjects({ form, onChange, data = {} }) {
     )
   ]
 
+  // Count of "required extracted-from link" gaps: flat tissue samples
+  // (individually) plus whole tissue sample collections (as a single unit
+  // each, since samples inside a collection no longer have their own link
+  // — they inherit the collection's). Surfaced as a warning banner so a
+  // single missed dropdown doesn't silently slip through unnoticed.
   const missingSubjectLinkCount = allSubjectsForCollectionLinking.length > 0
     ? tissueSamples.filter(s => !s.linkedSubjectId).length +
       tissueCollections.filter(c => !c.linkedSubjectId).length
@@ -1358,31 +1366,30 @@ export default function Subjects({ form, onChange, data = {} }) {
                             {subjectAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
                           </Select>
                         </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Age range (min)</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
-                          <ValueUnitField
-                            value={group.groupState?.ageMin || ''}
-                            unit={group.groupState?.ageMinUnit || ''}
-                            onValueChange={(e) => updateGroupState(gi, { ageMin: e.target.value })}
-                            onUnitChange={(v) => updateGroupState(gi, { ageMinUnit: v ?? '' })}
-                            units={ageUnits}
-                            valuePlaceholder="min age"
-                          />
+                        <Form.Item label={<span style={LABEL_STYLE}>Age range (min)</span>} style={{ flex: '0 0 150px', marginBottom: 0 }}>
+                          <Input size="small" value={group.groupState?.ageMin || ''}
+                            onChange={(e) => updateGroupState(gi, { ageMin: e.target.value })}
+                            placeholder="min age" />
                         </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Age range (max)</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
-                          <ValueUnitField
-                            value={group.groupState?.ageMax || ''}
-                            unit={group.groupState?.ageMaxUnit || ''}
-                            onValueChange={(e) => updateGroupState(gi, { ageMax: e.target.value })}
-                            onUnitChange={(v) => updateGroupState(gi, { ageMaxUnit: v ?? '' })}
-                            units={ageUnits}
-                            valuePlaceholder="max age"
-                          />
+                        <Form.Item label={<span style={LABEL_STYLE}>Age range (max)</span>} style={{ flex: '0 0 150px', marginBottom: 0 }}>
+                          <Input size="small" value={group.groupState?.ageMax || ''}
+                            onChange={(e) => updateGroupState(gi, { ageMax: e.target.value })}
+                            placeholder="max age" />
+                        </Form.Item>
+                        <Form.Item label={<span style={LABEL_STYLE}>Age unit</span>} style={{ flex: '0 0 150px', marginBottom: 0 }}>
+                          <Select {...sel()} size="small"
+                            value={group.groupState?.ageUnit || undefined}
+                            onChange={(v) => updateGroupState(gi, { ageUnit: v ?? '' })}
+                            placeholder="unit"
+                          >
+                            {ageUnits.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+                          </Select>
                         </Form.Item>
                       </div>
                       <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
-                        Age category and age range fill in automatically from every time point of
-                        every subject below (not just their first). Attribute can be set here and
-                        applies to every subject's first state — or set per-subject below.
+                        Age category and age range fill in automatically from the subjects below
+                        as you add their own states. Attribute can be set here and applies to
+                        every subject's first state — or set per-subject below.
                       </div>
                     </div>
 
@@ -1487,7 +1494,9 @@ export default function Subjects({ form, onChange, data = {} }) {
                       />
                     </Form.Item>
 
-                    {/* ── extracted from subject (whole collection) — required ── */}
+                    {/* ── extracted from subject (whole collection) — now required,
+                         since every sample in a collection must share the
+                         same subject+state as the collection itself ────── */}
                     {allSubjectsForCollectionLinking.length > 0 && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
                         <Form.Item
@@ -1521,7 +1530,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                                 placeholder="which time point?"
                               >
                                 {states.map((st, i) => (
-                                  <Option key={st.id} value={st.id}>{`Time point ${i + 1}`}</Option>
+                                  <Option key={st.id} value={st.id}>{i === 0 ? 'State (time point 1)' : `Time point ${i + 1}`}</Option>
                                 ))}
                               </Select>
                             </Form.Item>
