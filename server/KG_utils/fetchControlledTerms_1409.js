@@ -140,12 +140,8 @@ async function parseAndSaveData(data, instanceName) {
       if (instanceName === "Strain") {
         const speciesRef = thisInstance[`${OPENMINDS_VOCAB}/species`]
         if (speciesRef !== undefined) {
-          // species has been observed both as a plain {"@id": ...} object
-          // and as a single-entry array [{"@id": ...}] in live KG data —
-          // normalize to an array either way, rather than assume one shape
-          const speciesRefArray = Array.isArray(speciesRef) ? speciesRef : [speciesRef]
-          const speciesId       = speciesRefArray[0]?.["@id"]
-          const matchedSpecies  = speciesData.find(s => s.identifier === speciesId)
+          const speciesId      = speciesRef["@id"]
+          const matchedSpecies = speciesData.find(s => s.identifier === speciesId)
           if (matchedSpecies !== undefined) {
             newInstance["species"] = matchedSpecies.identifier
           }

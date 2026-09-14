@@ -137,32 +137,20 @@ const SubjectRow = ({
   const states = field.states && field.states.length ? field.states : [newSubjectState()]
 
   const allSamplesForLinking = [
-    ...allTissueSamples.map((s, idx) => ({
+    ...allTissueSamples.map(s => ({
       id: s.id,
-      label: s.sampleID || `Sample ${idx + 1}`,
+      label: s.sampleID || `Sample ${s.id}`,
     })),
-    // Collection samples are governed exclusively by their collection's
-    // OWN "Extracted from subject" field, not linkable individually here —
-    // that field is deliberately hidden on a per-sample basis for samples
-    // inside a collection, so linking one from here has nowhere to
-    // visibly show up. Only kept as an option if it's ALREADY linked this
-    // way, so an existing selection doesn't disappear or turn into an
-    // unresolved raw id.
     ...allTissueCollections.flatMap(c =>
-      c.samples
-        .filter(s => (field.linkedSampleIds || []).includes(s.id))
-        .map((s, idx) => ({
-          id: s.id,
-          label: `[${c.collectionID || 'Collection'}] ${s.sampleID || `Sample ${idx + 1}`} (linked via its collection)`,
-        }))
+      c.samples.map(s => ({
+        id: s.id,
+        label: `[${c.collectionID || 'Collection'}] ${s.sampleID || `Sample ${s.id}`}`,
+      }))
     )
   ]
 
   return (
-    <div style={{
-      border: '1px solid #d9d9d9', borderRadius: 8, padding: '14px 18px',
-      marginBottom: 16, background: '#fff',
-    }}>
+    <div style={{ marginBottom: 20, paddingBottom: 10, borderBottom: '1px solid #f0f0f0' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ whiteSpace: 'nowrap', flexShrink: 0, fontSize: 13, fontWeight: 500 }}>
@@ -218,11 +206,7 @@ const SubjectRow = ({
         </Form.Item>
 
         {allSamplesForLinking.length > 0 && (
-          <Form.Item
-            label={<span style={LABEL_STYLE}>Extracted tissue samples</span>}
-            style={itemStyle('220px')}
-            extra={<span style={{ fontSize: 10, color: '#999' }}>Only standalone samples — a sample inside a collection is linked via that collection's own field.</span>}
-          >
+          <Form.Item label={<span style={LABEL_STYLE}>Extracted tissue samples</span>} style={itemStyle('220px')}>
             <Select {...sel()} size="small" mode="multiple"
               value={field.linkedSampleIds || []}
               onChange={(v) => onRowChange(index, 'linkedSampleIds', v)}
