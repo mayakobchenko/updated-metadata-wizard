@@ -1340,42 +1340,6 @@ def resolve_subject_states(built_states, results):
         prev_state_uuid = final_st_uuid
     return final_state_uuids
 
-
-def resolve_tissue_states(built_states, results, state_type, result_key, first_state_descended_from=None):
-    """
-    Same sequential resolve-and-chain pattern as resolve_subject_states, but
-    for TissueSampleState/TissueSampleCollectionState, with one difference:
-    state[0] can optionally carry an EXTERNAL descendedFrom — the linked
-    subject's state — while state[1+] always chain to the sample/
-    collection's OWN previous state (its own processing timeline: fresh ->
-    fixed -> sectioned -> stained, etc., independent of subject linkage).
-
-    first_state_descended_from should be None for samples that belong to a
-    collection — those connect to the subject ONLY via isPartOf -> the
-    collection (see build_tissue_sample_instance), never a direct link on
-    the sample's own state, to avoid the "same sample shows up twice in the
-    KG browse tree" duplicate-path bug from earlier.
-    """
-    final_state_uuids = []
-    prev_state_uuid = None
-    for idx, (state_uuid, state_node, label, rel_time) in enumerate(built_states):
-        if idx == 0:
-            if first_state_descended_from:
-                state_node["descendedFrom"] = {
-                    "@id": first_state_descended_from}
-        elif prev_state_uuid is not None:
-            state_node["descendedFrom"] = {"@id": KG_PREFIX + prev_state_uuid}
-            if rel_time:
-                state_node["relativeTimeIndication"] = rel_time
-        final_st_uuid, state_result = post_or_patch_state(
-            state_uuid, state_node, label, state_type)
-        results.append({result_key: state_result})
-        if final_st_uuid is None:
-            return None
-        final_state_uuids.append(final_st_uuid)
-        prev_state_uuid = final_st_uuid
-    return final_state_uuids
-
 # ── 4. process subjects ───────────────────────────────────────────────────────
 
 
@@ -1594,15 +1558,14 @@ if subject_metadata.get("subjects"):
 
 def build_tissue_sample_instance(sample, collection_uuid=None):
     sample_uuid = str(uuid4())
+    state_uuid = str(uuid4())
     sample_id_str = safe_trim(sample.get("sampleID", sample_uuid))
 
     sample_node = {
         "@type":              [f"{T}TissueSample"],
         "lookupLabel":        sample_id_str,
         "internalIdentifier": sample_id_str,
-        # studiedState filled in by the caller once every state below has
-        # been resolved — a sample can have several states (time points),
-        # so this ends up a list rather than a single link.
+        "studiedState":       {"@id": KG_PREFIX + state_uuid},  # placeholder
     }
 
     if sample.get("type"):
@@ -1619,76 +1582,76 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
     apply_strain_species(sample_node, sample.get(
         "strain", ""), sample.get("species", ""))
 
-    # ── states (time points) ────────────────────────────────────────────────
-    # A sample can have several states of its own now — e.g. fresh -> fixed
-    # -> sectioned -> stained — independent of "which subject/time point it
-    # was extracted from" (that provenance link is wired in by the caller
-    # via resolve_tissue_states, on state[0] only, and only for samples NOT
-    # in a collection — see the note there).
-    state_entries = sample.get("states") or [{}]
-    built_states = []
-    for idx, st in enumerate(state_entries):
-        state_uuid = str(uuid4())
-        label = f"{sample_id_str}_state{idx + 1}"
-        state_node = {
-            "@type":              [f"{T}TissueSampleState"],
-            "lookupLabel":        label,
-            "internalIdentifier": label,
-            "pathology":          [{"@id": p} for p in (st.get("pathology") or []) if p],
-            "attribute":          as_id_list(st.get("tissueSampleAttribute") or []),
+    remarks = nonempty(sample.get("additionalRemarks", ""))
+    if remarks:
+        sample_node["additionalRemarks"] = remarks
+
+    state_node = {
+        "@type":              [f"{T}TissueSampleState"],
+        "lookupLabel":        sample_id_str + "_state",
+        "internalIdentifier": sample_id_str + "_state",
+        "pathology":          [{"@id": p} for p in (sample.get("pathology") or []) if p],
+        "attribute":          as_id_list(sample.get("tissueSampleAttribute") or []),
+    }
+    if remarks:
+        state_node["additionalRemarks"] = remarks
+
+    # "Extracted from subject" — linked via descendedFrom on the STATE, not
+    # a property on the sample itself (the sample previously set
+    # `wasDerivedFrom` directly on itself, which isn't actually a valid
+    # TissueSample property in openMINDS — confirmed against the schema,
+    # that field was silently never persisting to the KG at all).
+    #
+    # IMPORTANT: samples that belong to a collection (collection_uuid set)
+    # must NOT also get a direct descendedFrom here. The collection's own
+    # TissueSampleCollectionState already carries descendedFrom to the
+    # subject's state — connection to the subject for a sample-in-a-
+    # collection goes ONLY through isPartOf -> the collection. Setting
+    # descendedFrom directly on the sample too created a second path that
+    # bypassed the collection entirely, which the KG's browse tree
+    # rendered as the same sample appearing twice: once correctly nested
+    # under the collection, and once again as a direct "descendant" of the
+    # subject state.
+    if not collection_uuid:
+        linked_subj_id = sample.get("linkedSubjectId")
+        linked_state_id = sample.get("linkedSubjectStateId")
+        if linked_subj_id:
+            resolved = resolve_descended_state_uuid(
+                linked_subj_id, linked_state_id)
+            if resolved:
+                state_node["descendedFrom"] = {"@id": resolved}
+
+    if nonempty(sample.get("age", "")):
+        state_node["age"] = {
+            "@type": f"{T}QuantitativeValue",
+            "unit":  {"@id": sample.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
+            "value": sample["age"]
         }
-        st_remarks = nonempty(st.get("additionalRemarks", ""))
-        if st_remarks:
-            state_node["additionalRemarks"] = st_remarks
+    if nonempty(sample.get("weight", "")):
+        state_node["weight"] = {
+            "@type": f"{T}QuantitativeValue",
+            "unit":  {"@id": sample.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
+            "value": sample["weight"]
+        }
 
-        if nonempty(st.get("age", "")):
-            state_node["age"] = {
-                "@type": f"{T}QuantitativeValue",
-                "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                "value": st["age"]
-            }
-        if nonempty(st.get("weight", "")):
-            state_node["weight"] = {
-                "@type": f"{T}QuantitativeValue",
-                "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                "value": st["weight"]
-            }
-
-        rel_time = None
-        if idx > 0 and nonempty(st.get("relativeTimeValue", "")) and nonempty(st.get("relativeTimeUnit", "")):
-            rel_time = {
-                "@type": f"{T}QuantitativeValue",
-                "unit":  {"@id": st["relativeTimeUnit"]},
-                "value": st["relativeTimeValue"]
-            }
-
-        built_states.append((state_uuid, state_node, label, rel_time))
-
-    return (sample_uuid, sample_node), built_states
+    return (sample_uuid, sample_node), (state_uuid, state_node)
 
 # ── flat tissue samples ───────────────────────────────────────────────────────
 
 
 for sample in subject_metadata.get("tissueSamples", []):
-    (s_uuid, s_node), built_states = build_tissue_sample_instance(sample)
+    (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(sample)
     sample_id_str = safe_trim(sample.get("sampleID", s_uuid))
+    state_label = sample_id_str + "_state"
 
-    # flat (standalone) samples connect to their subject's state directly —
-    # descendedFrom on state[0] only; state[1+] chain among themselves
-    linked_subj_id = sample.get("linkedSubjectId")
-    linked_state_id = sample.get("linkedSubjectStateId")
-    first_descended_from = (
-        resolve_descended_state_uuid(linked_subj_id, linked_state_id)
-        if linked_subj_id else None
-    )
+    final_st_uuid, st_result = post_or_patch_state(
+        st_uuid, st_node, state_label, "TissueSampleState")
+    results.append({"tissueSampleState": st_result})
 
-    final_state_uuids = resolve_tissue_states(
-        built_states, results, "TissueSampleState", "tissueSampleState", first_descended_from)
-    if not final_state_uuids:
-        continue  # couldn't confirm one of the states in the chain — already reported
+    if final_st_uuid is None:
+        continue  # couldn't confirm — already reported in st_result
 
-    s_node["studiedState"] = [{"@id": KG_PREFIX + su}
-                              for su in final_state_uuids]
+    s_node["studiedState"] = {"@id": KG_PREFIX + final_st_uuid}
 
     final_s_uuid, s_result = post_or_patch_tissue_sample(
         s_uuid, s_node, sample_id_str)
@@ -1743,22 +1706,20 @@ for collection in subject_metadata.get("tissueCollections", []):
     )
 
     for sample in collection.get("samples", []):
-        (s_uuid, s_node), built_states = build_tissue_sample_instance(
+        (s_uuid, s_node), (st_uuid, st_node) = build_tissue_sample_instance(
             sample, collection_uuid=collection_uuid,
         )
         sample_id_str = safe_trim(sample.get("sampleID", s_uuid))
+        state_label = sample_id_str + "_state"
 
-        # collection samples: NO subject-linked descendedFrom on state[0] —
-        # connection to the subject is via isPartOf -> the collection only
-        # (see build_tissue_sample_instance's docstring for why). Their own
-        # state[1+] still chain to each other normally.
-        final_state_uuids = resolve_tissue_states(
-            built_states, results, "TissueSampleState", "tissueSampleState", first_state_descended_from=None)
-        if not final_state_uuids:
-            continue  # couldn't confirm one of the states in the chain — already reported
+        final_st_uuid, st_result = post_or_patch_state(
+            st_uuid, st_node, state_label, "TissueSampleState")
+        results.append({"tissueSampleState": st_result})
 
-        s_node["studiedState"] = [{"@id": KG_PREFIX + su}
-                                  for su in final_state_uuids]
+        if final_st_uuid is None:
+            continue  # couldn't confirm — already reported in st_result
+
+        s_node["studiedState"] = {"@id": KG_PREFIX + final_st_uuid}
 
         final_s_uuid, s_result = post_or_patch_tissue_sample(
             s_uuid, s_node, sample_id_str)
@@ -1778,72 +1739,31 @@ for collection in subject_metadata.get("tissueCollections", []):
         if nonempty(sample.get("origin",        "")):
             collection_origins.append(sample["origin"])
 
-    # ── collection-level states (its own processing timeline, plus optional
-    # "extracted from subject" provenance on state[0]) ──────────────────────
-    # Builds genuine TissueSampleCollectionState objects (a different type
-    # from the individual samples' TissueSampleState) — potentially several
-    # now, chained the same way subject/sample states are: state[0] carries
-    # descendedFrom to the linked subject's state (if any), state[1+] chain
-    # to the collection's own previous state instead. Only built when
-    # there's actually something to put in it — either a subject link or
-    # real state data entered — so an untouched collection doesn't get an
-    # empty state record.
-    def _coll_state_has_data(st):
-        return bool(
-            nonempty(st.get("age", "")) or nonempty(st.get("weight", "")) or
-            (st.get("pathology") or []) or (st.get("tissueSampleAttribute") or []) or
-            nonempty(st.get("additionalRemarks", ""))
-        )
-
-    coll_states_raw = collection.get("states") or []
+    # ── collection-level "extracted from subject" ───────────────────────────
+    # Builds a genuine TissueSampleCollectionState (a different type from the
+    # individual samples' TissueSampleState) carrying descendedFrom, linking
+    # the whole collection back to the subject's own state — the SAME
+    # target every sample above was just linked to (coll_descended_from,
+    # resolved once earlier). Only created if the collection is actually
+    # linked to a subject — otherwise TissueSampleCollection.studiedState is
+    # correctly left unset, same as before.
     collection_studied_state = None
-    if coll_descended_from or any(_coll_state_has_data(st) for st in coll_states_raw):
-        built_coll_states = []
-        for idx, st in enumerate(coll_states_raw or [{}]):
-            coll_state_uuid = str(uuid4())
-            coll_state_label = f"{coll_id_str}_state{idx + 1}"
-            coll_state_node = {
-                "@type":              [f"{T}TissueSampleCollectionState"],
-                "lookupLabel":        coll_state_label,
-                "internalIdentifier": coll_state_label,
-                "pathology":          [{"@id": p} for p in (st.get("pathology") or []) if p],
-                "attribute":          as_id_list(st.get("tissueSampleAttribute") or []),
-            }
-            coll_st_remarks = nonempty(st.get("additionalRemarks", ""))
-            if coll_st_remarks:
-                coll_state_node["additionalRemarks"] = coll_st_remarks
-            if nonempty(st.get("age", "")):
-                coll_state_node["age"] = {
-                    "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                    "value": st["age"]
-                }
-            if nonempty(st.get("weight", "")):
-                coll_state_node["weight"] = {
-                    "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                    "value": st["weight"]
-                }
-            coll_rel_time = None
-            if idx > 0 and nonempty(st.get("relativeTimeValue", "")) and nonempty(st.get("relativeTimeUnit", "")):
-                coll_rel_time = {
-                    "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st["relativeTimeUnit"]},
-                    "value": st["relativeTimeValue"]
-                }
-            built_coll_states.append(
-                (coll_state_uuid, coll_state_node, coll_state_label, coll_rel_time))
-
-        coll_final_state_uuids = resolve_tissue_states(
-            built_coll_states, results, "TissueSampleCollectionState", "tissueSampleCollectionState",
-            first_state_descended_from=coll_descended_from)
-        if coll_final_state_uuids:
+    if coll_descended_from:
+        coll_state_node = {
+            "@type":              [f"{T}TissueSampleCollectionState"],
+            "lookupLabel":        coll_id_str + "_state",
+            "internalIdentifier": coll_id_str + "_state",
+            "descendedFrom":      {"@id": coll_descended_from},
+        }
+        final_coll_state_uuid, coll_state_result = post_or_patch_state(
+            str(uuid4()), coll_state_node, coll_id_str + "_state", "TissueSampleCollectionState")
+        results.append({"tissueSampleCollectionState": coll_state_result})
+        if final_coll_state_uuid is not None:
             collection_studied_state = [
-                {"@id": KG_PREFIX + su} for su in coll_final_state_uuids]
-        # if coll_final_state_uuids is falsy, the failure is already
-        # reported inside resolve_tissue_states — the collection itself
-        # still gets created, just without this link, rather than blocking
-        # the whole collection
+                {"@id": KG_PREFIX + final_coll_state_uuid}]
+        # if final_coll_state_uuid is None, the failure is already reported
+        # in coll_state_result — the collection itself still gets created,
+        # just without this link, rather than blocking the whole collection
 
     collection_node = {
         "@type":                  [f"{T}TissueSampleCollection"],

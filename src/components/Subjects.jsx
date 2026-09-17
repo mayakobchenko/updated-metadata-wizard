@@ -75,18 +75,57 @@ const newSubject = () => ({
   states: [newSubjectState()],
 })
 
+// Upgrades a subject saved BEFORE the multi-state feature existed (flat
+// age/ageCategory/weight/handedness/disease/diseaseModel/subjectAttribute/
+// additionalRemarks fields directly on the subject, no states array) into
+// the current shape. Without this, importing an in-progress user's older
+// saved JSON would silently make that data invisible in the UI and drop it
+// entirely on the next submission — states.length check would fail, every
+// state-dependent field would render blank, and the old flat fields would
+// sit there unused and eventually get lost. Already-current subjects
+// (states present) pass through completely untouched.
+const migrateSubjectToStates = (subject) => {
+  if (subject.states && subject.states.length) return subject
+  const {
+    age, ageUnit, weight, weightUnit, ageCategory, handedness,
+    disease, diseaseModel, subjectAttribute, additionalRemarks,
+    ...rest
+  } = subject
+  return {
+    ...rest,
+    states: [{
+      id: Date.now() + Math.random(),
+      ageCategory: ageCategory || '', age: age || '', ageUnit: ageUnit || '',
+      weight: weight || '', weightUnit: weightUnit || '',
+      handedness: handedness || '', disease: disease || [], diseaseModel: diseaseModel || [],
+      subjectAttribute: subjectAttribute || [], additionalRemarks: additionalRemarks || '',
+      relativeTimeValue: '', relativeTimeUnit: '',
+    }],
+  }
+}
+
+const newTissueSampleState = () => ({
+  id: Date.now() + Math.random(),
+  age: '', ageUnit: '', weight: '', weightUnit: '',
+  pathology: [], tissueSampleAttribute: [], additionalRemarks: '',
+  // only meaningful for states after the first — time elapsed since the
+  // previous state, used to build relativeTimeIndication
+  relativeTimeValue: '', relativeTimeUnit: '',
+})
+
 const newTissueSample = () => ({
   id: Date.now() + Math.random(),
   sampleID: '', type: '', species: '', strain: '',
   biologicalSex: '', laterality: '', origin: '',
-  age: '', ageUnit: '', weight: '', weightUnit: '',
-  pathology: [], tissueSampleAttribute: [], additionalRemarks: '',
   linkedSubjectId: null,
   // which of the linked subject's states (time points) this was extracted
   // at — only relevant/shown when that subject has more than one state.
   // Not used at all for samples that belong to a collection — those
   // inherit the collection's own link + state instead (see below).
   linkedSubjectStateId: null,
+  // a tissue sample can have several states (time points) of its own too —
+  // e.g. fresh -> fixed -> sectioned -> stained — always at least one
+  states: [newTissueSampleState()],
 })
 
 const newTissueSampleCollection = () => ({
@@ -95,8 +134,43 @@ const newTissueSampleCollection = () => ({
   additionalRemarks: '',
   linkedSubjectId: null,
   linkedSubjectStateId: null,
+  states: [newTissueSampleState()],
   samples: [newTissueSample()]
 })
+
+// Upgrades a tissue sample saved BEFORE the multi-state feature existed
+// (flat age/weight/pathology/tissueSampleAttribute/additionalRemarks
+// directly on the sample, no states array) into the current shape — same
+// protection as migrateSubjectToStates, same reasoning: without it,
+// importing older in-progress work would silently blank out and then drop
+// that data. Already-current samples pass through untouched.
+const migrateTissueSampleToStates = (sample) => {
+  if (sample.states && sample.states.length) return sample
+  const {
+    age, ageUnit, weight, weightUnit,
+    pathology, tissueSampleAttribute, additionalRemarks,
+    ...rest
+  } = sample
+  return {
+    ...rest,
+    states: [{
+      id: Date.now() + Math.random(),
+      age: age || '', ageUnit: ageUnit || '', weight: weight || '', weightUnit: weightUnit || '',
+      pathology: pathology || [], tissueSampleAttribute: tissueSampleAttribute || [],
+      additionalRemarks: additionalRemarks || '',
+      relativeTimeValue: '', relativeTimeUnit: '',
+    }],
+  }
+}
+
+// Collections never had age/weight/pathology/attribute fields at all
+// before now, so there's no old flat data to migrate away from — this
+// just ensures every collection has a states array once loaded, the same
+// way a brand new one does.
+const migrateCollectionToStates = (collection) => {
+  if (collection.states && collection.states.length) return collection
+  return { ...collection, states: [newTissueSampleState()] }
+}
 
 const newGroup = (index) => ({
   id: Date.now() + Math.random(),
@@ -369,9 +443,10 @@ const SubjectRow = ({
 
 const TissueSampleRow = ({
   field, index, onRemove, onDuplicate, onChange: onRowChange,
+  onStateChange, onAddState, onRemoveState,
   species, strainData, biosex, lateralityData, originData,
   tissueSampleTypeData, diseaseData, diseaseModelData,
-  tissueSampleAttributeData, ageUnits, weightUnits,
+  tissueSampleAttributeData, ageUnits, weightUnits, timeUnits,
   allSubjects, allGroups,
   // true for samples that live inside a collection — the collection now
   // owns "extracted from subject/state" exclusively (every sample in it
@@ -390,6 +465,7 @@ const TissueSampleRow = ({
   const isPrefilled = !!field.linkedSubjectId
 
   const itemStyle = (w) => ({ flex: `0 0 ${w}`, marginBottom: 0, minWidth: 0 })
+  const states = field.states && field.states.length ? field.states : [newTissueSampleState()]
 
   const allSubjectsForLinking = [
     ...allSubjects.map(s => ({ id: s.id, label: s.subjectID || `Subject ${s.id}` })),
@@ -408,7 +484,10 @@ const TissueSampleRow = ({
   const linkedSubjectStates = linkedSubject?.states || []
 
   return (
-    <div style={{ marginBottom: 20, paddingBottom: 10, borderBottom: '1px solid #f0f0f0' }}>
+    <div style={{
+      border: '1px solid #d9d9d9', borderRadius: 8, padding: '14px 18px',
+      marginBottom: 16, background: '#fff',
+    }}>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ whiteSpace: 'nowrap', flexShrink: 0, fontSize: 13, fontWeight: 500 }}>
@@ -424,6 +503,7 @@ const TissueSampleRow = ({
         <Button size="small" type="text" onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
+      {/* ── state-independent fields ───────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
         <Form.Item label={<span style={LABEL_STYLE}>Type</span>} style={itemStyle('160px')}>
@@ -508,58 +588,6 @@ const TissueSampleRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
-          <ValueUnitField
-            value={field.age}
-            unit={field.ageUnit}
-            onValueChange={(e) => onRowChange(index, 'age', e.target.value)}
-            onUnitChange={(v) => onRowChange(index, 'ageUnit', v ?? '')}
-            units={ageUnits}
-            disabled={isPrefilled}
-          />
-        </Form.Item>
-
-        <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
-          <ValueUnitField
-            value={field.weight}
-            unit={field.weightUnit}
-            onValueChange={(e) => onRowChange(index, 'weight', e.target.value)}
-            onUnitChange={(v) => onRowChange(index, 'weightUnit', v ?? '')}
-            units={weightUnits}
-          />
-        </Form.Item>
-
-        <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
-          <Select {...sel()} size="small" mode="multiple"
-            value={field.pathology || []}
-            onChange={(v) => onRowChange(index, 'pathology', v)}
-            placeholder="disease / model"
-            optionFilterProp="label"
-            filterOption={(input, option) => {
-              if (!option || option.options) return false
-              return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
-            }}
-            disabled={isPrefilled}
-          >
-            <Select.OptGroup label="Disease">
-              {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-            </Select.OptGroup>
-            <Select.OptGroup label="Disease Model">
-              {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-            </Select.OptGroup>
-          </Select>
-        </Form.Item>
-
-        <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
-          <Select {...sel()} size="small" mode="multiple"
-            value={field.tissueSampleAttribute || []}
-            onChange={(v) => onRowChange(index, 'tissueSampleAttribute', v)}
-            placeholder="attribute"
-          >
-            {tissueSampleAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
-
         {!hideSubjectLink && allSubjectsForLinking.length > 0 && (
           <>
             <Form.Item
@@ -601,15 +629,110 @@ const TissueSampleRow = ({
             )}
           </>
         )}
+      </div>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={{ flex: '1 1 150px', marginBottom: 0 }}>
-          <Input size="small"
-            value={field.additionalRemarks || ''}
-            onChange={(e) => onRowChange(index, 'additionalRemarks', e.target.value)}
-            placeholder="remarks..."
-          />
-        </Form.Item>
+      {/* ── states (time points) — visually separated in their own boxes ──── */}
+      <div style={{ marginTop: 12 }}>
+        {states.map((st, si) => (
+          <div key={st.id ?? si} style={{
+            border: '1px solid #d9d9d9', borderRadius: 6, padding: '10px 12px',
+            marginBottom: 8, background: '#fafafa',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
+                Time point {si + 1}
+              </span>
+              {si > 0 && (
+                <Button size="small" type="text" danger
+                  onClick={() => onRemoveState(index, si)}
+                  style={{ marginLeft: 'auto', fontSize: 11 }}
+                >
+                  Remove time point
+                </Button>
+              )}
+            </div>
 
+            {si > 0 && (
+              <Form.Item label={<span style={LABEL_STYLE}>Time since previous state</span>} style={{ ...itemStyle('220px'), marginBottom: 8 }}>
+                <ValueUnitField
+                  value={st.relativeTimeValue}
+                  unit={st.relativeTimeUnit}
+                  onValueChange={(e) => onStateChange(index, si, 'relativeTimeValue', e.target.value)}
+                  onUnitChange={(v) => onStateChange(index, si, 'relativeTimeUnit', v ?? '')}
+                  units={timeUnits}
+                />
+              </Form.Item>
+            )}
+
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+              <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
+                <ValueUnitField
+                  value={st.age}
+                  unit={st.ageUnit}
+                  onValueChange={(e) => onStateChange(index, si, 'age', e.target.value)}
+                  onUnitChange={(v) => onStateChange(index, si, 'ageUnit', v ?? '')}
+                  units={ageUnits}
+                  disabled={isPrefilled}
+                />
+              </Form.Item>
+
+              <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
+                <ValueUnitField
+                  value={st.weight}
+                  unit={st.weightUnit}
+                  onValueChange={(e) => onStateChange(index, si, 'weight', e.target.value)}
+                  onUnitChange={(v) => onStateChange(index, si, 'weightUnit', v ?? '')}
+                  units={weightUnits}
+                />
+              </Form.Item>
+
+              <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
+                <Select {...sel()} size="small" mode="multiple"
+                  value={st.pathology || []}
+                  onChange={(v) => onStateChange(index, si, 'pathology', v)}
+                  placeholder="disease / model"
+                  optionFilterProp="label"
+                  filterOption={(input, option) => {
+                    if (!option || option.options) return false
+                    return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                  }}
+                  disabled={isPrefilled}
+                >
+                  <Select.OptGroup label="Disease">
+                    {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                  </Select.OptGroup>
+                  <Select.OptGroup label="Disease Model">
+                    {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                  </Select.OptGroup>
+                </Select>
+              </Form.Item>
+
+              <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
+                <Select {...sel()} size="small" mode="multiple"
+                  value={st.tissueSampleAttribute || []}
+                  onChange={(v) => onStateChange(index, si, 'tissueSampleAttribute', v)}
+                  placeholder="attribute"
+                >
+                  {tissueSampleAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+                </Select>
+              </Form.Item>
+
+              <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={{ flex: '1 1 150px', marginBottom: 0, minWidth: 0 }}>
+                <Input size="small"
+                  value={st.additionalRemarks || ''}
+                  onChange={(e) => onStateChange(index, si, 'additionalRemarks', e.target.value)}
+                  placeholder="remarks..."
+                />
+              </Form.Item>
+
+            </div>
+          </div>
+        ))}
+
+        <Button type="dashed" size="small" onClick={() => onAddState(index)} style={{ width: '100%' }}>
+          + add new time point
+        </Button>
       </div>
     </div>
   )
@@ -650,8 +773,11 @@ export default function Subjects({ form, onChange, data = {} }) {
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
 
   useEffect(() => {
-    setSubjectData(data.subjectMetadata?.subjects            || [])
-    setGroups(data.subjectMetadata?.subjectGroups            || [])
+    setSubjectData((data.subjectMetadata?.subjects || []).map(migrateSubjectToStates))
+    setGroups((data.subjectMetadata?.subjectGroups || []).map(g => ({
+      ...g,
+      subjects: (g.subjects || []).map(migrateSubjectToStates),
+    })))
     // NOTE: mode is intentionally NOT re-derived here. This effect re-runs
     // on every data-prop change — which includes every keystroke, since
     // emit() updates the parent's state and the new data comes right back
@@ -661,8 +787,11 @@ export default function Subjects({ form, onChange, data = {} }) {
     // viewing flat subjects — making it impossible to type in a flat
     // subject's id once any group existed. mode now only changes via the
     // user's own toggle click (handleModeChange), same as tissueMode.
-    setTissueCollections(data.subjectMetadata?.tissueCollections || [])
-    setTissueSamples(data.subjectMetadata?.tissueSamples         || [])
+    setTissueCollections((data.subjectMetadata?.tissueCollections || []).map(c => ({
+      ...migrateCollectionToStates(c),
+      samples: (c.samples || []).map(migrateTissueSampleToStates),
+    })))
+    setTissueSamples((data.subjectMetadata?.tissueSamples || []).map(migrateTissueSampleToStates))
   }, [data])
 
   useEffect(() => {
@@ -723,21 +852,28 @@ export default function Subjects({ form, onChange, data = {} }) {
   // can have several time points, each with its own age/pathology) — not
   // from the subject directly, which no longer holds those fields at all
   // since states became a list.
-  const buildTissuePatchFromSubject = (subject, stateId) => {
+  const applySubjectPrefillToSample = (sample, subject, stateId) => {
     const state = resolveSubjectState(subject, stateId)
+    const sampleStates = sample.states && sample.states.length ? sample.states : [newTissueSampleState()]
     return {
+      ...sample,
       linkedSubjectId:      subject.id,
       linkedSubjectStateId: state?.id ?? null,
       species:              subject.species || '',
       strain:               subject.strain  || '',
       biologicalSex:        subject.bioSex  || '',
-      age:                  state?.age      || '',
-      ageUnit:              state?.ageUnit  || '',
-      pathology: [
-        ...(state?.disease      || []),
-        ...(state?.diseaseModel || []),
-      ]
-      // weight intentionally NOT copied — tissue weight is independent
+      // only state[0] gets the subject's age/pathology — any OTHER time
+      // points this sample has of its own (states[1+]) are left untouched
+      states: sampleStates.map((st, idx) => idx === 0 ? {
+        ...st,
+        age:      state?.age      || '',
+        ageUnit:  state?.ageUnit  || '',
+        pathology: [
+          ...(state?.disease      || []),
+          ...(state?.diseaseModel || []),
+        ],
+        // weight intentionally NOT copied — tissue weight is independent
+      } : st),
     }
   }
 
@@ -756,13 +892,12 @@ export default function Subjects({ form, onChange, data = {} }) {
 
     const nextFlatSamples = flatSamples.map(s =>
       s.linkedSubjectId === subject.id
-        ? { ...s, ...buildTissuePatchFromSubject(subject, s.linkedSubjectStateId) }
+        ? applySubjectPrefillToSample(s, subject, s.linkedSubjectStateId)
         : s
     )
     const nextCollections = collections.map(c => {
       if (c.linkedSubjectId !== subject.id) return c
-      const patch = buildTissuePatchFromSubject(subject, c.linkedSubjectStateId)
-      return { ...c, samples: c.samples.map(s => ({ ...s, ...patch })) }
+      return { ...c, samples: c.samples.map(s => applySubjectPrefillToSample(s, subject, c.linkedSubjectStateId)) }
     })
 
     return { flatSamples: nextFlatSamples, collections: nextCollections }
@@ -834,9 +969,10 @@ export default function Subjects({ form, onChange, data = {} }) {
     let nextCollections = [...tissueCollections]
 
     for (const sampleId of newlyLinked) {
-      const patch = buildTissuePatchFromSubject(subject)
-      nextFlatSamples = patchFlatSamples(nextFlatSamples, sampleId, patch)
-      nextCollections = patchCollectionSamples(nextCollections, sampleId, patch)
+      nextFlatSamples = nextFlatSamples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, null) : s)
+      nextCollections = nextCollections.map(c => ({
+        ...c, samples: c.samples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, null) : s)
+      }))
     }
 
     for (const sampleId of unlinked) {
@@ -853,13 +989,19 @@ export default function Subjects({ form, onChange, data = {} }) {
   // ── tissue links subject → prefill tissue + add sample to subject's list ──
   const syncTissueLinkedSubject = (sampleId, newSubjectId, prevSubjectId, stateId = null) => {
     const subject = findSubjectById(newSubjectId)
-    const patch   = subject
-      ? buildTissuePatchFromSubject(subject, stateId)
-      : { linkedSubjectId: newSubjectId, linkedSubjectStateId: null }
 
     // 1. prefill the tissue sample
-    let nextFlatSamples = patchFlatSamples(tissueSamples, sampleId, patch)
-    let nextCollections = patchCollectionSamples(tissueCollections, sampleId, patch)
+    let nextFlatSamples, nextCollections
+    if (subject) {
+      nextFlatSamples = tissueSamples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, stateId) : s)
+      nextCollections = tissueCollections.map(c => ({
+        ...c, samples: c.samples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, stateId) : s)
+      }))
+    } else {
+      const clearPatch = { linkedSubjectId: newSubjectId, linkedSubjectStateId: null }
+      nextFlatSamples = patchFlatSamples(tissueSamples, sampleId, clearPatch)
+      nextCollections = patchCollectionSamples(tissueCollections, sampleId, clearPatch)
+    }
 
     // 2. add sampleId to new subject's linkedSampleIds
     let nextFlatSubjects = subjectsData
@@ -947,6 +1089,21 @@ export default function Subjects({ form, onChange, data = {} }) {
   const addStateToSubject    = (subject) => ({ ...subject, states: [...(subject.states || []), newSubjectState()] })
   const removeStateFromSubject = (subject, stateIndex) => ({
     ...subject, states: (subject.states || []).filter((_, idx) => idx !== stateIndex)
+  })
+
+  // same idea, for tissue samples and collections (both use TissueSampleState)
+  const patchStateInSample = (entity, stateIndex, fieldOrPatch, value) => {
+    const states = entity.states && entity.states.length ? entity.states : [newTissueSampleState()]
+    const nextStates = states.map((st, idx) => {
+      if (idx !== stateIndex) return st
+      if (typeof fieldOrPatch === 'object') return { ...st, ...fieldOrPatch }
+      return { ...st, [fieldOrPatch]: value }
+    })
+    return { ...entity, states: nextStates }
+  }
+  const addStateToSample    = (entity) => ({ ...entity, states: [...(entity.states || []), newTissueSampleState()] })
+  const removeStateFromSample = (entity, stateIndex) => ({
+    ...entity, states: (entity.states || []).filter((_, idx) => idx !== stateIndex)
   })
 
   const handleSubjectStateChange = (i, si, fieldOrPatch, value) => {
@@ -1186,8 +1343,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     if (fieldOrPatch === 'linkedSubjectStateId') {
       const subject = findSubjectById(sample?.linkedSubjectId)
       if (subject) {
-        const patch   = buildTissuePatchFromSubject(subject, value)
-        const updated = patchFlatSamples(tissueSamples, sample.id, patch)
+        const updated = tissueSamples.map(s => s.id === sample.id ? applySubjectPrefillToSample(s, subject, value) : s)
         setTissueSamples(updated)
         emit({ tissueSamples: updated })
         return
@@ -1223,6 +1379,22 @@ export default function Subjects({ form, onChange, data = {} }) {
     setTissueSamples(u); emit({ tissueSamples: u })
   }
 
+  const handleTissueSampleStateChange = (i, si, fieldOrPatch, value) => {
+    const updated = tissueSamples.map((s, idx) => idx === i ? patchStateInSample(s, si, fieldOrPatch, value) : s)
+    setTissueSamples(updated)
+    emit({ tissueSamples: updated })
+  }
+  const addTissueSampleState    = (i)     => {
+    const updated = tissueSamples.map((s, idx) => idx === i ? addStateToSample(s) : s)
+    setTissueSamples(updated)
+    emit({ tissueSamples: updated })
+  }
+  const removeTissueSampleState = (i, si) => {
+    const updated = tissueSamples.map((s, idx) => idx === i ? removeStateFromSample(s, si) : s)
+    setTissueSamples(updated)
+    emit({ tissueSamples: updated })
+  }
+
   // ── collection handlers ───────────────────────────────────────────────────
   const updateCollections = (next) => { setTissueCollections(next); emit({ tissueCollections: next }) }
 
@@ -1248,9 +1420,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     const newSubjectId  = subjectId ?? null
     const sampleIds     = collection.samples.map(s => s.id)
     const subject       = findSubjectById(newSubjectId)
-    const patch         = subject
-      ? buildTissuePatchFromSubject(subject)
-      : { linkedSubjectId: newSubjectId }
 
     // 1. set the collection's own link + prefill every sample inside it
     const nextCollections = tissueCollections.map((c, i) => {
@@ -1259,7 +1428,9 @@ export default function Subjects({ form, onChange, data = {} }) {
         ...c,
         linkedSubjectId: newSubjectId,
         linkedSubjectStateId: null, // a state picked for the old subject wouldn't be valid for a new one
-        samples: c.samples.map(s => ({ ...s, ...patch })),
+        samples: subject
+          ? c.samples.map(s => applySubjectPrefillToSample(s, subject, null))
+          : c.samples.map(s => ({ ...s, linkedSubjectId: newSubjectId })),
       }
     })
 
@@ -1304,18 +1475,36 @@ export default function Subjects({ form, onChange, data = {} }) {
     const collection = tissueCollections[ci]
     if (!collection) return
     const subject = findSubjectById(collection.linkedSubjectId)
-    const patch   = subject
-      ? buildTissuePatchFromSubject(subject, stateId)
-      : { linkedSubjectStateId: stateId ?? null }
 
     const nextCollections = tissueCollections.map((c, i) => {
       if (i !== ci) return c
       return {
         ...c,
         linkedSubjectStateId: stateId ?? null,
-        samples: c.samples.map(s => ({ ...s, ...patch })),
+        samples: subject
+          ? c.samples.map(s => applySubjectPrefillToSample(s, subject, stateId))
+          : c.samples,
       }
     })
+    setTissueCollections(nextCollections)
+    emit({ tissueCollections: nextCollections })
+  }
+
+  // ── the collection's OWN states (its own processing timeline — e.g.
+  // "extracted" -> "fixed" -> "sectioned" — independent of how many time
+  // points its member samples individually have) ──────────────────────────
+  const handleCollectionStateChange = (ci, stateIdx, fieldOrPatch, value) => {
+    const nextCollections = tissueCollections.map((c, i) => i === ci ? patchStateInSample(c, stateIdx, fieldOrPatch, value) : c)
+    setTissueCollections(nextCollections)
+    emit({ tissueCollections: nextCollections })
+  }
+  const addCollectionState = (ci) => {
+    const nextCollections = tissueCollections.map((c, i) => i === ci ? addStateToSample(c) : c)
+    setTissueCollections(nextCollections)
+    emit({ tissueCollections: nextCollections })
+  }
+  const removeCollectionState = (ci, stateIdx) => {
+    const nextCollections = tissueCollections.map((c, i) => i === ci ? removeStateFromSample(c, stateIdx) : c)
     setTissueCollections(nextCollections)
     emit({ tissueCollections: nextCollections })
   }
@@ -1335,7 +1524,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     if (i !== ci) return c
     const subject  = findSubjectById(c.linkedSubjectId)
     const newSample = subject
-      ? { ...newTissueSample(), ...buildTissuePatchFromSubject(subject) }
+      ? applySubjectPrefillToSample(newTissueSample(), subject, c.linkedSubjectStateId)
       : newTissueSample()
     return { ...c, samples: [...c.samples, newSample] }
   }))
@@ -1377,6 +1566,28 @@ export default function Subjects({ form, onChange, data = {} }) {
     updateCollections(nextCollections)
   }
 
+  const handleCollectionSampleStateChange = (ci, si, stateIdx, fieldOrPatch, value) => {
+    const nextCollections = tissueCollections.map((c, i) => {
+      if (i !== ci) return c
+      return { ...c, samples: c.samples.map((s, j) => j === si ? patchStateInSample(s, stateIdx, fieldOrPatch, value) : s) }
+    })
+    updateCollections(nextCollections)
+  }
+  const addCollectionSampleState = (ci, si) => {
+    const nextCollections = tissueCollections.map((c, i) => {
+      if (i !== ci) return c
+      return { ...c, samples: c.samples.map((s, j) => j === si ? addStateToSample(s) : s) }
+    })
+    updateCollections(nextCollections)
+  }
+  const removeCollectionSampleState = (ci, si, stateIdx) => {
+    const nextCollections = tissueCollections.map((c, i) => {
+      if (i !== ci) return c
+      return { ...c, samples: c.samples.map((s, j) => j === si ? removeStateFromSample(s, stateIdx) : s) }
+    })
+    updateCollections(nextCollections)
+  }
+
   // ── row props bundles ─────────────────────────────────────────────────────
   const subjectRowProps = {
     biosex, agecategory, species, strainData,
@@ -1391,7 +1602,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     species, strainData, biosex, lateralityData,
     originData, tissueSampleTypeData,
     diseaseData, diseaseModelData, tissueSampleAttributeData,
-    ageUnits, weightUnits,
+    ageUnits, weightUnits, timeUnits: ageUnits,
     allSubjects: subjectsData,
     allGroups:   groups,
   }
@@ -1621,6 +1832,9 @@ export default function Subjects({ form, onChange, data = {} }) {
                     onRemove={removeTissueSample}
                     onDuplicate={duplicateTissueSample}
                     onChange={handleTissueSampleChange}
+                    onStateChange={handleTissueSampleStateChange}
+                    onAddState={addTissueSampleState}
+                    onRemoveState={removeTissueSampleState}
                     {...tissueRowProps}
                   />
                 ))}
@@ -1711,11 +1925,105 @@ export default function Subjects({ form, onChange, data = {} }) {
                       </div>
                     )}
 
+                    {/* ── the collection's OWN states (its own processing
+                         timeline) — separate from the "extracted from
+                         subject" link above, and separate from each member
+                         sample's own states below ──────────────────────── */}
+                    <div style={{ marginTop: 4, marginBottom: 12 }}>
+                      {(collection.states && collection.states.length ? collection.states : [newTissueSampleState()]).map((st, si) => (
+                        <div key={st.id ?? si} style={{
+                          border: '1px solid #d9d9d9', borderRadius: 6, padding: '10px 12px',
+                          marginBottom: 8, background: '#fff',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
+                              Collection time point {si + 1}
+                            </span>
+                            {si > 0 && (
+                              <Button size="small" type="text" danger
+                                onClick={() => removeCollectionState(ci, si)}
+                                style={{ marginLeft: 'auto', fontSize: 11 }}
+                              >
+                                Remove time point
+                              </Button>
+                            )}
+                          </div>
+
+                          {si > 0 && (
+                            <Form.Item label={<span style={LABEL_STYLE}>Time since previous state</span>} style={{ flex: '0 0 220px', marginBottom: 8 }}>
+                              <ValueUnitField
+                                value={st.relativeTimeValue}
+                                unit={st.relativeTimeUnit}
+                                onValueChange={(e) => handleCollectionStateChange(ci, si, 'relativeTimeValue', e.target.value)}
+                                onUnitChange={(v) => handleCollectionStateChange(ci, si, 'relativeTimeUnit', v ?? '')}
+                                units={ageUnits}
+                              />
+                            </Form.Item>
+                          )}
+
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                            <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
+                              <ValueUnitField
+                                value={st.age}
+                                unit={st.ageUnit}
+                                onValueChange={(e) => handleCollectionStateChange(ci, si, 'age', e.target.value)}
+                                onUnitChange={(v) => handleCollectionStateChange(ci, si, 'ageUnit', v ?? '')}
+                                units={ageUnits}
+                              />
+                            </Form.Item>
+                            <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
+                              <ValueUnitField
+                                value={st.weight}
+                                unit={st.weightUnit}
+                                onValueChange={(e) => handleCollectionStateChange(ci, si, 'weight', e.target.value)}
+                                onUnitChange={(v) => handleCollectionStateChange(ci, si, 'weightUnit', v ?? '')}
+                                units={weightUnits}
+                              />
+                            </Form.Item>
+                            <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={{ flex: '0 0 220px', marginBottom: 0 }}>
+                              <Select {...sel()} size="small" mode="multiple"
+                                value={st.pathology || []}
+                                onChange={(v) => handleCollectionStateChange(ci, si, 'pathology', v)}
+                                placeholder="disease / model"
+                                optionFilterProp="label"
+                                filterOption={(input, option) => {
+                                  if (!option || option.options) return false
+                                  return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                                }}
+                              >
+                                <Select.OptGroup label="Disease">
+                                  {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                                </Select.OptGroup>
+                                <Select.OptGroup label="Disease Model">
+                                  {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                                </Select.OptGroup>
+                              </Select>
+                            </Form.Item>
+                            <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={{ flex: '0 0 160px', marginBottom: 0 }}>
+                              <Select {...sel()} size="small" mode="multiple"
+                                value={st.tissueSampleAttribute || []}
+                                onChange={(v) => handleCollectionStateChange(ci, si, 'tissueSampleAttribute', v)}
+                                placeholder="attribute"
+                              >
+                                {tissueSampleAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+                              </Select>
+                            </Form.Item>
+                          </div>
+                        </div>
+                      ))}
+                      <Button type="dashed" size="small" onClick={() => addCollectionState(ci)} style={{ width: '100%' }}>
+                        + add new collection time point
+                      </Button>
+                    </div>
+
                     {collection.samples.map((field, si) => (
                       <TissueSampleRow key={field.id} field={field} index={si}
                         onRemove={(i)            => removeSampleFromCollection(ci, i)}
                         onDuplicate={(i)         => duplicateSampleInCollection(ci, i)}
                         onChange={(i, fOrP, val) => handleCollectionSampleChange(ci, i, fOrP, val)}
+                        onStateChange={(i, si2, fOrP, val) => handleCollectionSampleStateChange(ci, i, si2, fOrP, val)}
+                        onAddState={(i)          => addCollectionSampleState(ci, i)}
+                        onRemoveState={(i, si2)  => removeCollectionSampleState(ci, i, si2)}
                         hideSubjectLink
                         {...tissueRowProps}
                       />
