@@ -254,9 +254,6 @@ const SubjectRow = ({
     : []
 
   const itemStyle = (w) => ({ flex: `0 0 ${w}`, marginBottom: 0, minWidth: 0 })
-  // used only in the state box below — fields grow to fill the row exactly
-  // (no leftover gap), while basis sets each one's natural starting width
-  const growItemStyle = (basis, grow = 1) => ({ flex: `${grow} 1 ${basis}`, marginBottom: 0, minWidth: 0 })
   const states = field.states && field.states.length ? field.states : [newSubjectState()]
 
   const allSamplesForLinking = [
@@ -299,7 +296,7 @@ const SubjectRow = ({
           size="small"
         />
         <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
-        <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
+        <Button size="small" type="text" onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── subject-level fields (state-independent) ──────────────────────── */}
@@ -380,23 +377,23 @@ const SubjectRow = ({
               )}
             </div>
 
-            {/* ── Row 1: time since previous state (narrower) + age/weight ── */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 6 }}>
-              {si > 0 && (
-                <Form.Item label={<span style={LABEL_STYLE}>Time since previous state</span>} style={growItemStyle('140px', 0.8)}>
-                  <ValueUnitField
-                    value={st.relativeTimeValue}
-                    unit={st.relativeTimeUnit}
-                    onValueChange={(e) => onStateChange(index, si, 'relativeTimeValue', e.target.value)}
-                    onUnitChange={(v) => onStateChange(index, si, 'relativeTimeUnit', v ?? '')}
-                    units={timeUnits}
-                  />
-                </Form.Item>
-              )}
+            {si > 0 && (
+              <Form.Item label={<span style={LABEL_STYLE}>Time since previous state</span>} style={{ ...itemStyle('220px'), marginBottom: 8 }}>
+                <ValueUnitField
+                  value={st.relativeTimeValue}
+                  unit={st.relativeTimeUnit}
+                  onValueChange={(e) => onStateChange(index, si, 'relativeTimeValue', e.target.value)}
+                  onUnitChange={(v) => onStateChange(index, si, 'relativeTimeUnit', v ?? '')}
+                  units={timeUnits}
+                />
+              </Form.Item>
+            )}
+
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
               <Form.Item
                 label={<span style={LABEL_STYLE}>Age category <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                style={growItemStyle('150px')}
+                style={itemStyle('160px')}
                 validateStatus={st.ageCategory ? '' : 'error'}
                 help={st.ageCategory ? '' : 'Required'}
               >
@@ -410,7 +407,7 @@ const SubjectRow = ({
                 </Select>
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={growItemStyle('180px')}>
+              <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
                 <ValueUnitField
                   value={st.age}
                   unit={st.ageUnit}
@@ -420,7 +417,7 @@ const SubjectRow = ({
                 />
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={growItemStyle('180px')}>
+              <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
                 <ValueUnitField
                   value={st.weight}
                   unit={st.weightUnit}
@@ -429,12 +426,8 @@ const SubjectRow = ({
                   units={weightUnits}
                 />
               </Form.Item>
-            </div>
 
-            {/* ── Row 2: disease/model, handedness, attribute, remarks ────── */}
-            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Disease/Disease model</span>} style={growItemStyle('220px', 1.3)}>
+              <Form.Item label={<span style={LABEL_STYLE}>Disease/Disease model</span>} style={itemStyle('260px')}>
                 <Select {...sel()} size="small" mode="multiple"
                   value={[...(st.disease || []), ...(st.diseaseModel || [])]}
                   onChange={(v) => {
@@ -458,7 +451,7 @@ const SubjectRow = ({
                 </Select>
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={growItemStyle('170px')}>
+              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('190px')}>
                 <Select {...sel()} size="small"
                   value={st.handedness || undefined}
                   onChange={(v) => onStateChange(index, si, 'handedness', v ?? '')}
@@ -468,7 +461,7 @@ const SubjectRow = ({
                 </Select>
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={growItemStyle('150px')}>
+              <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
                 <Select {...sel()} size="small" mode="multiple"
                   value={st.subjectAttribute || []}
                   onChange={(v) => onStateChange(index, si, 'subjectAttribute', v)}
@@ -478,7 +471,7 @@ const SubjectRow = ({
                 </Select>
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={growItemStyle('150px', 1.3)}>
+              <Form.Item label={<span style={LABEL_STYLE}>Remarks</span>} style={{ flex: '1 1 150px', marginBottom: 0, minWidth: 0 }}>
                 <Input size="small"
                   value={st.additionalRemarks || ''}
                   onChange={(e) => onStateChange(index, si, 'additionalRemarks', e.target.value)}
@@ -559,7 +552,7 @@ const TissueSampleRow = ({
           style={{ flex: '1 1 180px', maxWidth: 260 }}
         />
         <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
-        <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
+        <Button size="small" type="text" onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── state-independent fields ───────────────────────────────────── */}
@@ -1802,7 +1795,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                         onChange={(e) => renameGroup(gi, e.target.value)}
                         placeholder={`Group ${gi + 1} name`}
                       />
-                      <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
+                      <Button size="small" type="text" onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
                       <Button size="small" type="text" danger
                         onClick={() => removeGroup(gi)} disabled={groups.length === 1}
                       >
@@ -1981,7 +1974,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                         style={{ fontWeight: 600, width: 220 }}
                         placeholder={`Collection ${ci + 1} id`}
                       />
-                      <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => duplicateCollection(ci)}>
+                      <Button size="small" type="text" onClick={() => duplicateCollection(ci)}>
                         Duplicate collection
                       </Button>
                       <Button size="small" type="text" danger
