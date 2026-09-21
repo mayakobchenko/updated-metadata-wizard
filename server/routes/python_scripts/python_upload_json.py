@@ -191,6 +191,31 @@ def nonempty(v):
     return s if s else None
 
 
+def normalize_numeric_value(raw):
+    """
+    Normalizes a user-entered numeric string for the KG: converts a comma
+    decimal separator (common in Norwegian/European input, e.g. "2,3") to a
+    dot ("2.3"). openMINDS' QuantitativeValue.value is typed as an XSD
+    decimal/float underneath, and XSD numeric literal syntax requires a
+    dot — a comma isn't valid there, so a value like "2,3" was being
+    silently rejected by the KG's schema validation for that one property,
+    while "2.4" (already dot-separated) passed through fine. Returns the
+    normalized string, or the original value unchanged if it still doesn't
+    look like a valid number after normalizing (so we don't silently mangle
+    something unexpected — the KG's own validation will surface that case
+    instead, same as it always has).
+    """
+    s = nonempty(raw)
+    if not s:
+        return raw
+    normalized = s.replace(",", ".")
+    try:
+        float(normalized)
+        return normalized
+    except (ValueError, TypeError):
+        return raw
+
+
 def as_id_list(values):
     if not values:
         return []
@@ -1287,13 +1312,13 @@ def build_subject_instance(subject, group_uuid=None):
             state_node["age"] = {
                 "@type": f"{T}QuantitativeValue",
                 "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                "value": st["age"]
+                "value": normalize_numeric_value(st["age"])
             }
         if nonempty(st.get("weight", "")):
             state_node["weight"] = {
                 "@type": f"{T}QuantitativeValue",
                 "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                "value": st["weight"]
+                "value": normalize_numeric_value(st["weight"])
             }
 
         # relativeTimeIndication ("N days/weeks/etc since the previous
@@ -1306,7 +1331,7 @@ def build_subject_instance(subject, group_uuid=None):
             rel_time = {
                 "@type": f"{T}QuantitativeValue",
                 "unit":  {"@id": st["relativeTimeUnit"]},
-                "value": st["relativeTimeValue"]
+                "value": normalize_numeric_value(st["relativeTimeValue"])
             }
 
         built_states.append((state_uuid, state_node, label, rel_time))
@@ -1514,11 +1539,11 @@ if subject_metadata.get("subjectGroups"):
                 default_unit = KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"
                 age_range = {"@type": f"{T}QuantitativeValueRange"}
                 if age_min:
-                    age_range["minValue"] = age_min
+                    age_range["minValue"] = normalize_numeric_value(age_min)
                     age_range["minValueUnit"] = {
                         "@id": group_state_data.get("ageMinUnit") or default_unit}
                 if age_max:
-                    age_range["maxValue"] = age_max
+                    age_range["maxValue"] = normalize_numeric_value(age_max)
                     age_range["maxValueUnit"] = {
                         "@id": group_state_data.get("ageMaxUnit") or default_unit}
                 gs_node["age"] = age_range
@@ -1645,13 +1670,13 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
             state_node["age"] = {
                 "@type": f"{T}QuantitativeValue",
                 "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                "value": st["age"]
+                "value": normalize_numeric_value(st["age"])
             }
         if nonempty(st.get("weight", "")):
             state_node["weight"] = {
                 "@type": f"{T}QuantitativeValue",
                 "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                "value": st["weight"]
+                "value": normalize_numeric_value(st["weight"])
             }
 
         rel_time = None
@@ -1659,7 +1684,7 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
             rel_time = {
                 "@type": f"{T}QuantitativeValue",
                 "unit":  {"@id": st["relativeTimeUnit"]},
-                "value": st["relativeTimeValue"]
+                "value": normalize_numeric_value(st["relativeTimeValue"])
             }
 
         built_states.append((state_uuid, state_node, label, rel_time))
@@ -1816,20 +1841,20 @@ for collection in subject_metadata.get("tissueCollections", []):
                 coll_state_node["age"] = {
                     "@type": f"{T}QuantitativeValue",
                     "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                    "value": st["age"]
+                    "value": normalize_numeric_value(st["age"])
                 }
             if nonempty(st.get("weight", "")):
                 coll_state_node["weight"] = {
                     "@type": f"{T}QuantitativeValue",
                     "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                    "value": st["weight"]
+                    "value": normalize_numeric_value(st["weight"])
                 }
             coll_rel_time = None
             if idx > 0 and nonempty(st.get("relativeTimeValue", "")) and nonempty(st.get("relativeTimeUnit", "")):
                 coll_rel_time = {
                     "@type": f"{T}QuantitativeValue",
                     "unit":  {"@id": st["relativeTimeUnit"]},
-                    "value": st["relativeTimeValue"]
+                    "value": normalize_numeric_value(st["relativeTimeValue"])
                 }
             built_coll_states.append(
                 (coll_state_uuid, coll_state_node, coll_state_label, coll_rel_time))

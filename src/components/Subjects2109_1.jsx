@@ -266,7 +266,7 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('200px')}>
+        <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('260px')}>
           <Select {...sel()} size="small"
             value={field.species || undefined}
             onChange={(v) => onRowChange(index, { species: v ?? '', strain: '' })}
@@ -276,7 +276,7 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Strain</span>} style={itemStyle('150px')}>
+        <Form.Item label={<span style={LABEL_STYLE}>Strain</span>} style={itemStyle('280px')}>
           <Select {...sel()} size="small"
             value={field.strain || undefined}
             onChange={(v) => onRowChange(index, 'strain', v ?? '')}
@@ -345,8 +345,14 @@ const SubjectRow = ({
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Age category</span>} style={itemStyle('150px')}>
+              <Form.Item
+                label={<span style={LABEL_STYLE}>Age category <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                style={itemStyle('160px')}
+                validateStatus={st.ageCategory ? '' : 'error'}
+                help={st.ageCategory ? '' : 'Required'}
+              >
                 <Select {...sel()} size="small"
+                  status={st.ageCategory ? '' : 'error'}
                   value={st.ageCategory || undefined}
                   onChange={(v) => onStateChange(index, si, 'ageCategory', v ?? '')}
                   placeholder="age category"
@@ -375,7 +381,7 @@ const SubjectRow = ({
                 />
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Disease/Disease model</span>} style={itemStyle('220px')}>
+              <Form.Item label={<span style={LABEL_STYLE}>Disease/Disease model</span>} style={itemStyle('260px')}>
                 <Select {...sel()} size="small" mode="multiple"
                   value={[...(st.disease || []), ...(st.diseaseModel || [])]}
                   onChange={(v) => {
@@ -399,7 +405,7 @@ const SubjectRow = ({
                 </Select>
               </Form.Item>
 
-              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('130px')}>
+              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('190px')}>
                 <Select {...sel()} size="small"
                   value={st.handedness || undefined}
                   onChange={(v) => onStateChange(index, si, 'handedness', v ?? '')}
@@ -768,6 +774,8 @@ export default function Subjects({ form, onChange, data = {} }) {
   // step; see the hidden Form.Item validator further down, which flips
   // this the moment form.validateFields() actually runs.
   const [showLinkWarning, setShowLinkWarning] = useState(false)
+  // same idea, for the "every subject state needs an age category" check
+  const [showAgeCategoryWarning, setShowAgeCategoryWarning] = useState(false)
 
   const ageUnits    = allUnits.filter(u => AGE_UNIT_NAMES.has(u.name))
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
@@ -1629,6 +1637,12 @@ export default function Subjects({ form, onChange, data = {} }) {
       tissueCollections.filter(isLinkIncomplete).length
     : 0
 
+  const allSubjectStates = [
+    ...subjectsData.flatMap(s => s.states || []),
+    ...groups.flatMap(g => g.subjects.flatMap(s => s.states || [])),
+  ]
+  const missingAgeCategoryCount = allSubjectStates.filter(st => !st.ageCategory).length
+
   // ── render ────────────────────────────────────────────────────────────────
   return (
     <div>
@@ -1645,7 +1659,37 @@ export default function Subjects({ form, onChange, data = {} }) {
             </Radio.Group>
           </Form.Item>
 
+          {showAgeCategoryWarning && missingAgeCategoryCount > 0 && (
+            <Alert
+              type="warning" showIcon style={{ marginBottom: 16 }}
+              message={`${missingAgeCategoryCount} subject state${missingAgeCategoryCount === 1 ? '' : 's'} missing an age category`}
+              description="Every subject's state needs an age category — look for the fields outlined in red below."
+            />
+          )}
+
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
+
+            {/* Hidden — same mechanism as the tissue-link check: hooks the
+                "every subject state needs an age category" check into the
+                wizard's existing form.validateFields() call. */}
+            <Form.Item
+              name={['subjectMetadata', '_ageCategoryCheck']}
+              style={{ display: 'none' }}
+              rules={[{
+                validator: () => {
+                  if (missingAgeCategoryCount > 0) {
+                    setShowAgeCategoryWarning(true)
+                    return Promise.reject(new Error(
+                      `${missingAgeCategoryCount} subject state(s) are missing an age category.`
+                    ))
+                  }
+                  setShowAgeCategoryWarning(false)
+                  return Promise.resolve()
+                },
+              }]}
+            >
+              <Input type="hidden" />
+            </Form.Item>
 
             {mode === 'flat' && (
               <>

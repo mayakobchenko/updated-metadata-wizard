@@ -17,6 +17,52 @@ const WEIGHT_UNIT_NAMES = new Set([
   //'milligram per kilogram body weight'
 ])
 
+// Approximate day-equivalents for standard time units — used ONLY for the
+// "auto-calculate this time point's age from the previous one + time
+// since previous state" convenience feature. Deliberately excludes
+// "postnatal day" and "embryonic day": those are tied to a specific
+// biological reference point (birth vs. conception), and cross-converting
+// between them (or with calendar units) isn't a simple day-count — it
+// would need a species/litter-specific gestation length we don't have.
+// Ages in those units are left for manual entry rather than guessed.
+const DAYS_PER_UNIT = {
+  millisecond: 1 / 86400000,
+  second:      1 / 86400,
+  minute:      1 / 1440,
+  hour:        1 / 24,
+  day:         1,
+  week:        7,
+  month:       30.44,  // average Gregorian month
+  year:        365.25, // average Gregorian year, accounting for leap years
+}
+
+const unitNameById = (unitId, unitsList) => unitsList.find(u => u.identifier === unitId)?.name
+
+// Computes { age, ageUnit } for a time point from the PREVIOUS time
+// point's age plus "time since previous state" — only when both units are
+// standard, convertible time units (see DAYS_PER_UNIT above). Returns null
+// whenever it can't be done reliably (missing values, unresolvable units,
+// or postnatal/embryonic day involved), leaving the age field for manual
+// entry instead. The result is expressed in the PREVIOUS state's own unit,
+// so a chain of time points stays in one consistent unit rather than
+// drifting to whatever unit "time since previous state" happened to use.
+const computeAutoAge = (prevState, relativeTimeValue, relativeTimeUnit, unitsList) => {
+  const prevAge = parseFloat((prevState?.age ?? '').toString().replace(',', '.'))
+  const relTime = parseFloat((relativeTimeValue ?? '').toString().replace(',', '.'))
+  if (isNaN(prevAge) || isNaN(relTime)) return null
+
+  const prevUnitName = unitNameById(prevState?.ageUnit, unitsList)
+  const relUnitName  = unitNameById(relativeTimeUnit, unitsList)
+  if (!prevUnitName || !relUnitName) return null
+  if (!(prevUnitName in DAYS_PER_UNIT) || !(relUnitName in DAYS_PER_UNIT)) return null
+
+  const totalDays        = prevAge * DAYS_PER_UNIT[prevUnitName] + relTime * DAYS_PER_UNIT[relUnitName]
+  const resultInPrevUnit = totalDays / DAYS_PER_UNIT[prevUnitName]
+  const rounded          = Math.round(resultInPrevUnit * 1000) / 1000 // avoid float noise
+
+  return { age: String(rounded), ageUnit: prevState.ageUnit }
+}
+
 // ─── label style ─────────────────────────────────────────────────────────────
 
 const LABEL_STYLE = { fontSize: 11, color: '#888', marginBottom: 2 }
@@ -1115,7 +1161,19 @@ export default function Subjects({ form, onChange, data = {} }) {
   })
 
   const handleSubjectStateChange = (i, si, fieldOrPatch, value) => {
-    const updated = subjectsData.map((s, idx) => idx === i ? patchStateInSubject(s, si, fieldOrPatch, value) : s)
+    let updated = subjectsData.map((s, idx) => idx === i ? patchStateInSubject(s, si, fieldOrPatch, value) : s)
+
+    // auto-calculate this time point's age from the previous one + "time
+    // since previous state", whenever that field is what just changed
+    if (si > 0 && (fieldOrPatch === 'relativeTimeValue' || fieldOrPatch === 'relativeTimeUnit')) {
+      const thisState = updated[i].states[si]
+      const prevState = updated[i].states[si - 1]
+      const autoAge = computeAutoAge(prevState, thisState.relativeTimeValue, thisState.relativeTimeUnit, ageUnits)
+      if (autoAge) {
+        updated = updated.map((s, idx) => idx === i ? patchStateInSubject(s, si, autoAge) : s)
+      }
+    }
+
     setSubjectData(updated)
     const { flatSamples, collections } = resyncLinkedTissue(updated[i], tissueSamples, tissueCollections)
     setTissueSamples(flatSamples)
@@ -1284,6 +1342,22 @@ export default function Subjects({ form, onChange, data = {} }) {
       const subjects = g.subjects.map((s, j) => j === si ? patchStateInSubject(s, stateIdx, fieldOrPatch, value) : s)
       return { ...g, subjects }
     })
+
+    // auto-calculate this time point's age from the previous one + "time
+    // since previous state", whenever that field is what just changed
+    if (stateIdx > 0 && (fieldOrPatch === 'relativeTimeValue' || fieldOrPatch === 'relativeTimeUnit')) {
+      const thisState = nextGroups[gi].subjects[si].states[stateIdx]
+      const prevState = nextGroups[gi].subjects[si].states[stateIdx - 1]
+      const autoAge = computeAutoAge(prevState, thisState.relativeTimeValue, thisState.relativeTimeUnit, ageUnits)
+      if (autoAge) {
+        nextGroups = nextGroups.map((g, i) => {
+          if (i !== gi) return g
+          const subjects = g.subjects.map((s, j) => j === si ? patchStateInSubject(s, stateIdx, autoAge) : s)
+          return { ...g, subjects }
+        })
+      }
+    }
+
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
     const changedSubject = nextGroups[gi].subjects[si]
     const { flatSamples, collections } = resyncLinkedTissue(changedSubject, tissueSamples, tissueCollections)
