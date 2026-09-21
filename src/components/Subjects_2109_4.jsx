@@ -299,7 +299,7 @@ const SubjectRow = ({
           size="small"
         />
         <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
-        <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
+        <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── subject-level fields (state-independent) ──────────────────────── */}
@@ -559,7 +559,7 @@ const TissueSampleRow = ({
           style={{ flex: '1 1 180px', maxWidth: 260 }}
         />
         <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
-        <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
+        <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── state-independent fields ───────────────────────────────────── */}
@@ -575,46 +575,42 @@ const TissueSampleRow = ({
           </Select>
         </Form.Item>
 
-        {!hideSubjectLink && (
-          <>
-            <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('200px')}>
-              <Select {...sel()} size="small"
-                value={field.species || undefined}
-                onChange={(v) => onRowChange(index, { species: v ?? '', strain: '' })}
-                placeholder="species"
-                disabled={isPrefilled}
-              >
-                {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-              </Select>
-            </Form.Item>
+        <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('200px')}>
+          <Select {...sel()} size="small"
+            value={field.species || undefined}
+            onChange={(v) => onRowChange(index, { species: v ?? '', strain: '' })}
+            placeholder="species"
+            disabled={isPrefilled}
+          >
+            {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
 
-            <Form.Item label={<span style={LABEL_STYLE}>Strain</span>} style={itemStyle('150px')}>
-              <Select {...sel()} size="small"
-                value={field.strain || undefined}
-                onChange={(v) => onRowChange(index, 'strain', v ?? '')}
-                placeholder={
-                  !field.species ? 'select species first'
-                  : filteredStrain.length === 0 ? 'none'
-                  : 'strain'
-                }
-                disabled={isPrefilled || !field.species || filteredStrain.length === 0}
-              >
-                {filteredStrain.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-              </Select>
-            </Form.Item>
+        <Form.Item label={<span style={LABEL_STYLE}>Strain</span>} style={itemStyle('150px')}>
+          <Select {...sel()} size="small"
+            value={field.strain || undefined}
+            onChange={(v) => onRowChange(index, 'strain', v ?? '')}
+            placeholder={
+              !field.species ? 'select species first'
+              : filteredStrain.length === 0 ? 'none'
+              : 'strain'
+            }
+            disabled={isPrefilled || !field.species || filteredStrain.length === 0}
+          >
+            {filteredStrain.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
 
-            <Form.Item label={<span style={LABEL_STYLE}>Sex</span>} style={itemStyle('120px')}>
-              <Select {...sel()} size="small"
-                value={field.biologicalSex || undefined}
-                onChange={(v) => onRowChange(index, 'biologicalSex', v ?? '')}
-                placeholder="sex"
-                disabled={isPrefilled}
-              >
-                {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-              </Select>
-            </Form.Item>
-          </>
-        )}
+        <Form.Item label={<span style={LABEL_STYLE}>Sex</span>} style={itemStyle('120px')}>
+          <Select {...sel()} size="small"
+            value={field.biologicalSex || undefined}
+            onChange={(v) => onRowChange(index, 'biologicalSex', v ?? '')}
+            placeholder="sex"
+            disabled={isPrefilled}
+          >
+            {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
 
         <Form.Item label={<span style={LABEL_STYLE}>Laterality</span>} style={itemStyle('130px')}>
           <Select {...sel()} size="small"
@@ -729,20 +725,16 @@ const TissueSampleRow = ({
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-              {!hideSubjectLink && (
-                <>
-                  <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
-                    <ValueUnitField
-                      value={st.age}
-                      unit={st.ageUnit}
-                      onValueChange={(e) => onStateChange(index, si, 'age', e.target.value)}
-                      onUnitChange={(v) => onStateChange(index, si, 'ageUnit', v ?? '')}
-                      units={ageUnits}
-                      disabled={isPrefilled}
-                    />
-                  </Form.Item>
-                </>
-              )}
+              <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
+                <ValueUnitField
+                  value={st.age}
+                  unit={st.ageUnit}
+                  onValueChange={(e) => onStateChange(index, si, 'age', e.target.value)}
+                  onUnitChange={(v) => onStateChange(index, si, 'ageUnit', v ?? '')}
+                  units={ageUnits}
+                  disabled={isPrefilled}
+                />
+              </Form.Item>
 
               <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
                 <ValueUnitField
@@ -754,28 +746,26 @@ const TissueSampleRow = ({
                 />
               </Form.Item>
 
-              {!hideSubjectLink && (
-                <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
-                  <Select {...sel()} size="small" mode="multiple"
-                    value={st.pathology || []}
-                    onChange={(v) => onStateChange(index, si, 'pathology', v)}
-                    placeholder="disease / model"
-                    optionFilterProp="label"
-                    filterOption={(input, option) => {
-                      if (!option || option.options) return false
-                      return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
-                    }}
-                    disabled={isPrefilled}
-                  >
-                    <Select.OptGroup label="Disease">
-                      {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-                    </Select.OptGroup>
-                    <Select.OptGroup label="Disease Model">
-                      {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-                    </Select.OptGroup>
-                  </Select>
-                </Form.Item>
-              )}
+              <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
+                <Select {...sel()} size="small" mode="multiple"
+                  value={st.pathology || []}
+                  onChange={(v) => onStateChange(index, si, 'pathology', v)}
+                  placeholder="disease / model"
+                  optionFilterProp="label"
+                  filterOption={(input, option) => {
+                    if (!option || option.options) return false
+                    return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                  }}
+                  disabled={isPrefilled}
+                >
+                  <Select.OptGroup label="Disease">
+                    {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                  </Select.OptGroup>
+                  <Select.OptGroup label="Disease Model">
+                    {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                  </Select.OptGroup>
+                </Select>
+              </Form.Item>
 
               <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
                 <Select {...sel()} size="small" mode="multiple"
@@ -1812,7 +1802,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                         onChange={(e) => renameGroup(gi, e.target.value)}
                         placeholder={`Group ${gi + 1} name`}
                       />
-                      <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
+                      <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
                       <Button size="small" type="text" danger
                         onClick={() => removeGroup(gi)} disabled={groups.length === 1}
                       >
@@ -1991,7 +1981,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                         style={{ fontWeight: 600, width: 220 }}
                         placeholder={`Collection ${ci + 1} id`}
                       />
-                      <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => duplicateCollection(ci)}>
+                      <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => duplicateCollection(ci)}>
                         Duplicate collection
                       </Button>
                       <Button size="small" type="text" danger
@@ -2060,46 +2050,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                       </div>
                     )}
 
-                    {/* ── inherited from subject — Species, Strain, Sex,
-                         Pathology, Age. Unchangeable: these are inherited
-                         from the linked subject (and its specific time
-                         point), shown ONCE here rather than repeated per
-                         sample or per collection time point below. ──────── */}
-                    {(() => {
-                      const linkedSubj = [...subjectsData, ...groups.flatMap(g => g.subjects)]
-                        .find(s => s.id === collection.linkedSubjectId)
-                      if (!linkedSubj) return null
-                      const subjStates  = linkedSubj.states || []
-                      const linkedState = subjStates.find(st => st.id === collection.linkedSubjectStateId) || subjStates[0]
-
-                      const speciesName = species.find(o => o.identifier === linkedSubj.species)?.name
-                      const strainName  = strainData.find(o => o.identifier === linkedSubj.strain)?.name
-                      const sexName     = biosex.find(o => o.identifier === linkedSubj.bioSex)?.name
-                      const ageUnitName = ageUnits.find(o => o.identifier === linkedState?.ageUnit)?.name
-                      const pathologyNames = [
-                        ...(linkedState?.disease || []).map(id => diseaseData.find(o => o.identifier === id)?.name),
-                        ...(linkedState?.diseaseModel || []).map(id => diseaseModelData.find(o => o.identifier === id)?.name),
-                      ].filter(Boolean)
-
-                      return (
-                        <div style={{
-                          border: '1px solid #d9d9d9', borderRadius: 6, padding: '10px 12px',
-                          marginBottom: 12, background: '#fafafa',
-                        }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 6 }}>
-                            Inherited from subject — same for every sample and time point in this collection
-                          </div>
-                          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13 }}>
-                            <span><b>Species:</b> {speciesName || '—'}</span>
-                            <span><b>Strain:</b> {strainName || '—'}</span>
-                            <span><b>Sex:</b> {sexName || '—'}</span>
-                            <span><b>Age:</b> {linkedState?.age ? `${linkedState.age} ${ageUnitName || ''}`.trim() : '—'}</span>
-                            <span><b>Pathology:</b> {pathologyNames.length ? pathologyNames.join(', ') : '—'}</span>
-                          </div>
-                        </div>
-                      )
-                    })()}
-
                     {/* ── the collection's OWN states (its own processing
                          timeline) — separate from the "extracted from
                          subject" link above, and separate from each member
@@ -2137,6 +2087,15 @@ export default function Subjects({ form, onChange, data = {} }) {
                           )}
 
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                            <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
+                              <ValueUnitField
+                                value={st.age}
+                                unit={st.ageUnit}
+                                onValueChange={(e) => handleCollectionStateChange(ci, si, 'age', e.target.value)}
+                                onUnitChange={(v) => handleCollectionStateChange(ci, si, 'ageUnit', v ?? '')}
+                                units={ageUnits}
+                              />
+                            </Form.Item>
                             <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
                               <ValueUnitField
                                 value={st.weight}
@@ -2145,6 +2104,25 @@ export default function Subjects({ form, onChange, data = {} }) {
                                 onUnitChange={(v) => handleCollectionStateChange(ci, si, 'weightUnit', v ?? '')}
                                 units={weightUnits}
                               />
+                            </Form.Item>
+                            <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={{ flex: '0 0 220px', marginBottom: 0 }}>
+                              <Select {...sel()} size="small" mode="multiple"
+                                value={st.pathology || []}
+                                onChange={(v) => handleCollectionStateChange(ci, si, 'pathology', v)}
+                                placeholder="disease / model"
+                                optionFilterProp="label"
+                                filterOption={(input, option) => {
+                                  if (!option || option.options) return false
+                                  return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                                }}
+                              >
+                                <Select.OptGroup label="Disease">
+                                  {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                                </Select.OptGroup>
+                                <Select.OptGroup label="Disease Model">
+                                  {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                                </Select.OptGroup>
+                              </Select>
                             </Form.Item>
                             <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={{ flex: '0 0 160px', marginBottom: 0 }}>
                               <Select {...sel()} size="small" mode="multiple"

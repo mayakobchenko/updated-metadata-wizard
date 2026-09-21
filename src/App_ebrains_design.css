@@ -7,30 +7,42 @@
 }
 :root{
   --form-background-color: #F5F7FA; 
-  --ebrains-color-light: #9CE142;
-  --ebrains-color-medium: #00C959;
-  --ebrains-color-dark: #00A595;
+  /* EBRAINS 2025 Design System — https://design.ebrains.eu/foundations/color-palette/
+     Confirmed directly from the official palette page. The extended
+     numbered scales (green-100..900 etc.) and the exact CSS variable
+     names used in @ebrains/assets' own output.css weren't reachable from
+     here, so only the core brand + neutral tokens below are used. */
+  --ebrains-brand-black: #07140D;
+  --ebrains-brand-green: #00FF9D;      /* Accents, CTAs, highlights */
+  --ebrains-brand-green-dark: #00C87B; /* Hover states, secondary accents */
+  --ebrains-grey-light: #ECECEC;
+  --ebrains-grey-dark: #7A7B7A;
+
+  /* Backward-compatible aliases — DataDescriptor.jsx and the gradient line
+     below still reference these old names; mapped onto the new palette
+     rather than edited in place everywhere, so nothing else breaks. */
+  --ebrains-color-light: var(--ebrains-brand-green);
+  --ebrains-color-medium: var(--ebrains-brand-green-dark);
+  --ebrains-color-dark: var(--ebrains-brand-black);
+
   /* Color variations are obtained by inserting the main color in 
   Ant Design's theme editor https://ant.design/theme-editor */
-  /* Color on buttons on official ebrains page: */
-  --button-color-primary: #45b07c; 
-  --button-color-primary-hover: #68bd91;
-  --button-color-primary-active-hover: #2f8a61;
-  --button-color-primary-active: #2f8a61e0;
-  --button-color-secondary: #00c959;
-  --button-color-secondary-hover: #22d66d;
-  --button-color-secondary-active-hover: #00a34f;
-  --button-color-secondary-active: #00a34fe0;
+  --button-color-primary: var(--ebrains-brand-green);
+  --button-color-primary-hover: var(--ebrains-brand-green-dark);
+  /* No official "pressed/active" token exists in the palette — this is a
+     manually darkened extension of brand-green-dark for that state only. */
+  --button-color-primary-active-hover: #00A565;
+  --button-color-primary-active: #00A565e0;
+  --button-color-secondary: var(--ebrains-grey-dark);
+  --button-color-secondary-hover: #8F9190;
+  --button-color-secondary-active-hover: #5F615F;
+  --button-color-secondary-active: #5F615Fe0;
   --button-color-error: #ff4d68;
   --button-color-error-hover: #ff7585;
   --button-color-error-active-hover: #d93654;
   --button-color-error-active: #d93654e0;
-  --button-color-error: #686868;
-  --button-color-error-hover: #b56864;
-  --button-color-error-active-hover: #822c2e;
-  --button-color-error-active: #822c2ee0;
-  --input-focus-color: #686868;
-  --title-underline: #e5e5e5;
+  --input-focus-color: var(--ebrains-brand-green-dark);
+  --title-underline: var(--ebrains-grey-light);
   --input-tick-color: var(--button-color-primary);
   --max-content-width: 980px;  
    /*--max-content-width: 70vw; */
@@ -231,7 +243,7 @@ color: var(-button-color-primary-active-hover);
 }*/
 
 .next-back-button {
-  color: #ffffff;
+  color: var(--ebrains-brand-black);
   min-width: 100px;
   background-color: var(--button-color-primary);
   border-color: var(--button-color-primary);
@@ -255,7 +267,7 @@ color: var(-button-color-primary-active-hover);
   border-color: var(--button-color-primary-active-hover);
 }
 .welcome-alert-login-button{
-  color: #ffffff;
+  color: var(--ebrains-brand-black);
   min-width: 100px;
   background-color: var(--button-color-primary);
   border-color: var(--button-color-primary);
@@ -375,7 +387,7 @@ input[type=radio] {
 
 /* Styles for the next button */
 .btn-primary {
-  color: #ffffff;
+  color: var(--ebrains-brand-black);
   min-width: 100px;
   background-color: var(--button-color-primary);
   border-color: var(--button-color-primary);
