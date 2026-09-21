@@ -299,7 +299,7 @@ const SubjectRow = ({
           size="small"
         />
         <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
-        <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
+        <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── subject-level fields (state-independent) ──────────────────────── */}
@@ -490,7 +490,7 @@ const SubjectRow = ({
           </div>
         ))}
 
-        <Button size="small" onClick={() => onAddState(index)}>
+        <Button type="dashed" size="small" onClick={() => onAddState(index)} style={{ width: '100%' }}>
           + add new time point
         </Button>
       </div>
@@ -559,7 +559,7 @@ const TissueSampleRow = ({
           style={{ flex: '1 1 180px', maxWidth: 260 }}
         />
         <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
-        <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
+        <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── state-independent fields ───────────────────────────────────── */}
@@ -789,7 +789,7 @@ const TissueSampleRow = ({
           </div>
         ))}
 
-        <Button size="small" onClick={() => onAddState(index)}>
+        <Button type="dashed" size="small" onClick={() => onAddState(index)} style={{ width: '100%' }}>
           + add new time point
         </Button>
       </div>
@@ -1802,7 +1802,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                         onChange={(e) => renameGroup(gi, e.target.value)}
                         placeholder={`Group ${gi + 1} name`}
                       />
-                      <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
+                      <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
                       <Button size="small" type="text" danger
                         onClick={() => removeGroup(gi)} disabled={groups.length === 1}
                       >
@@ -1981,7 +1981,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                         style={{ fontWeight: 600, width: 220 }}
                         placeholder={`Collection ${ci + 1} id`}
                       />
-                      <Button size="small" type="default" style={{ color: 'var(--ebrains-brand-green-dark)', borderColor: 'var(--ebrains-brand-green-dark)' }} onClick={() => duplicateCollection(ci)}>
+                      <Button size="small" type="text" style={{ color: 'var(--button-color-primary)' }} onClick={() => duplicateCollection(ci)}>
                         Duplicate collection
                       </Button>
                       <Button size="small" type="text" danger
