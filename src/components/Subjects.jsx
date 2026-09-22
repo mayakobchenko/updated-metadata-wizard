@@ -1814,7 +1814,7 @@ export default function Subjects({ form, onChange, data = {} }) {
                       />
                       <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => duplicateGroup(gi)}>Duplicate group</Button>
                       <Button size="small" type="text" danger
-                        onClick={() => removeGroup(gi)} disabled={groups.length === 1}
+                        onClick={() => removeGroup(gi)}
                       >
                         Remove group
                       </Button>
