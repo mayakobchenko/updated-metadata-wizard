@@ -376,7 +376,7 @@ const SubjectRow = ({
               <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
                 Time point {si + 1}
               </span>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                 <Button size="small" type="text"
                   onClick={() => onDuplicateState(index, si)}
                   style={{ fontSize: 11, color: 'var(--button-color-primary)' }}
@@ -1227,15 +1227,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     const updated = subjectsData.map((s, idx) => {
       if (idx !== i) return s
       const states = s.states || []
-      const original = states[si]
-      let copy = { ...original, id: Date.now() + Math.random() }
-      // the copy always lands right after the original, so the original is
-      // now the copy's actual previous time point — recalculate the copy's
-      // age against it (same auto-calc as editing "time since previous
-      // time point" normally triggers), rather than leaving the copy's age
-      // stuck at a stale value that no longer matches its new position
-      const autoAge = computeAutoAge(original, copy.relativeTimeValue, copy.relativeTimeUnit, ageUnits)
-      if (autoAge) copy = { ...copy, ...autoAge }
+      const copy = { ...states[si], id: Date.now() + Math.random() }
       return { ...s, states: [...states.slice(0, si + 1), copy, ...states.slice(si + 1)] }
     })
     setSubjectData(updated)
@@ -1444,10 +1436,7 @@ export default function Subjects({ form, onChange, data = {} }) {
       const subjects = g.subjects.map((s, j) => {
         if (j !== si) return s
         const states = s.states || []
-        const original = states[stateIdx]
-        let copy = { ...original, id: Date.now() + Math.random() }
-        const autoAge = computeAutoAge(original, copy.relativeTimeValue, copy.relativeTimeUnit, ageUnits)
-        if (autoAge) copy = { ...copy, ...autoAge }
+        const copy = { ...states[stateIdx], id: Date.now() + Math.random() }
         return { ...s, states: [...states.slice(0, stateIdx + 1), copy, ...states.slice(stateIdx + 1)] }
       })
       return { ...g, subjects }
