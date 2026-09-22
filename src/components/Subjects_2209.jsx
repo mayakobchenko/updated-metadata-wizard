@@ -243,7 +243,7 @@ const sel = (extraStyle = {}) => ({
 
 const SubjectRow = ({
   field, index, onRemove, onDuplicate, onChange: onRowChange, label,
-  onStateChange, onAddState, onRemoveState, onDuplicateState,
+  onStateChange, onAddState, onRemoveState,
   biosex, agecategory, species, strainData,
   diseaseData, diseaseModelData, subjectAttributeData,
   handedness, ageUnits, weightUnits, timeUnits,
@@ -298,8 +298,8 @@ const SubjectRow = ({
           style={{ flex: '1 1 180px', maxWidth: 260 }}
           size="small"
         />
-        <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate subject</Button>
-        <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove subject</Button>
+        <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
+        <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── subject-level fields (state-independent) ──────────────────────── */}
@@ -315,14 +315,8 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item
-          label={<span style={LABEL_STYLE}>Species <span style={{ color: '#ff4d4f' }}>*</span></span>}
-          style={itemStyle('260px')}
-          validateStatus={field.species ? '' : 'error'}
-          help={field.species ? '' : 'Required'}
-        >
+        <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('260px')}>
           <Select {...sel()} size="small"
-            status={field.species ? '' : 'error'}
             value={field.species || undefined}
             onChange={(v) => onRowChange(index, { species: v ?? '', strain: '' })}
             placeholder="species"
@@ -376,28 +370,20 @@ const SubjectRow = ({
               <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
                 Time point {si + 1}
               </span>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                <Button size="small" type="text"
-                  onClick={() => onDuplicateState(index, si)}
-                  style={{ fontSize: 11, color: 'var(--button-color-primary)' }}
+              {si > 0 && (
+                <Button size="small" type="text" danger
+                  onClick={() => onRemoveState(index, si)}
+                  style={{ marginLeft: 'auto', fontSize: 11 }}
                 >
-                  Duplicate time point
+                  Remove time point
                 </Button>
-                {si > 0 && (
-                  <Button size="small" type="text" danger
-                    onClick={() => onRemoveState(index, si)}
-                    style={{ fontSize: 11 }}
-                  >
-                    Remove time point
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
 
             {/* ── Row 1: time since previous state (narrower) + age/weight ── */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 6 }}>
               {si > 0 && (
-                <Form.Item label={<span style={LABEL_STYLE}>Time since previous time point</span>} style={growItemStyle('140px', 0.8)}>
+                <Form.Item label={<span style={LABEL_STYLE}>Time since previous state</span>} style={growItemStyle('140px', 0.8)}>
                   <ValueUnitField
                     value={st.relativeTimeValue}
                     unit={st.relativeTimeUnit}
@@ -853,8 +839,6 @@ export default function Subjects({ form, onChange, data = {} }) {
   const [showLinkWarning, setShowLinkWarning] = useState(false)
   // same idea, for the "every subject state needs an age category" check
   const [showAgeCategoryWarning, setShowAgeCategoryWarning] = useState(false)
-  // same idea, for the "every subject needs a species" check
-  const [showSpeciesWarning, setShowSpeciesWarning] = useState(false)
 
   const ageUnits    = allUnits.filter(u => AGE_UNIT_NAMES.has(u.name))
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
@@ -1223,16 +1207,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     setSubjectData(updated)
     emit({ subjects: updated })
   }
-  const duplicateSubjectState = (i, si) => {
-    const updated = subjectsData.map((s, idx) => {
-      if (idx !== i) return s
-      const states = s.states || []
-      const copy = { ...states[si], id: Date.now() + Math.random() }
-      return { ...s, states: [...states.slice(0, si + 1), copy, ...states.slice(si + 1)] }
-    })
-    setSubjectData(updated)
-    emit({ subjects: updated })
-  }
 
   const addNewSubject    = () => { const u = [...subjectsData, newSubject()]; setSubjectData(u); emit({ subjects: u }) }
   const removeSubject    = (i) => {
@@ -1424,22 +1398,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     let nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
       return { ...g, subjects: g.subjects.map((s, j) => j === si ? removeStateFromSubject(s, stateIdx) : s) }
-    })
-    nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
-    setGroups(nextGroups)
-    emit({ subjectGroups: nextGroups })
-  }
-
-  const duplicateSubjectStateInGroup = (gi, si, stateIdx) => {
-    let nextGroups = groups.map((g, i) => {
-      if (i !== gi) return g
-      const subjects = g.subjects.map((s, j) => {
-        if (j !== si) return s
-        const states = s.states || []
-        const copy = { ...states[stateIdx], id: Date.now() + Math.random() }
-        return { ...s, states: [...states.slice(0, stateIdx + 1), copy, ...states.slice(stateIdx + 1)] }
-      })
-      return { ...g, subjects }
     })
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
     setGroups(nextGroups)
@@ -1776,9 +1734,6 @@ export default function Subjects({ form, onChange, data = {} }) {
   ]
   const missingAgeCategoryCount = allSubjectStates.filter(st => !st.ageCategory).length
 
-  const allSubjectsFlat = [...subjectsData, ...groups.flatMap(g => g.subjects)]
-  const missingSpeciesCount = allSubjectsFlat.filter(s => !s.species).length
-
   // ── render ────────────────────────────────────────────────────────────────
   return (
     <div>
@@ -1800,14 +1755,6 @@ export default function Subjects({ form, onChange, data = {} }) {
               type="warning" showIcon style={{ marginBottom: 16 }}
               message={`${missingAgeCategoryCount} subject state${missingAgeCategoryCount === 1 ? '' : 's'} missing an age category`}
               description="Every subject's state needs an age category — look for the fields outlined in red below."
-            />
-          )}
-
-          {showSpeciesWarning && missingSpeciesCount > 0 && (
-            <Alert
-              type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`${missingSpeciesCount} subject${missingSpeciesCount === 1 ? '' : 's'} missing a species`}
-              description="Every subject needs a species — look for the fields outlined in red below."
             />
           )}
 
@@ -1835,26 +1782,6 @@ export default function Subjects({ form, onChange, data = {} }) {
               <Input type="hidden" />
             </Form.Item>
 
-            {/* Hidden — same mechanism, for "every subject needs a species". */}
-            <Form.Item
-              name={['subjectMetadata', '_speciesCheck']}
-              style={{ display: 'none' }}
-              rules={[{
-                validator: () => {
-                  if (missingSpeciesCount > 0) {
-                    setShowSpeciesWarning(true)
-                    return Promise.reject(new Error(
-                      `${missingSpeciesCount} subject(s) are missing a species.`
-                    ))
-                  }
-                  setShowSpeciesWarning(false)
-                  return Promise.resolve()
-                },
-              }]}
-            >
-              <Input type="hidden" />
-            </Form.Item>
-
             {mode === 'flat' && (
               <>
                 {subjectsData.map((field, index) => (
@@ -1864,7 +1791,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                     onStateChange={handleSubjectStateChange}
                     onAddState={addSubjectState}
                     onRemoveState={removeSubjectState}
-                    onDuplicateState={duplicateSubjectState}
                     {...subjectRowProps}
                   />
                 ))}
@@ -1964,7 +1890,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                         onStateChange={(i, si2, fOrP, val) => handleGroupSubjectStateChange(gi, i, si2, fOrP, val)}
                         onAddState={(i)          => addSubjectStateInGroup(gi, i)}
                         onRemoveState={(i, si2)  => removeSubjectStateInGroup(gi, i, si2)}
-                        onDuplicateState={(i, si2) => duplicateSubjectStateInGroup(gi, i, si2)}
                         {...subjectRowProps}
                       />
                     ))}
