@@ -1855,16 +1855,20 @@ for collection in subject_metadata.get("tissueCollections", []):
     # empty state record.
     def _coll_state_has_data(st):
         return bool(
-            nonempty(st.get("age", "")) or nonempty(st.get("weight", "")) or
+            nonempty(st.get("weight", "")) or
             (st.get("tissueSampleAttribute") or []) or
             nonempty(st.get("additionalRemarks", ""))
         )
 
-    # Pathology is still inherited from the linked subject's state, the
-    # SAME value for every collection state. Age is NOT — it means time
-    # since the collection was made, a different concept from the
-    # subject's biological age, and comes from the collection's own state
-    # data instead, varying per time point same as everything else here.
+    # Age/pathology come from the inherited subject state, the SAME value
+    # for every collection state (this is what "shown once, unchangeable"
+    # means on the KG side too — the schema still wants age/pathology per
+    # TissueSampleCollectionState, so the identical inherited value gets
+    # applied to each one, rather than letting it vary per time point).
+    inherited_age = nonempty(coll_subject_state_raw.get(
+        "age", "")) if coll_subject_state_raw else None
+    inherited_age_unit = coll_subject_state_raw.get(
+        "ageUnit") if coll_subject_state_raw else None
     inherited_pathology = []
     if coll_subject_state_raw:
         inherited_pathology = [
@@ -1889,11 +1893,11 @@ for collection in subject_metadata.get("tissueCollections", []):
             coll_st_remarks = nonempty(st.get("additionalRemarks", ""))
             if coll_st_remarks:
                 coll_state_node["additionalRemarks"] = coll_st_remarks
-            if nonempty(st.get("age", "")):
+            if inherited_age:
                 coll_state_node["age"] = {
                     "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                    "value": normalize_numeric_value(st["age"])
+                    "unit":  {"@id": inherited_age_unit or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
+                    "value": normalize_numeric_value(inherited_age)
                 }
             if nonempty(st.get("weight", "")):
                 coll_state_node["weight"] = {

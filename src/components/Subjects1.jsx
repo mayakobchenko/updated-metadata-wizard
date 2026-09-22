@@ -611,11 +611,61 @@ const TissueSampleRow = ({
         <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
+      {/* ── extracted from subject / time point — moved above the
+           state-independent fields below ─────────────────────────────── */}
+      {!hideSubjectLink && allSubjectsForLinking.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 8 }}>
+          <Form.Item
+            label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
+            style={itemStyle('220px')}
+            validateStatus={field.linkedSubjectId ? '' : 'error'}
+            help={field.linkedSubjectId ? '' : 'Required'}
+          >
+            <Select {...sel()} size="small"
+              status={field.linkedSubjectId ? '' : 'error'}
+              value={field.linkedSubjectId || undefined}
+              onChange={(v) => onRowChange(index, { linkedSubjectId: v ?? null, linkedSubjectStateId: null })}
+              placeholder="link to subject..."
+            >
+              {allSubjectsForLinking.map(s => (
+                <Option key={s.id} value={s.id}>{s.label}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          {linkedSubjectStates.length > 1 && (
+            <Form.Item
+              label={<span style={LABEL_STYLE}>Time point <span style={{ color: '#ff4d4f' }}>*</span></span>}
+              style={itemStyle('170px')}
+              validateStatus={field.linkedSubjectStateId ? '' : 'error'}
+              help={field.linkedSubjectStateId ? '' : 'Required'}
+            >
+              <Select {...sel()} size="small"
+                status={field.linkedSubjectStateId ? '' : 'error'}
+                value={field.linkedSubjectStateId || undefined}
+                onChange={(v) => onRowChange(index, 'linkedSubjectStateId', v ?? null)}
+                placeholder="which time point?"
+              >
+                {linkedSubjectStates.map((st, i) => (
+                  <Option key={st.id} value={st.id}>{`Time point ${i + 1}`}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
+        </div>
+      )}
+
       {/* ── state-independent fields ───────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Type</span>} style={itemStyle('160px')}>
+        <Form.Item
+          label={<span style={LABEL_STYLE}>Type <span style={{ color: '#ff4d4f' }}>*</span></span>}
+          style={itemStyle('160px')}
+          validateStatus={field.type ? '' : 'error'}
+          help={field.type ? '' : 'Required'}
+        >
           <Select {...sel()} size="small"
+            status={field.type ? '' : 'error'}
             value={field.type || undefined}
             onChange={(v) => onRowChange(index, 'type', v ?? '')}
             placeholder="sample type"
@@ -675,8 +725,14 @@ const TissueSampleRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Origin</span>} style={itemStyle('200px')}>
+        <Form.Item
+          label={<span style={LABEL_STYLE}>Origin <span style={{ color: '#ff4d4f' }}>*</span></span>}
+          style={itemStyle('200px')}
+          validateStatus={field.origin ? '' : 'error'}
+          help={field.origin ? '' : 'Required'}
+        >
           <Select {...sel()} size="small"
+            status={field.origin ? '' : 'error'}
             value={field.origin || undefined}
             onChange={(v) => onRowChange(index, 'origin', v ?? '')}
             placeholder="origin"
@@ -699,48 +755,6 @@ const TissueSampleRow = ({
             ))}
           </Select>
         </Form.Item>
-
-        {!hideSubjectLink && allSubjectsForLinking.length > 0 && (
-          <>
-            <Form.Item
-              label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
-              style={itemStyle('220px')}
-              validateStatus={field.linkedSubjectId ? '' : 'error'}
-              help={field.linkedSubjectId ? '' : 'Required'}
-            >
-              <Select {...sel()} size="small"
-                status={field.linkedSubjectId ? '' : 'error'}
-                value={field.linkedSubjectId || undefined}
-                onChange={(v) => onRowChange(index, { linkedSubjectId: v ?? null, linkedSubjectStateId: null })}
-                placeholder="link to subject..."
-              >
-                {allSubjectsForLinking.map(s => (
-                  <Option key={s.id} value={s.id}>{s.label}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            {linkedSubjectStates.length > 1 && (
-              <Form.Item
-                label={<span style={LABEL_STYLE}>Time point <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                style={itemStyle('170px')}
-                validateStatus={field.linkedSubjectStateId ? '' : 'error'}
-                help={field.linkedSubjectStateId ? '' : 'Required'}
-              >
-                <Select {...sel()} size="small"
-                  status={field.linkedSubjectStateId ? '' : 'error'}
-                  value={field.linkedSubjectStateId || undefined}
-                  onChange={(v) => onRowChange(index, 'linkedSubjectStateId', v ?? null)}
-                  placeholder="which time point?"
-                >
-                  {linkedSubjectStates.map((st, i) => (
-                    <Option key={st.id} value={st.id}>{`Time point ${i + 1}`}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            )}
-          </>
-        )}
       </div>
 
       {/* ── states (time points) — visually separated in their own boxes ──── */}
@@ -890,6 +904,9 @@ export default function Subjects({ form, onChange, data = {} }) {
   const [showAgeCategoryWarning, setShowAgeCategoryWarning] = useState(false)
   // same idea, for the "every subject needs a species" check
   const [showSpeciesWarning, setShowSpeciesWarning] = useState(false)
+  // same idea, for the "every tissue sample needs a type/origin" checks
+  const [showTypeWarning, setShowTypeWarning] = useState(false)
+  const [showOriginWarning, setShowOriginWarning] = useState(false)
 
   const ageUnits    = allUnits.filter(u => AGE_UNIT_NAMES.has(u.name))
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
@@ -1851,6 +1868,10 @@ export default function Subjects({ form, onChange, data = {} }) {
       tissueCollections.filter(isLinkIncomplete).length
     : 0
 
+  const allSamplesFlatAndInCollections = [...tissueSamples, ...tissueCollections.flatMap(c => c.samples)]
+  const missingTypeCount   = allSamplesFlatAndInCollections.filter(s => !s.type).length
+  const missingOriginCount = allSamplesFlatAndInCollections.filter(s => !s.origin).length
+
   const allSubjectStates = [
     ...subjectsData.flatMap(s => s.states || []),
     ...groups.flatMap(g => g.subjects.flatMap(s => s.states || [])),
@@ -2088,6 +2109,22 @@ export default function Subjects({ form, onChange, data = {} }) {
             />
           )}
 
+          {showTypeWarning && missingTypeCount > 0 && (
+            <Alert
+              type="warning" showIcon style={{ marginBottom: 16 }}
+              message={`${missingTypeCount} tissue sample${missingTypeCount === 1 ? '' : 's'} missing a type`}
+              description="Every tissue sample needs a type — look for the fields outlined in red below."
+            />
+          )}
+
+          {showOriginWarning && missingOriginCount > 0 && (
+            <Alert
+              type="warning" showIcon style={{ marginBottom: 16 }}
+              message={`${missingOriginCount} tissue sample${missingOriginCount === 1 ? '' : 's'} missing an origin`}
+              description="Every tissue sample needs an origin — look for the fields outlined in red below."
+            />
+          )}
+
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
             {/* Hidden — not a real field the user fills in. Its only job is
@@ -2109,6 +2146,46 @@ export default function Subjects({ form, onChange, data = {} }) {
                     ))
                   }
                   setShowLinkWarning(false)
+                  return Promise.resolve()
+                },
+              }]}
+            >
+              <Input type="hidden" />
+            </Form.Item>
+
+            {/* Hidden — same mechanism, for "every tissue sample needs a type". */}
+            <Form.Item
+              name={['subjectMetadata', '_tissueTypeCheck']}
+              style={{ display: 'none' }}
+              rules={[{
+                validator: () => {
+                  if (missingTypeCount > 0) {
+                    setShowTypeWarning(true)
+                    return Promise.reject(new Error(
+                      `${missingTypeCount} tissue sample(s) are missing a type.`
+                    ))
+                  }
+                  setShowTypeWarning(false)
+                  return Promise.resolve()
+                },
+              }]}
+            >
+              <Input type="hidden" />
+            </Form.Item>
+
+            {/* Hidden — same mechanism, for "every tissue sample needs an origin". */}
+            <Form.Item
+              name={['subjectMetadata', '_tissueOriginCheck']}
+              style={{ display: 'none' }}
+              rules={[{
+                validator: () => {
+                  if (missingOriginCount > 0) {
+                    setShowOriginWarning(true)
+                    return Promise.reject(new Error(
+                      `${missingOriginCount} tissue sample(s) are missing an origin.`
+                    ))
+                  }
+                  setShowOriginWarning(false)
                   return Promise.resolve()
                 },
               }]}

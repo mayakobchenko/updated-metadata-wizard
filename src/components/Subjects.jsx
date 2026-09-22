@@ -792,20 +792,15 @@ const TissueSampleRow = ({
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-              {!hideSubjectLink && (
-                <>
-                  <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
-                    <ValueUnitField
-                      value={st.age}
-                      unit={st.ageUnit}
-                      onValueChange={(e) => onStateChange(index, si, 'age', e.target.value)}
-                      onUnitChange={(v) => onStateChange(index, si, 'ageUnit', v ?? '')}
-                      units={ageUnits}
-                      disabled={isPrefilled}
-                    />
-                  </Form.Item>
-                </>
-              )}
+              <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={itemStyle('195px')}>
+                <ValueUnitField
+                  value={st.age}
+                  unit={st.ageUnit}
+                  onValueChange={(e) => onStateChange(index, si, 'age', e.target.value)}
+                  onUnitChange={(v) => onStateChange(index, si, 'ageUnit', v ?? '')}
+                  units={ageUnits}
+                />
+              </Form.Item>
 
               <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={itemStyle('195px')}>
                 <ValueUnitField
@@ -1001,12 +996,14 @@ export default function Subjects({ form, onChange, data = {} }) {
       species:              subject.species || '',
       strain:               subject.strain  || '',
       biologicalSex:        subject.bioSex  || '',
-      // only state[0] gets the subject's age/pathology — any OTHER time
-      // points this sample has of its own (states[1+]) are left untouched
+      // only state[0] gets the subject's pathology — any OTHER time points
+      // this sample has of its own (states[1+]) are left untouched. Age is
+      // NOT inherited here — a tissue sample's age means time since it was
+      // collected/extracted, a different concept entirely from the
+      // subject's biological age, and it's tracked independently per the
+      // sample's own time points (see newTissueSampleState).
       states: sampleStates.map((st, idx) => idx === 0 ? {
         ...st,
-        age:      state?.age      || '',
-        ageUnit:  state?.ageUnit  || '',
         pathology: [
           ...(state?.disease      || []),
           ...(state?.diseaseModel || []),
@@ -2308,7 +2305,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                       const speciesName = species.find(o => o.identifier === linkedSubj.species)?.name
                       const strainName  = strainData.find(o => o.identifier === linkedSubj.strain)?.name
                       const sexName     = biosex.find(o => o.identifier === linkedSubj.bioSex)?.name
-                      const ageUnitName = ageUnits.find(o => o.identifier === linkedState?.ageUnit)?.name
                       const pathologyNames = [
                         ...(linkedState?.disease || []).map(id => diseaseData.find(o => o.identifier === id)?.name),
                         ...(linkedState?.diseaseModel || []).map(id => diseaseModelData.find(o => o.identifier === id)?.name),
@@ -2326,7 +2322,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                             <span><b>Species:</b> {speciesName || '—'}</span>
                             <span><b>Strain:</b> {strainName || '—'}</span>
                             <span><b>Sex:</b> {sexName || '—'}</span>
-                            <span><b>Age:</b> {linkedState?.age ? `${linkedState.age} ${ageUnitName || ''}`.trim() : '—'}</span>
                             <span><b>Pathology:</b> {pathologyNames.length ? pathologyNames.join(', ') : '—'}</span>
                           </div>
                         </div>
@@ -2370,6 +2365,15 @@ export default function Subjects({ form, onChange, data = {} }) {
                           )}
 
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                            <Form.Item label={<span style={LABEL_STYLE}>Age</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
+                              <ValueUnitField
+                                value={st.age}
+                                unit={st.ageUnit}
+                                onValueChange={(e) => handleCollectionStateChange(ci, si, 'age', e.target.value)}
+                                onUnitChange={(v) => handleCollectionStateChange(ci, si, 'ageUnit', v ?? '')}
+                                units={ageUnits}
+                              />
+                            </Form.Item>
                             <Form.Item label={<span style={LABEL_STYLE}>Weight</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
                               <ValueUnitField
                                 value={st.weight}
