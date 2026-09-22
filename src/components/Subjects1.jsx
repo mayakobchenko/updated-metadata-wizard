@@ -63,6 +63,22 @@ const computeAutoAge = (prevState, relativeTimeValue, relativeTimeUnit, unitsLis
   return { age: String(rounded), ageUnit: prevState.ageUnit }
 }
 
+// After a structural change (removing or duplicating a time point),
+// "previous time point" shifts for everything that comes after the
+// change — so their ages, calculated against whatever their predecessor
+// USED to be, go stale. This walks the array forward from fromIndex,
+// recalculating each state's age against its (possibly new) immediate
+// predecessor — cascading the fix through the whole rest of the chain,
+// not just the one state directly touched by the edit.
+const recalculateAgeChainFrom = (states, fromIndex, unitsList) => {
+  const result = [...states]
+  for (let i = Math.max(fromIndex, 1); i < result.length; i++) {
+    const autoAge = computeAutoAge(result[i - 1], result[i].relativeTimeValue, result[i].relativeTimeUnit, unitsList)
+    if (autoAge) result[i] = { ...result[i], ...autoAge }
+  }
+  return result
+}
+
 // ─── label style ─────────────────────────────────────────────────────────────
 
 const LABEL_STYLE = { fontSize: 11, color: '#888', marginBottom: 2 }
@@ -100,7 +116,7 @@ const ValueUnitField = ({ value, unit, onValueChange, onUnitChange, units, value
 const newSubjectState = () => ({
   id: Date.now() + Math.random(),
   ageCategory: '', age: '', ageUnit: '', weight: '', weightUnit: '',
-  handedness: '', disease: [], diseaseModel: [], subjectAttribute: [],
+  disease: [], diseaseModel: [], subjectAttribute: [],
   additionalRemarks: '',
   // only meaningful for states after the first — time elapsed since the
   // previous state, used to build relativeTimeIndication
@@ -114,7 +130,7 @@ const newGroupState = () => ({
 
 const newSubject = () => ({
   id: Date.now() + Math.random(),
-  subjectID: '', bioSex: '', species: '', strain: '',
+  subjectID: '', bioSex: '', species: '', strain: '', handedness: '',
   file_path: '',
   linkedSampleIds: [],
   // a subject can have several states (time points) — always at least one
@@ -139,14 +155,33 @@ const migrateSubjectToStates = (subject) => {
   } = subject
   return {
     ...rest,
+    handedness: handedness || '', // subject-level now, not per-state
     states: [{
       id: Date.now() + Math.random(),
       ageCategory: ageCategory || '', age: age || '', ageUnit: ageUnit || '',
       weight: weight || '', weightUnit: weightUnit || '',
-      handedness: handedness || '', disease: disease || [], diseaseModel: diseaseModel || [],
+      disease: disease || [], diseaseModel: diseaseModel || [],
       subjectAttribute: subjectAttribute || [], additionalRemarks: additionalRemarks || '',
       relativeTimeValue: '', relativeTimeUnit: '',
     }],
+  }
+}
+
+// Upgrades a subject that already has states[] (built before handedness
+// moved to the subject level) by hoisting it up from wherever it was set
+// on a state, and stripping it out of every state — handedness doesn't
+// vary between time points, so it doesn't belong repeated on each one.
+// subject.handedness !== undefined distinguishes "already at the new
+// subject level" (even if empty) from "not migrated yet" (never set
+// there at all) — a brand new subject always has it defined, so this
+// only touches genuinely old data.
+const migrateHandednessToSubject = (subject) => {
+  if (subject.handedness !== undefined) return subject
+  const inherited = (subject.states || []).find(st => st.handedness)?.handedness || ''
+  return {
+    ...subject,
+    handedness: inherited,
+    states: (subject.states || []).map(({ handedness, ...rest }) => rest),
   }
 }
 
@@ -346,6 +381,16 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
+        <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('170px')}>
+          <Select {...sel()} size="small"
+            value={field.handedness || undefined}
+            onChange={(v) => onRowChange(index, 'handedness', v ?? '')}
+            placeholder="handedness"
+          >
+            {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+          </Select>
+        </Form.Item>
+
         {allSamplesForLinking.length > 0 && (
           <Form.Item
             label={<span style={LABEL_STYLE}>Extracted tissue samples</span>}
@@ -469,16 +514,6 @@ const SubjectRow = ({
                   <Select.OptGroup label="Disease Model">
                     {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
                   </Select.OptGroup>
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={growItemStyle('170px')}>
-                <Select {...sel()} size="small"
-                  value={st.handedness || undefined}
-                  onChange={(v) => onStateChange(index, si, 'handedness', v ?? '')}
-                  placeholder="handedness"
-                >
-                  {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
                 </Select>
               </Form.Item>
 
@@ -860,10 +895,10 @@ export default function Subjects({ form, onChange, data = {} }) {
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
 
   useEffect(() => {
-    setSubjectData((data.subjectMetadata?.subjects || []).map(migrateSubjectToStates))
+    setSubjectData((data.subjectMetadata?.subjects || []).map(s => migrateHandednessToSubject(migrateSubjectToStates(s))))
     setGroups((data.subjectMetadata?.subjectGroups || []).map(g => ({
       ...g,
-      subjects: (g.subjects || []).map(migrateSubjectToStates),
+      subjects: (g.subjects || []).map(s => migrateHandednessToSubject(migrateSubjectToStates(s))),
     })))
     // NOTE: mode is intentionally NOT re-derived here. This effect re-runs
     // on every data-prop change — which includes every keystroke, since
@@ -1052,14 +1087,43 @@ export default function Subjects({ form, onChange, data = {} }) {
     const newlyLinked = newSampleIds.filter(id => !prevSet.has(String(id)))
     const unlinked    = prevSampleIds.filter(id => !newSampleIds.map(String).includes(String(id)))
 
-    let nextFlatSamples = [...tissueSamples]
-    let nextCollections = [...tissueCollections]
+    let nextFlatSamples  = [...tissueSamples]
+    let nextCollections  = [...tissueCollections]
+    let nextFlatSubjects = flatSubjects
+    let nextGroups       = grps
+
+    // A sample being newly linked here might already belong to a
+    // DIFFERENT subject — its own linkedSubjectId gets correctly
+    // overwritten below, but without this, that other subject's
+    // linkedSampleIds would keep a stale reference to a sample that's
+    // since been reassigned elsewhere (the sample shows the new subject,
+    // but the old subject's own list never finds out it lost it).
+    const staleOwners = new Map() // otherSubjectId -> [sampleIds to drop]
+    const allSamplesFlat = [...tissueSamples, ...tissueCollections.flatMap(c => c.samples)]
+    for (const sampleId of newlyLinked) {
+      const priorOwnerId = allSamplesFlat.find(s => s.id === sampleId)?.linkedSubjectId
+      if (priorOwnerId && String(priorOwnerId) !== String(subjectId)) {
+        if (!staleOwners.has(priorOwnerId)) staleOwners.set(priorOwnerId, [])
+        staleOwners.get(priorOwnerId).push(sampleId)
+      }
+    }
 
     for (const sampleId of newlyLinked) {
       nextFlatSamples = nextFlatSamples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, null) : s)
       nextCollections = nextCollections.map(c => ({
         ...c, samples: c.samples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, null) : s)
       }))
+    }
+
+    for (const [priorOwnerId, sampleIds] of staleOwners) {
+      const priorOwner = findSubjectById(priorOwnerId, nextFlatSubjects, nextGroups)
+      if (!priorOwner) continue
+      const cleanPatch = {
+        linkedSampleIds: (priorOwner.linkedSampleIds || [])
+          .filter(id => !sampleIds.map(String).includes(String(id)))
+      }
+      nextFlatSubjects = patchFlatSubjects(nextFlatSubjects, priorOwnerId, cleanPatch)
+      nextGroups       = patchGroupSubjects(nextGroups, priorOwnerId, cleanPatch)
     }
 
     for (const sampleId of unlinked) {
@@ -1070,7 +1134,12 @@ export default function Subjects({ form, onChange, data = {} }) {
 
     setTissueSamples(nextFlatSamples)
     setTissueCollections(nextCollections)
-    return { tissueSamples: nextFlatSamples, tissueCollections: nextCollections }
+    setSubjectData(nextFlatSubjects)
+    setGroups(nextGroups)
+    return {
+      tissueSamples: nextFlatSamples, tissueCollections: nextCollections,
+      subjects: nextFlatSubjects, subjectGroups: nextGroups,
+    }
   }
 
   // ── tissue links subject → prefill tissue + add sample to subject's list ──
@@ -1141,14 +1210,14 @@ export default function Subjects({ form, onChange, data = {} }) {
   // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {
     if (fieldOrPatch === 'linkedSampleIds') {
-      const subject       = subjectsData[i]
-      const prev          = subject?.linkedSampleIds || []
-      const tissueUpdates = syncSubjectLinkedSamples(subject.id, value, prev)
-      const updated       = subjectsData.map((s, idx) =>
+      const subject  = subjectsData[i]
+      const prev     = subject?.linkedSampleIds || []
+      const updated  = subjectsData.map((s, idx) =>
         idx === i ? { ...s, linkedSampleIds: value } : s
       )
       setSubjectData(updated)
-      emit({ subjects: updated, ...(tissueUpdates || {}) })
+      const tissueUpdates = syncSubjectLinkedSamples(subject.id, value, prev, updated, groups)
+      emit(tissueUpdates || { subjects: updated })
       return
     }
     const updated = subjectsData.map((s, idx) => {
@@ -1196,15 +1265,13 @@ export default function Subjects({ form, onChange, data = {} }) {
   const handleSubjectStateChange = (i, si, fieldOrPatch, value) => {
     let updated = subjectsData.map((s, idx) => idx === i ? patchStateInSubject(s, si, fieldOrPatch, value) : s)
 
-    // auto-calculate this time point's age from the previous one + "time
-    // since previous state", whenever that field is what just changed
+    // whenever "time since previous time point" changes for ANY state,
+    // its own age needs recalculating — and so does everything after it,
+    // since each one's age depends on the one before it in the chain
     if (si > 0 && (fieldOrPatch === 'relativeTimeValue' || fieldOrPatch === 'relativeTimeUnit')) {
-      const thisState = updated[i].states[si]
-      const prevState = updated[i].states[si - 1]
-      const autoAge = computeAutoAge(prevState, thisState.relativeTimeValue, thisState.relativeTimeUnit, ageUnits)
-      if (autoAge) {
-        updated = updated.map((s, idx) => idx === i ? patchStateInSubject(s, si, autoAge) : s)
-      }
+      updated = updated.map((s, idx) =>
+        idx === i ? { ...s, states: recalculateAgeChainFrom(s.states, si, ageUnits) } : s
+      )
     }
 
     setSubjectData(updated)
@@ -1219,7 +1286,13 @@ export default function Subjects({ form, onChange, data = {} }) {
     emit({ subjects: updated })
   }
   const removeSubjectState = (i, si) => {
-    const updated = subjectsData.map((s, idx) => idx === i ? removeStateFromSubject(s, si) : s)
+    const updated = subjectsData.map((s, idx) => {
+      if (idx !== i) return s
+      const nextStates = removeStateFromSubject(s, si).states
+      // everything from si onward now has a different (or no) predecessor
+      // than before the removal — recalculate their ages accordingly
+      return { ...s, states: recalculateAgeChainFrom(nextStates, si, ageUnits) }
+    })
     setSubjectData(updated)
     emit({ subjects: updated })
   }
@@ -1227,16 +1300,13 @@ export default function Subjects({ form, onChange, data = {} }) {
     const updated = subjectsData.map((s, idx) => {
       if (idx !== i) return s
       const states = s.states || []
-      const original = states[si]
-      let copy = { ...original, id: Date.now() + Math.random() }
-      // the copy always lands right after the original, so the original is
-      // now the copy's actual previous time point — recalculate the copy's
-      // age against it (same auto-calc as editing "time since previous
-      // time point" normally triggers), rather than leaving the copy's age
-      // stuck at a stale value that no longer matches its new position
-      const autoAge = computeAutoAge(original, copy.relativeTimeValue, copy.relativeTimeUnit, ageUnits)
-      if (autoAge) copy = { ...copy, ...autoAge }
-      return { ...s, states: [...states.slice(0, si + 1), copy, ...states.slice(si + 1)] }
+      const copy = { ...states[si], id: Date.now() + Math.random() }
+      const nextStates = [...states.slice(0, si + 1), copy, ...states.slice(si + 1)]
+      // the copy lands at si+1, and everything from there on (the copy
+      // itself, plus whatever used to follow the original) now has a
+      // different immediate predecessor than before — recalculate the
+      // whole rest of the chain, not just the copy in isolation
+      return { ...s, states: recalculateAgeChainFrom(nextStates, si + 1, ageUnits) }
     })
     setSubjectData(updated)
     emit({ subjects: updated })
@@ -1394,19 +1464,16 @@ export default function Subjects({ form, onChange, data = {} }) {
       return { ...g, subjects }
     })
 
-    // auto-calculate this time point's age from the previous one + "time
-    // since previous state", whenever that field is what just changed
+    // whenever "time since previous time point" changes for ANY state,
+    // its own age needs recalculating — and so does everything after it
     if (stateIdx > 0 && (fieldOrPatch === 'relativeTimeValue' || fieldOrPatch === 'relativeTimeUnit')) {
-      const thisState = nextGroups[gi].subjects[si].states[stateIdx]
-      const prevState = nextGroups[gi].subjects[si].states[stateIdx - 1]
-      const autoAge = computeAutoAge(prevState, thisState.relativeTimeValue, thisState.relativeTimeUnit, ageUnits)
-      if (autoAge) {
-        nextGroups = nextGroups.map((g, i) => {
-          if (i !== gi) return g
-          const subjects = g.subjects.map((s, j) => j === si ? patchStateInSubject(s, stateIdx, autoAge) : s)
-          return { ...g, subjects }
-        })
-      }
+      nextGroups = nextGroups.map((g, i) => {
+        if (i !== gi) return g
+        const subjects = g.subjects.map((s, j) =>
+          j === si ? { ...s, states: recalculateAgeChainFrom(s.states, stateIdx, ageUnits) } : s
+        )
+        return { ...g, subjects }
+      })
     }
 
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
@@ -1431,7 +1498,12 @@ export default function Subjects({ form, onChange, data = {} }) {
   const removeSubjectStateInGroup = (gi, si, stateIdx) => {
     let nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
-      return { ...g, subjects: g.subjects.map((s, j) => j === si ? removeStateFromSubject(s, stateIdx) : s) }
+      const subjects = g.subjects.map((s, j) => {
+        if (j !== si) return s
+        const nextStates = removeStateFromSubject(s, stateIdx).states
+        return { ...s, states: recalculateAgeChainFrom(nextStates, stateIdx, ageUnits) }
+      })
+      return { ...g, subjects }
     })
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
     setGroups(nextGroups)
@@ -1444,11 +1516,9 @@ export default function Subjects({ form, onChange, data = {} }) {
       const subjects = g.subjects.map((s, j) => {
         if (j !== si) return s
         const states = s.states || []
-        const original = states[stateIdx]
-        let copy = { ...original, id: Date.now() + Math.random() }
-        const autoAge = computeAutoAge(original, copy.relativeTimeValue, copy.relativeTimeUnit, ageUnits)
-        if (autoAge) copy = { ...copy, ...autoAge }
-        return { ...s, states: [...states.slice(0, stateIdx + 1), copy, ...states.slice(stateIdx + 1)] }
+        const copy = { ...states[stateIdx], id: Date.now() + Math.random() }
+        const nextStates = [...states.slice(0, stateIdx + 1), copy, ...states.slice(stateIdx + 1)]
+        return { ...s, states: recalculateAgeChainFrom(nextStates, stateIdx + 1, ageUnits) }
       })
       return { ...g, subjects }
     })
