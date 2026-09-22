@@ -644,8 +644,8 @@ const TissueSampleRow = ({
           placeholder="Sample id"
           style={{ flex: '1 1 180px', maxWidth: 260 }}
         />
-        <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate tissue sample</Button>
-        <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove tissue sample</Button>
+        <Button size="small" type="text" danger onClick={() => onRemove(index)}>Remove</Button>
+        <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
       {/* ── extracted from subject / time point, plus species/strain/sex —
@@ -883,14 +883,8 @@ const TissueSampleRow = ({
                 />
               </Form.Item>
 
-              <Form.Item
-                label={<span style={LABEL_STYLE}>Attribute <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                style={itemStyle('160px')}
-                validateStatus={(st.tissueSampleAttribute || []).length ? '' : 'error'}
-                help={(st.tissueSampleAttribute || []).length ? '' : 'Required'}
-              >
+              <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
                 <Select {...sel()} size="small" mode="multiple"
-                  status={(st.tissueSampleAttribute || []).length ? '' : 'error'}
                   value={st.tissueSampleAttribute || []}
                   onChange={(v) => onStateChange(index, si, 'tissueSampleAttribute', v)}
                   placeholder="attribute"
@@ -958,7 +952,6 @@ export default function Subjects({ form, onChange, data = {} }) {
   // same idea, for the "every tissue sample needs a type/origin" checks
   const [showTypeWarning, setShowTypeWarning] = useState(false)
   const [showOriginWarning, setShowOriginWarning] = useState(false)
-  const [showTissueAttributeWarning, setShowTissueAttributeWarning] = useState(false)
 
   const ageUnits    = allUnits.filter(u => AGE_UNIT_NAMES.has(u.name))
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
@@ -2029,9 +2022,6 @@ export default function Subjects({ form, onChange, data = {} }) {
   const allSamplesFlatAndInCollections = [...tissueSamples, ...tissueCollections.flatMap(c => c.samples)]
   const missingTypeCount   = allSamplesFlatAndInCollections.filter(s => !s.type).length
   const missingOriginCount = allSamplesFlatAndInCollections.filter(s => !s.origin).length
-  const missingTissueAttributeCount = allSamplesFlatAndInCollections
-    .flatMap(s => s.states || [])
-    .filter(st => !(st.tissueSampleAttribute || []).length).length
 
   const allSubjectStates = [
     ...subjectsData.flatMap(s => s.states || []),
@@ -2344,14 +2334,6 @@ export default function Subjects({ form, onChange, data = {} }) {
             />
           )}
 
-          {showTissueAttributeWarning && missingTissueAttributeCount > 0 && (
-            <Alert
-              type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`${missingTissueAttributeCount} tissue sample state${missingTissueAttributeCount === 1 ? '' : 's'} missing an attribute`}
-              description="Every tissue sample's time point needs at least one attribute — look for the fields outlined in red below."
-            />
-          )}
-
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
             {/* Hidden — not a real field the user fills in. Its only job is
@@ -2413,26 +2395,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                     ))
                   }
                   setShowOriginWarning(false)
-                  return Promise.resolve()
-                },
-              }]}
-            >
-              <Input type="hidden" />
-            </Form.Item>
-
-            {/* Hidden — same mechanism, for "every tissue sample state needs an attribute". */}
-            <Form.Item
-              name={['subjectMetadata', '_tissueAttributeCheck']}
-              style={{ display: 'none' }}
-              rules={[{
-                validator: () => {
-                  if (missingTissueAttributeCount > 0) {
-                    setShowTissueAttributeWarning(true)
-                    return Promise.reject(new Error(
-                      `${missingTissueAttributeCount} tissue sample state(s) are missing an attribute.`
-                    ))
-                  }
-                  setShowTissueAttributeWarning(false)
                   return Promise.resolve()
                 },
               }]}
