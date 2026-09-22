@@ -1087,43 +1087,14 @@ export default function Subjects({ form, onChange, data = {} }) {
     const newlyLinked = newSampleIds.filter(id => !prevSet.has(String(id)))
     const unlinked    = prevSampleIds.filter(id => !newSampleIds.map(String).includes(String(id)))
 
-    let nextFlatSamples  = [...tissueSamples]
-    let nextCollections  = [...tissueCollections]
-    let nextFlatSubjects = flatSubjects
-    let nextGroups       = grps
-
-    // A sample being newly linked here might already belong to a
-    // DIFFERENT subject — its own linkedSubjectId gets correctly
-    // overwritten below, but without this, that other subject's
-    // linkedSampleIds would keep a stale reference to a sample that's
-    // since been reassigned elsewhere (the sample shows the new subject,
-    // but the old subject's own list never finds out it lost it).
-    const staleOwners = new Map() // otherSubjectId -> [sampleIds to drop]
-    const allSamplesFlat = [...tissueSamples, ...tissueCollections.flatMap(c => c.samples)]
-    for (const sampleId of newlyLinked) {
-      const priorOwnerId = allSamplesFlat.find(s => s.id === sampleId)?.linkedSubjectId
-      if (priorOwnerId && String(priorOwnerId) !== String(subjectId)) {
-        if (!staleOwners.has(priorOwnerId)) staleOwners.set(priorOwnerId, [])
-        staleOwners.get(priorOwnerId).push(sampleId)
-      }
-    }
+    let nextFlatSamples = [...tissueSamples]
+    let nextCollections = [...tissueCollections]
 
     for (const sampleId of newlyLinked) {
       nextFlatSamples = nextFlatSamples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, null) : s)
       nextCollections = nextCollections.map(c => ({
         ...c, samples: c.samples.map(s => s.id === sampleId ? applySubjectPrefillToSample(s, subject, null) : s)
       }))
-    }
-
-    for (const [priorOwnerId, sampleIds] of staleOwners) {
-      const priorOwner = findSubjectById(priorOwnerId, nextFlatSubjects, nextGroups)
-      if (!priorOwner) continue
-      const cleanPatch = {
-        linkedSampleIds: (priorOwner.linkedSampleIds || [])
-          .filter(id => !sampleIds.map(String).includes(String(id)))
-      }
-      nextFlatSubjects = patchFlatSubjects(nextFlatSubjects, priorOwnerId, cleanPatch)
-      nextGroups       = patchGroupSubjects(nextGroups, priorOwnerId, cleanPatch)
     }
 
     for (const sampleId of unlinked) {
@@ -1134,12 +1105,7 @@ export default function Subjects({ form, onChange, data = {} }) {
 
     setTissueSamples(nextFlatSamples)
     setTissueCollections(nextCollections)
-    setSubjectData(nextFlatSubjects)
-    setGroups(nextGroups)
-    return {
-      tissueSamples: nextFlatSamples, tissueCollections: nextCollections,
-      subjects: nextFlatSubjects, subjectGroups: nextGroups,
-    }
+    return { tissueSamples: nextFlatSamples, tissueCollections: nextCollections }
   }
 
   // ── tissue links subject → prefill tissue + add sample to subject's list ──
@@ -1210,14 +1176,14 @@ export default function Subjects({ form, onChange, data = {} }) {
   // ── flat subject handlers ─────────────────────────────────────────────────
   const handleSubjectChange = (i, fieldOrPatch, value) => {
     if (fieldOrPatch === 'linkedSampleIds') {
-      const subject  = subjectsData[i]
-      const prev     = subject?.linkedSampleIds || []
-      const updated  = subjectsData.map((s, idx) =>
+      const subject       = subjectsData[i]
+      const prev          = subject?.linkedSampleIds || []
+      const tissueUpdates = syncSubjectLinkedSamples(subject.id, value, prev)
+      const updated       = subjectsData.map((s, idx) =>
         idx === i ? { ...s, linkedSampleIds: value } : s
       )
       setSubjectData(updated)
-      const tissueUpdates = syncSubjectLinkedSamples(subject.id, value, prev, updated, groups)
-      emit(tissueUpdates || { subjects: updated })
+      emit({ subjects: updated, ...(tissueUpdates || {}) })
       return
     }
     const updated = subjectsData.map((s, idx) => {
