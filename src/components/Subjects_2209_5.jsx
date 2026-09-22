@@ -1265,13 +1265,15 @@ export default function Subjects({ form, onChange, data = {} }) {
   const handleSubjectStateChange = (i, si, fieldOrPatch, value) => {
     let updated = subjectsData.map((s, idx) => idx === i ? patchStateInSubject(s, si, fieldOrPatch, value) : s)
 
-    // whenever "time since previous time point" changes for ANY state,
-    // its own age needs recalculating — and so does everything after it,
-    // since each one's age depends on the one before it in the chain
+    // auto-calculate this time point's age from the previous one + "time
+    // since previous state", whenever that field is what just changed
     if (si > 0 && (fieldOrPatch === 'relativeTimeValue' || fieldOrPatch === 'relativeTimeUnit')) {
-      updated = updated.map((s, idx) =>
-        idx === i ? { ...s, states: recalculateAgeChainFrom(s.states, si, ageUnits) } : s
-      )
+      const thisState = updated[i].states[si]
+      const prevState = updated[i].states[si - 1]
+      const autoAge = computeAutoAge(prevState, thisState.relativeTimeValue, thisState.relativeTimeUnit, ageUnits)
+      if (autoAge) {
+        updated = updated.map((s, idx) => idx === i ? patchStateInSubject(s, si, autoAge) : s)
+      }
     }
 
     setSubjectData(updated)
@@ -1464,16 +1466,19 @@ export default function Subjects({ form, onChange, data = {} }) {
       return { ...g, subjects }
     })
 
-    // whenever "time since previous time point" changes for ANY state,
-    // its own age needs recalculating — and so does everything after it
+    // auto-calculate this time point's age from the previous one + "time
+    // since previous state", whenever that field is what just changed
     if (stateIdx > 0 && (fieldOrPatch === 'relativeTimeValue' || fieldOrPatch === 'relativeTimeUnit')) {
-      nextGroups = nextGroups.map((g, i) => {
-        if (i !== gi) return g
-        const subjects = g.subjects.map((s, j) =>
-          j === si ? { ...s, states: recalculateAgeChainFrom(s.states, stateIdx, ageUnits) } : s
-        )
-        return { ...g, subjects }
-      })
+      const thisState = nextGroups[gi].subjects[si].states[stateIdx]
+      const prevState = nextGroups[gi].subjects[si].states[stateIdx - 1]
+      const autoAge = computeAutoAge(prevState, thisState.relativeTimeValue, thisState.relativeTimeUnit, ageUnits)
+      if (autoAge) {
+        nextGroups = nextGroups.map((g, i) => {
+          if (i !== gi) return g
+          const subjects = g.subjects.map((s, j) => j === si ? patchStateInSubject(s, stateIdx, autoAge) : s)
+          return { ...g, subjects }
+        })
+      }
     }
 
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
