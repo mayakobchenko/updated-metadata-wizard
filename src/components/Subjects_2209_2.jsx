@@ -100,7 +100,7 @@ const ValueUnitField = ({ value, unit, onValueChange, onUnitChange, units, value
 const newSubjectState = () => ({
   id: Date.now() + Math.random(),
   ageCategory: '', age: '', ageUnit: '', weight: '', weightUnit: '',
-  disease: [], diseaseModel: [], subjectAttribute: [],
+  handedness: '', disease: [], diseaseModel: [], subjectAttribute: [],
   additionalRemarks: '',
   // only meaningful for states after the first — time elapsed since the
   // previous state, used to build relativeTimeIndication
@@ -114,7 +114,7 @@ const newGroupState = () => ({
 
 const newSubject = () => ({
   id: Date.now() + Math.random(),
-  subjectID: '', bioSex: '', species: '', strain: '', handedness: '',
+  subjectID: '', bioSex: '', species: '', strain: '',
   file_path: '',
   linkedSampleIds: [],
   // a subject can have several states (time points) — always at least one
@@ -139,33 +139,14 @@ const migrateSubjectToStates = (subject) => {
   } = subject
   return {
     ...rest,
-    handedness: handedness || '', // subject-level now, not per-state
     states: [{
       id: Date.now() + Math.random(),
       ageCategory: ageCategory || '', age: age || '', ageUnit: ageUnit || '',
       weight: weight || '', weightUnit: weightUnit || '',
-      disease: disease || [], diseaseModel: diseaseModel || [],
+      handedness: handedness || '', disease: disease || [], diseaseModel: diseaseModel || [],
       subjectAttribute: subjectAttribute || [], additionalRemarks: additionalRemarks || '',
       relativeTimeValue: '', relativeTimeUnit: '',
     }],
-  }
-}
-
-// Upgrades a subject that already has states[] (built before handedness
-// moved to the subject level) by hoisting it up from wherever it was set
-// on a state, and stripping it out of every state — handedness doesn't
-// vary between time points, so it doesn't belong repeated on each one.
-// subject.handedness !== undefined distinguishes "already at the new
-// subject level" (even if empty) from "not migrated yet" (never set
-// there at all) — a brand new subject always has it defined, so this
-// only touches genuinely old data.
-const migrateHandednessToSubject = (subject) => {
-  if (subject.handedness !== undefined) return subject
-  const inherited = (subject.states || []).find(st => st.handedness)?.handedness || ''
-  return {
-    ...subject,
-    handedness: inherited,
-    states: (subject.states || []).map(({ handedness, ...rest }) => rest),
   }
 }
 
@@ -365,16 +346,6 @@ const SubjectRow = ({
           </Select>
         </Form.Item>
 
-        <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={itemStyle('170px')}>
-          <Select {...sel()} size="small"
-            value={field.handedness || undefined}
-            onChange={(v) => onRowChange(index, 'handedness', v ?? '')}
-            placeholder="handedness"
-          >
-            {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-          </Select>
-        </Form.Item>
-
         {allSamplesForLinking.length > 0 && (
           <Form.Item
             label={<span style={LABEL_STYLE}>Extracted tissue samples</span>}
@@ -498,6 +469,16 @@ const SubjectRow = ({
                   <Select.OptGroup label="Disease Model">
                     {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
                   </Select.OptGroup>
+                </Select>
+              </Form.Item>
+
+              <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={growItemStyle('170px')}>
+                <Select {...sel()} size="small"
+                  value={st.handedness || undefined}
+                  onChange={(v) => onStateChange(index, si, 'handedness', v ?? '')}
+                  placeholder="handedness"
+                >
+                  {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
                 </Select>
               </Form.Item>
 
@@ -879,10 +860,10 @@ export default function Subjects({ form, onChange, data = {} }) {
   const weightUnits = allUnits.filter(u => WEIGHT_UNIT_NAMES.has(u.name))
 
   useEffect(() => {
-    setSubjectData((data.subjectMetadata?.subjects || []).map(s => migrateHandednessToSubject(migrateSubjectToStates(s))))
+    setSubjectData((data.subjectMetadata?.subjects || []).map(migrateSubjectToStates))
     setGroups((data.subjectMetadata?.subjectGroups || []).map(g => ({
       ...g,
-      subjects: (g.subjects || []).map(s => migrateHandednessToSubject(migrateSubjectToStates(s))),
+      subjects: (g.subjects || []).map(migrateSubjectToStates),
     })))
     // NOTE: mode is intentionally NOT re-derived here. This effect re-runs
     // on every data-prop change — which includes every keystroke, since

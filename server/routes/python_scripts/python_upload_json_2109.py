@@ -1433,6 +1433,39 @@ def resolve_descended_state_uuid(subject_id, requested_state_id=None):
     return entries[0][1]
 
 
+def find_raw_subject_by_id(subject_id):
+    """
+    Looks up a subject's RAW wizard-submitted data (species/strain/bioSex,
+    and its states with age/disease/diseaseModel) by wizard-local id — used
+    by collections to inherit and display Species/Strain/Sex/Pathology/Age
+    from their linked subject, since that data no longer lives on the
+    collection's individual samples (moved to the collection level).
+    """
+    if not subject_id:
+        return None
+    for s in subject_metadata.get("subjects", []):
+        if s.get("id") == subject_id:
+            return s
+    for g in subject_metadata.get("subjectGroups", []):
+        for s in g.get("subjects", []):
+            if s.get("id") == subject_id:
+                return s
+    return None
+
+
+def resolve_raw_subject_state(subject, state_id=None):
+    """Same fallback logic as resolve_descended_state_uuid, but returns the
+    raw state dict (age/disease/diseaseModel/etc.) instead of a KG uuid."""
+    if not subject:
+        return None
+    states = subject.get("states") or [{}]
+    if state_id:
+        for st in states:
+            if st.get("id") == state_id:
+                return st
+    return states[0]
+
+
 if subject_metadata.get("subjectGroups"):
     for group in subject_metadata["subjectGroups"]:
         subjects = group.get("subjects", [])
@@ -1750,7 +1783,6 @@ for collection in subject_metadata.get("tissueCollections", []):
     collection_uuid = existing_coll_id.split(
         "/")[-1] if existing_coll_id else str(uuid4())
     collection_is_new = existing_coll_id is None
-    collection_bio_sex = []
     collection_types = []
     collection_lats = []
     collection_origins = []
@@ -1766,6 +1798,12 @@ for collection in subject_metadata.get("tissueCollections", []):
         resolve_descended_state_uuid(coll_linked_subj_id, coll_linked_state_id)
         if coll_linked_subj_id else None
     )
+    # Species/Strain/Sex/Pathology/Age now live ONCE on the collection,
+    # inherited from the linked subject — no longer set on individual
+    # samples at all (the wizard UI stopped collecting them there).
+    coll_subject_raw = find_raw_subject_by_id(coll_linked_subj_id)
+    coll_subject_state_raw = resolve_raw_subject_state(
+        coll_subject_raw, coll_linked_state_id)
 
     for sample in collection.get("samples", []):
         (s_uuid, s_node), built_states = build_tissue_sample_instance(
@@ -1794,8 +1832,6 @@ for collection in subject_metadata.get("tissueCollections", []):
 
         specimen_list.append({"@id": KG_PREFIX + final_s_uuid})
 
-        if nonempty(sample.get("biologicalSex", "")):
-            collection_bio_sex.append(sample["biologicalSex"])
         if nonempty(sample.get("type",          "")):
             collection_types.append(sample["type"])
         if nonempty(sample.get("laterality",    "")):
@@ -1815,10 +1851,26 @@ for collection in subject_metadata.get("tissueCollections", []):
     # empty state record.
     def _coll_state_has_data(st):
         return bool(
-            nonempty(st.get("age", "")) or nonempty(st.get("weight", "")) or
-            (st.get("pathology") or []) or (st.get("tissueSampleAttribute") or []) or
+            nonempty(st.get("weight", "")) or
+            (st.get("tissueSampleAttribute") or []) or
             nonempty(st.get("additionalRemarks", ""))
         )
+
+    # Age/pathology come from the inherited subject state, the SAME value
+    # for every collection state (this is what "shown once, unchangeable"
+    # means on the KG side too — the schema still wants age/pathology per
+    # TissueSampleCollectionState, so the identical inherited value gets
+    # applied to each one, rather than letting it vary per time point).
+    inherited_age = nonempty(coll_subject_state_raw.get(
+        "age", "")) if coll_subject_state_raw else None
+    inherited_age_unit = coll_subject_state_raw.get(
+        "ageUnit") if coll_subject_state_raw else None
+    inherited_pathology = []
+    if coll_subject_state_raw:
+        inherited_pathology = [
+            p for p in (coll_subject_state_raw.get("disease") or []) + (coll_subject_state_raw.get("diseaseModel") or [])
+            if p
+        ]
 
     coll_states_raw = collection.get("states") or []
     collection_studied_state = None
@@ -1831,17 +1883,17 @@ for collection in subject_metadata.get("tissueCollections", []):
                 "@type":              [f"{T}TissueSampleCollectionState"],
                 "lookupLabel":        coll_state_label,
                 "internalIdentifier": coll_state_label,
-                "pathology":          [{"@id": p} for p in (st.get("pathology") or []) if p],
+                "pathology":          [{"@id": p} for p in inherited_pathology],
                 "attribute":          as_id_list(st.get("tissueSampleAttribute") or []),
             }
             coll_st_remarks = nonempty(st.get("additionalRemarks", ""))
             if coll_st_remarks:
                 coll_state_node["additionalRemarks"] = coll_st_remarks
-            if nonempty(st.get("age", "")):
+            if inherited_age:
                 coll_state_node["age"] = {
                     "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st.get("ageUnit") or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                    "value": normalize_numeric_value(st["age"])
+                    "unit":  {"@id": inherited_age_unit or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
+                    "value": normalize_numeric_value(inherited_age)
                 }
             if nonempty(st.get("weight", "")):
                 coll_state_node["weight"] = {
@@ -1879,11 +1931,16 @@ for collection in subject_metadata.get("tissueCollections", []):
     }
     if collection_studied_state:
         collection_node["studiedState"] = collection_studied_state
-    apply_strain_species_group(collection_node, collection.get("samples", []))
+    # Species/Strain/Sex now come from the linked subject directly — no
+    # longer aggregated from samples, since samples don't carry this data
+    # anymore (moved to the collection level, inherited from the subject).
+    if coll_subject_raw:
+        apply_strain_species(collection_node, coll_subject_raw.get(
+            "strain", ""), coll_subject_raw.get("species", ""))
+        if nonempty(coll_subject_raw.get("bioSex", "")):
+            collection_node["biologicalSex"] = [
+                {"@id": coll_subject_raw["bioSex"]}]
 
-    if collection_bio_sex:
-        collection_node["biologicalSex"] = [
-            {"@id": s} for s in set(collection_bio_sex)]
     if collection_types:
         collection_node["type"] = [{"@id": t} for t in set(collection_types)]
     if collection_lats:

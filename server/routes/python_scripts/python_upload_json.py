@@ -1291,8 +1291,12 @@ def build_subject_instance(subject, group_uuid=None):
         }
         if st.get("ageCategory"):
             state_node["ageCategory"] = {"@id": st["ageCategory"]}
-        if st.get("handedness"):
-            state_node["handedness"] = {"@id": st["handedness"]}
+        # handedness is now a subject-level field in the wizard (shown once,
+        # not per time point — it doesn't vary between them) — but the
+        # schema still wants it on every SubjectState, so the same
+        # subject-level value gets applied to each one here.
+        if subject.get("handedness"):
+            state_node["handedness"] = {"@id": subject["handedness"]}
 
         pathology_ids = []
         for d in (st.get("disease") or []):
