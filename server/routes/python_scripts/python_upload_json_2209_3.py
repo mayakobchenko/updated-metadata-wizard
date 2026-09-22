@@ -1553,8 +1553,6 @@ if subject_metadata.get("subjectGroups"):
         has_group_state_data = bool(
             group_state_data.get("ageCategory") or
             group_state_data.get("attribute") or
-            group_state_data.get("handedness") or
-            group_state_data.get("pathology") or
             nonempty(group_state_data.get("ageMin", "")) or
             nonempty(group_state_data.get("ageMax", ""))
         )
@@ -1571,22 +1569,6 @@ if subject_metadata.get("subjectGroups"):
             if group_state_data.get("attribute"):
                 gs_node["attribute"] = as_id_list(
                     group_state_data["attribute"])
-            if group_state_data.get("pathology"):
-                gs_node["pathology"] = as_id_list(
-                    group_state_data["pathology"])
-            # handedness is single-valued on SubjectGroupState (matching how
-            # the wizard treats it per-subject, as a single-select, not a
-            # multi-select like attribute/pathology) — the wizard's group-
-            # level aggregate can legitimately show several distinct values
-            # across a group's subjects, but there's no way to represent
-            # "this group has both left- and right-handed subjects" in a
-            # single-valued property. Only set it when the group
-            # unambiguously agrees on exactly one value; skip otherwise
-            # rather than send multiple values to a field that can't hold
-            # them.
-            handedness_values = group_state_data.get("handedness") or []
-            if len(handedness_values) == 1:
-                gs_node["handedness"] = {"@id": handedness_values[0]}
 
             age_min = nonempty(group_state_data.get("ageMin", ""))
             age_max = nonempty(group_state_data.get("ageMax", ""))

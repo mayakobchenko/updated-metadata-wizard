@@ -124,7 +124,7 @@ const newSubjectState = () => ({
 })
 
 const newGroupState = () => ({
-  ageCategory: [], attribute: [], handedness: [], pathology: [],
+  ageCategory: [], attribute: [],
   ageMin: '', ageMinUnit: '', ageMax: '', ageMaxUnit: '',
 })
 
@@ -548,14 +548,8 @@ const SubjectRow = ({
                 </Select>
               </Form.Item>
 
-              <Form.Item
-                label={<span style={LABEL_STYLE}>Attribute <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                style={growItemStyle('150px')}
-                validateStatus={(st.subjectAttribute || []).length ? '' : 'error'}
-                help={(st.subjectAttribute || []).length ? '' : 'Required'}
-              >
+              <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={growItemStyle('150px')}>
                 <Select {...sel()} size="small" mode="multiple"
-                  status={(st.subjectAttribute || []).length ? '' : 'error'}
                   value={st.subjectAttribute || []}
                   onChange={(v) => onStateChange(index, si, 'subjectAttribute', v)}
                   placeholder="attribute"
@@ -947,8 +941,6 @@ export default function Subjects({ form, onChange, data = {} }) {
   const [showAgeCategoryWarning, setShowAgeCategoryWarning] = useState(false)
   // same idea, for the "every subject needs a species" check
   const [showSpeciesWarning, setShowSpeciesWarning] = useState(false)
-  // same idea, for the "every subject state needs an attribute" check
-  const [showSubjectAttributeWarning, setShowSubjectAttributeWarning] = useState(false)
   // same idea, for the "every tissue sample needs a type/origin" checks
   const [showTypeWarning, setShowTypeWarning] = useState(false)
   const [showOriginWarning, setShowOriginWarning] = useState(false)
@@ -1498,11 +1490,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     const allStates = group.subjects.flatMap(s => (s.states && s.states.length) ? s.states : [{}])
     const ageCategories = [...new Set(allStates.map(st => st.ageCategory).filter(Boolean))]
     const attributes    = [...new Set(allStates.flatMap(st => st.subjectAttribute || []))]
-    // handedness is subject-level (one value per subject, not per state) and
-    // single-valued, same reason ageCategory doesn't cascade — there's no
-    // single sensible value to push down when a group spans several
-    const handednessValues = [...new Set(group.subjects.map(s => s.handedness).filter(Boolean))]
-    const pathologyValues  = [...new Set(allStates.flatMap(st => [...(st.disease || []), ...(st.diseaseModel || [])]))]
 
     const agesWithUnits = allStates
       .map(st => ({ value: parseFloat(st.age), unit: st.ageUnit }))
@@ -1521,7 +1508,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       groupState: {
         ...(group.groupState || newGroupState()),
         ageCategory: ageCategories, attribute: attributes,
-        handedness: handednessValues, pathology: pathologyValues,
         ageMin, ageMinUnit, ageMax, ageMaxUnit,
       },
     }
@@ -1597,26 +1583,17 @@ export default function Subjects({ form, onChange, data = {} }) {
     emit({ subjectGroups: nextGroups })
   }
 
-  // Editing the group's own state: ageCategory/age/handedness just update
-  // the group display (they don't cascade down — handedness is single-
-  // valued per subject, same ambiguity reason as ageCategory). attribute
-  // and pathology DO cascade, overwriting every member subject's first
-  // state's attribute/disease/diseaseModel, since those mappings are
-  // unambiguous (both are already multi-valued per state).
+  // Editing the group's own state: ageCategory/age just update the group
+  // (they don't cascade down — see note above). attribute DOES cascade,
+  // overwriting every member subject's first state's attribute list, since
+  // that mapping is unambiguous.
   const updateGroupState = (gi, patch) => {
     const nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
       const nextGroupState = { ...(g.groupState || newGroupState()), ...patch }
-      let subjects = g.subjects
-      if ('attribute' in patch) {
-        subjects = subjects.map(s => patchStateInSubject(s, 0, 'subjectAttribute', nextGroupState.attribute || []))
-      }
-      if ('pathology' in patch) {
-        const ids = nextGroupState.pathology || []
-        const diseaseIds    = ids.filter(id => diseaseData.find(d => d.identifier === id))
-        const diseaseModIds = ids.filter(id => diseaseModelData.find(d => d.identifier === id))
-        subjects = subjects.map(s => patchStateInSubject(s, 0, { disease: diseaseIds, diseaseModel: diseaseModIds }))
-      }
+      const subjects = 'attribute' in patch
+        ? g.subjects.map(s => patchStateInSubject(s, 0, 'subjectAttribute', nextGroupState.attribute || []))
+        : g.subjects
       return { ...g, groupState: nextGroupState, subjects }
     })
     setGroups(nextGroups)
@@ -2028,7 +2005,6 @@ export default function Subjects({ form, onChange, data = {} }) {
     ...groups.flatMap(g => g.subjects.flatMap(s => s.states || [])),
   ]
   const missingAgeCategoryCount = allSubjectStates.filter(st => !st.ageCategory).length
-  const missingSubjectAttributeCount = allSubjectStates.filter(st => !(st.subjectAttribute || []).length).length
 
   const allSubjectsFlat = [...subjectsData, ...groups.flatMap(g => g.subjects)]
   const missingSpeciesCount = allSubjectsFlat.filter(s => !s.species).length
@@ -2065,14 +2041,6 @@ export default function Subjects({ form, onChange, data = {} }) {
             />
           )}
 
-          {showSubjectAttributeWarning && missingSubjectAttributeCount > 0 && (
-            <Alert
-              type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`${missingSubjectAttributeCount} subject state${missingSubjectAttributeCount === 1 ? '' : 's'} missing an attribute`}
-              description="Every subject's state needs at least one attribute — look for the fields outlined in red below."
-            />
-          )}
-
           <Form form={form} layout="vertical" onValuesChange={() => {}}>
 
             {/* Hidden — same mechanism as the tissue-link check: hooks the
@@ -2096,27 +2064,6 @@ export default function Subjects({ form, onChange, data = {} }) {
             >
               <Input type="hidden" />
             </Form.Item>
-
-            {/* Hidden — same mechanism, for "every subject state needs an attribute". */}
-            <Form.Item
-              name={['subjectMetadata', '_subjectAttributeCheck']}
-              style={{ display: 'none' }}
-              rules={[{
-                validator: () => {
-                  if (missingSubjectAttributeCount > 0) {
-                    setShowSubjectAttributeWarning(true)
-                    return Promise.reject(new Error(
-                      `${missingSubjectAttributeCount} subject state(s) are missing an attribute.`
-                    ))
-                  }
-                  setShowSubjectAttributeWarning(false)
-                  return Promise.resolve()
-                },
-              }]}
-            >
-              <Input type="hidden" />
-            </Form.Item>
-
 
             {/* Hidden — same mechanism, for "every subject needs a species". */}
             <Form.Item
@@ -2210,34 +2157,6 @@ export default function Subjects({ form, onChange, data = {} }) {
                             {subjectAttributeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
                           </Select>
                         </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Handedness</span>} style={{ flex: '0 0 220px', marginBottom: 0 }}>
-                          <Select {...sel()} size="small" mode="multiple"
-                            value={group.groupState?.handedness || []}
-                            onChange={(v) => updateGroupState(gi, { handedness: v })}
-                            placeholder="handedness (this group spans)..."
-                          >
-                            {handedness.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                          </Select>
-                        </Form.Item>
-                        <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={{ flex: '0 0 260px', marginBottom: 0 }}>
-                          <Select {...sel()} size="small" mode="multiple"
-                            value={group.groupState?.pathology || []}
-                            onChange={(v) => updateGroupState(gi, { pathology: v })}
-                            placeholder="disease / model"
-                            optionFilterProp="label"
-                            filterOption={(input, option) => {
-                              if (!option || option.options) return false
-                              return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
-                            }}
-                          >
-                            <Select.OptGroup label="Disease">
-                              {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-                            </Select.OptGroup>
-                            <Select.OptGroup label="Disease Model">
-                              {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-                            </Select.OptGroup>
-                          </Select>
-                        </Form.Item>
                         <Form.Item label={<span style={LABEL_STYLE}>Age range (min)</span>} style={{ flex: '0 0 195px', marginBottom: 0 }}>
                           <ValueUnitField
                             value={group.groupState?.ageMin || ''}
@@ -2260,9 +2179,9 @@ export default function Subjects({ form, onChange, data = {} }) {
                         </Form.Item>
                       </div>
                       <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>
-                        Age category, handedness, and age range fill in automatically from every subject below
-                        (handedness from each subject directly, the rest from every time point).
-                        Attribute and pathology can be set here and apply to every subject's first time point.
+                        Age category and age range fill in automatically from every time point of
+                        every subject below. Attribute can be set here and
+                        applies to every subject's first time point.
                       </div>
                     </div>
 
