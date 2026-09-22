@@ -1696,12 +1696,7 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
             "@type":              [f"{T}TissueSampleState"],
             "lookupLabel":        label,
             "internalIdentifier": label,
-            # pathology is a sample-level field in the wizard (shown once,
-            # not per time point — it's a fixed fact about the specimen,
-            # not something that varies as it's processed) — but the
-            # schema still wants it on every TissueSampleState, so the
-            # same sample-level value gets applied to each one here.
-            "pathology":          [{"@id": p} for p in (sample.get("pathology") or []) if p],
+            "pathology":          [{"@id": p} for p in (st.get("pathology") or []) if p],
             "attribute":          as_id_list(st.get("tissueSampleAttribute") or []),
         }
         st_remarks = nonempty(st.get("additionalRemarks", ""))

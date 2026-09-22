@@ -188,7 +188,7 @@ const migrateHandednessToSubject = (subject) => {
 const newTissueSampleState = () => ({
   id: Date.now() + Math.random(),
   age: '', ageUnit: '', weight: '', weightUnit: '',
-  tissueSampleAttribute: [], additionalRemarks: '',
+  pathology: [], tissueSampleAttribute: [], additionalRemarks: '',
   // only meaningful for states after the first — time elapsed since the
   // previous state, used to build relativeTimeIndication
   relativeTimeValue: '', relativeTimeUnit: '',
@@ -197,7 +197,7 @@ const newTissueSampleState = () => ({
 const newTissueSample = () => ({
   id: Date.now() + Math.random(),
   sampleID: '', type: '', species: '', strain: '',
-  biologicalSex: '', laterality: '', origin: '', pathology: [],
+  biologicalSex: '', laterality: '', origin: '',
   linkedSubjectId: null,
   // which of the linked subject's states (time points) this was extracted
   // at — only relevant/shown when that subject has more than one state.
@@ -234,32 +234,13 @@ const migrateTissueSampleToStates = (sample) => {
   } = sample
   return {
     ...rest,
-    pathology: pathology || [], // sample-level now, not per-state
     states: [{
       id: Date.now() + Math.random(),
       age: age || '', ageUnit: ageUnit || '', weight: weight || '', weightUnit: weightUnit || '',
-      tissueSampleAttribute: tissueSampleAttribute || [],
+      pathology: pathology || [], tissueSampleAttribute: tissueSampleAttribute || [],
       additionalRemarks: additionalRemarks || '',
       relativeTimeValue: '', relativeTimeUnit: '',
     }],
-  }
-}
-
-// Upgrades a sample that already has states[] (built before pathology
-// moved to the sample level) by hoisting it up from wherever it was set
-// across the states, and stripping it out of every state. Different
-// states might have had different pathology selections before this
-// change — rather than picking just the first and silently losing the
-// rest, this unions everything found across all states (deduplicated).
-// sample.pathology !== undefined distinguishes "already at the new
-// sample level" (even if empty) from "not migrated yet".
-const migratePathologyToSample = (sample) => {
-  if (sample.pathology !== undefined) return sample
-  const merged = [...new Set((sample.states || []).flatMap(st => st.pathology || []))]
-  return {
-    ...sample,
-    pathology: merged,
-    states: (sample.states || []).map(({ pathology, ...rest }) => rest),
   }
 }
 
@@ -630,91 +611,46 @@ const TissueSampleRow = ({
         <Button size="small" type="default" style={{ color: 'var(--button-color-primary)', borderColor: 'var(--button-color-primary)' }} onClick={() => onDuplicate(index)}>Duplicate</Button>
       </div>
 
-      {/* ── extracted from subject / time point, plus species/strain/sex —
-           all on the first line, alongside the subject-linking fields ──── */}
-      {!hideSubjectLink && (
+      {/* ── extracted from subject / time point — moved above the
+           state-independent fields below ─────────────────────────────── */}
+      {!hideSubjectLink && allSubjectsForLinking.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 8 }}>
-          {!hideSubjectLink && allSubjectsForLinking.length > 0 && (
-            <>
-              <Form.Item
-                label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                style={itemStyle('220px')}
-                validateStatus={field.linkedSubjectId ? '' : 'error'}
-                help={field.linkedSubjectId ? '' : 'Required'}
+          <Form.Item
+            label={<span style={LABEL_STYLE}>Extracted from subject <span style={{ color: '#ff4d4f' }}>*</span></span>}
+            style={itemStyle('220px')}
+            validateStatus={field.linkedSubjectId ? '' : 'error'}
+            help={field.linkedSubjectId ? '' : 'Required'}
+          >
+            <Select {...sel()} size="small"
+              status={field.linkedSubjectId ? '' : 'error'}
+              value={field.linkedSubjectId || undefined}
+              onChange={(v) => onRowChange(index, { linkedSubjectId: v ?? null, linkedSubjectStateId: null })}
+              placeholder="link to subject..."
+            >
+              {allSubjectsForLinking.map(s => (
+                <Option key={s.id} value={s.id}>{s.label}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          {linkedSubjectStates.length > 1 && (
+            <Form.Item
+              label={<span style={LABEL_STYLE}>Time point <span style={{ color: '#ff4d4f' }}>*</span></span>}
+              style={itemStyle('170px')}
+              validateStatus={field.linkedSubjectStateId ? '' : 'error'}
+              help={field.linkedSubjectStateId ? '' : 'Required'}
+            >
+              <Select {...sel()} size="small"
+                status={field.linkedSubjectStateId ? '' : 'error'}
+                value={field.linkedSubjectStateId || undefined}
+                onChange={(v) => onRowChange(index, 'linkedSubjectStateId', v ?? null)}
+                placeholder="which time point?"
               >
-                <Select {...sel()} size="small"
-                  status={field.linkedSubjectId ? '' : 'error'}
-                  value={field.linkedSubjectId || undefined}
-                  onChange={(v) => onRowChange(index, { linkedSubjectId: v ?? null, linkedSubjectStateId: null })}
-                  placeholder="link to subject..."
-                >
-                  {allSubjectsForLinking.map(s => (
-                    <Option key={s.id} value={s.id}>{s.label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              {linkedSubjectStates.length > 1 && (
-                <Form.Item
-                  label={<span style={LABEL_STYLE}>Time point <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                  style={itemStyle('170px')}
-                  validateStatus={field.linkedSubjectStateId ? '' : 'error'}
-                  help={field.linkedSubjectStateId ? '' : 'Required'}
-                >
-                  <Select {...sel()} size="small"
-                    status={field.linkedSubjectStateId ? '' : 'error'}
-                    value={field.linkedSubjectStateId || undefined}
-                    onChange={(v) => onRowChange(index, 'linkedSubjectStateId', v ?? null)}
-                    placeholder="which time point?"
-                  >
-                    {linkedSubjectStates.map((st, i) => (
-                      <Option key={st.id} value={st.id}>{`Time point ${i + 1}`}</Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              )}
-            </>
-          )}
-
-          {!hideSubjectLink && (
-            <>
-              <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('200px')}>
-                <Select {...sel()} size="small"
-                  value={field.species || undefined}
-                  onChange={(v) => onRowChange(index, { species: v ?? '', strain: '' })}
-                  placeholder="species"
-                  disabled={isPrefilled}
-                >
-                  {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Strain</span>} style={itemStyle('150px')}>
-                <Select {...sel()} size="small"
-                  value={field.strain || undefined}
-                  onChange={(v) => onRowChange(index, 'strain', v ?? '')}
-                  placeholder={
-                    !field.species ? 'select species first'
-                    : filteredStrain.length === 0 ? 'none'
-                    : 'strain'
-                  }
-                  disabled={isPrefilled || !field.species || filteredStrain.length === 0}
-                >
-                  {filteredStrain.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                </Select>
-              </Form.Item>
-
-              <Form.Item label={<span style={LABEL_STYLE}>Sex</span>} style={itemStyle('120px')}>
-                <Select {...sel()} size="small"
-                  value={field.biologicalSex || undefined}
-                  onChange={(v) => onRowChange(index, 'biologicalSex', v ?? '')}
-                  placeholder="sex"
-                  disabled={isPrefilled}
-                >
-                  {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
-                </Select>
-              </Form.Item>
-            </>
+                {linkedSubjectStates.map((st, i) => (
+                  <Option key={st.id} value={st.id}>{`Time point ${i + 1}`}</Option>
+                ))}
+              </Select>
+            </Form.Item>
           )}
         </div>
       )}
@@ -737,6 +673,47 @@ const TissueSampleRow = ({
             {tissueSampleTypeData.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
           </Select>
         </Form.Item>
+
+        {!hideSubjectLink && (
+          <>
+            <Form.Item label={<span style={LABEL_STYLE}>Species</span>} style={itemStyle('200px')}>
+              <Select {...sel()} size="small"
+                value={field.species || undefined}
+                onChange={(v) => onRowChange(index, { species: v ?? '', strain: '' })}
+                placeholder="species"
+                disabled={isPrefilled}
+              >
+                {species.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+              </Select>
+            </Form.Item>
+
+            <Form.Item label={<span style={LABEL_STYLE}>Strain</span>} style={itemStyle('150px')}>
+              <Select {...sel()} size="small"
+                value={field.strain || undefined}
+                onChange={(v) => onRowChange(index, 'strain', v ?? '')}
+                placeholder={
+                  !field.species ? 'select species first'
+                  : filteredStrain.length === 0 ? 'none'
+                  : 'strain'
+                }
+                disabled={isPrefilled || !field.species || filteredStrain.length === 0}
+              >
+                {filteredStrain.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+              </Select>
+            </Form.Item>
+
+            <Form.Item label={<span style={LABEL_STYLE}>Sex</span>} style={itemStyle('120px')}>
+              <Select {...sel()} size="small"
+                value={field.biologicalSex || undefined}
+                onChange={(v) => onRowChange(index, 'biologicalSex', v ?? '')}
+                placeholder="sex"
+                disabled={isPrefilled}
+              >
+                {biosex.map(o => <Option key={o.identifier} value={o.identifier}>{o.name}</Option>)}
+              </Select>
+            </Form.Item>
+          </>
+        )}
 
         <Form.Item label={<span style={LABEL_STYLE}>Laterality</span>} style={itemStyle('130px')}>
           <Select {...sel()} size="small"
@@ -778,28 +755,6 @@ const TissueSampleRow = ({
             ))}
           </Select>
         </Form.Item>
-
-        {!hideSubjectLink && (
-          <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('260px')}>
-            <Select {...sel()} size="small" mode="multiple"
-              value={field.pathology || []}
-              onChange={(v) => onRowChange(index, 'pathology', v)}
-              placeholder="disease / model"
-              optionFilterProp="label"
-              filterOption={(input, option) => {
-                if (!option || option.options) return false
-                return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
-              }}
-            >
-              <Select.OptGroup label="Disease">
-                {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-              </Select.OptGroup>
-              <Select.OptGroup label="Disease Model">
-                {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
-              </Select.OptGroup>
-            </Select>
-          </Form.Item>
-        )}
       </div>
 
       {/* ── states (time points) — visually separated in their own boxes ──── */}
@@ -856,6 +811,29 @@ const TissueSampleRow = ({
                   units={weightUnits}
                 />
               </Form.Item>
+
+              {!hideSubjectLink && (
+                <Form.Item label={<span style={LABEL_STYLE}>Pathology</span>} style={itemStyle('220px')}>
+                  <Select {...sel()} size="small" mode="multiple"
+                    value={st.pathology || []}
+                    onChange={(v) => onStateChange(index, si, 'pathology', v)}
+                    placeholder="disease / model"
+                    optionFilterProp="label"
+                    filterOption={(input, option) => {
+                      if (!option || option.options) return false
+                      return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
+                    }}
+                    disabled={isPrefilled}
+                  >
+                    <Select.OptGroup label="Disease">
+                      {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                    </Select.OptGroup>
+                    <Select.OptGroup label="Disease Model">
+                      {diseaseModelData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
+                    </Select.OptGroup>
+                  </Select>
+                </Form.Item>
+              )}
 
               <Form.Item label={<span style={LABEL_STYLE}>Attribute</span>} style={itemStyle('160px')}>
                 <Select {...sel()} size="small" mode="multiple"
@@ -945,9 +923,9 @@ export default function Subjects({ form, onChange, data = {} }) {
     // user's own toggle click (handleModeChange), same as tissueMode.
     setTissueCollections((data.subjectMetadata?.tissueCollections || []).map(c => ({
       ...migrateCollectionToStates(c),
-      samples: (c.samples || []).map(s => migratePathologyToSample(migrateTissueSampleToStates(s))),
+      samples: (c.samples || []).map(migrateTissueSampleToStates),
     })))
-    setTissueSamples((data.subjectMetadata?.tissueSamples || []).map(s => migratePathologyToSample(migrateTissueSampleToStates(s))))
+    setTissueSamples((data.subjectMetadata?.tissueSamples || []).map(migrateTissueSampleToStates))
   }, [data])
 
   useEffect(() => {
