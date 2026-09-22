@@ -808,7 +808,6 @@ const TissueSampleRow = ({
                 if (!option || option.options) return false
                 return (option.label || '').toString().toLowerCase().includes(input.toLowerCase())
               }}
-              disabled={isPrefilled}
             >
               <Select.OptGroup label="Disease">
                 {diseaseData.map(o => <Option key={o.identifier} value={o.identifier} label={o.name}>{o.name}</Option>)}
@@ -1046,6 +1045,7 @@ export default function Subjects({ form, onChange, data = {} }) {
   // since states became a list.
   const applySubjectPrefillToSample = (sample, subject, stateId) => {
     const state = resolveSubjectState(subject, stateId)
+    const sampleStates = sample.states && sample.states.length ? sample.states : [newTissueSampleState()]
     return {
       ...sample,
       linkedSubjectId:      subject.id,
@@ -1053,16 +1053,20 @@ export default function Subjects({ form, onChange, data = {} }) {
       species:              subject.species || '',
       strain:               subject.strain  || '',
       biologicalSex:        subject.bioSex  || '',
-      // pathology is sample-level now (not per-state) — inherited from
-      // the subject's state the same way species/strain/sex are.
-      // Age is NOT inherited here — a tissue sample's age means time
-      // since it was collected/extracted, a different concept entirely
-      // from the subject's biological age, tracked independently per the
+      // only state[0] gets the subject's pathology — any OTHER time points
+      // this sample has of its own (states[1+]) are left untouched. Age is
+      // NOT inherited here — a tissue sample's age means time since it was
+      // collected/extracted, a different concept entirely from the
+      // subject's biological age, and it's tracked independently per the
       // sample's own time points (see newTissueSampleState).
-      pathology: [
-        ...(state?.disease      || []),
-        ...(state?.diseaseModel || []),
-      ],
+      states: sampleStates.map((st, idx) => idx === 0 ? {
+        ...st,
+        pathology: [
+          ...(state?.disease      || []),
+          ...(state?.diseaseModel || []),
+        ],
+        // weight intentionally NOT copied — tissue weight is independent
+      } : st),
     }
   }
 
@@ -1418,23 +1422,8 @@ export default function Subjects({ form, onChange, data = {} }) {
   const addSubjectToGroup  = (gi)       => updateGroups(groups.map((g, i) => {
     if (i !== gi) return g
     const inherited = newSubject()
-    const gs = g.groupState || newGroupState()
-    // handedness is subject-level and single-valued — only prefill when
-    // the group unambiguously agrees on exactly one value, same rule the
-    // backend uses when writing it to SubjectGroupState
-    if (gs.handedness?.length === 1) {
-      inherited.handedness = gs.handedness[0]
-    }
-    const statePatch = {}
-    // ageCategory is single-valued per state — same "only if unambiguous" rule
-    if (gs.ageCategory?.length === 1) statePatch.ageCategory = gs.ageCategory[0]
-    if (gs.attribute?.length) statePatch.subjectAttribute = gs.attribute
-    if (gs.pathology?.length) {
-      statePatch.disease      = gs.pathology.filter(id => diseaseData.find(d => d.identifier === id))
-      statePatch.diseaseModel = gs.pathology.filter(id => diseaseModelData.find(d => d.identifier === id))
-    }
-    if (Object.keys(statePatch).length) {
-      inherited.states = [{ ...inherited.states[0], ...statePatch }]
+    if (g.groupState?.attribute?.length) {
+      inherited.states = [{ ...inherited.states[0], subjectAttribute: g.groupState.attribute }]
     }
     return { ...g, subjects: [...g.subjects, inherited] }
   }))
@@ -1482,7 +1471,7 @@ export default function Subjects({ form, onChange, data = {} }) {
       return
     }
 
-    let nextGroups = groups.map((g, i) => {
+    const nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
       const subjects = g.subjects.map((s, j) => {
         if (j !== si) return s
@@ -1491,7 +1480,6 @@ export default function Subjects({ form, onChange, data = {} }) {
       })
       return { ...g, subjects }
     })
-    nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
     const changedSubject = nextGroups[gi].subjects[si]
     const { flatSamples, collections } = resyncLinkedTissue(changedSubject, tissueSamples, tissueCollections)
     setGroups(nextGroups)
