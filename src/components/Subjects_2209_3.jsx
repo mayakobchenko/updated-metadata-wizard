@@ -63,22 +63,6 @@ const computeAutoAge = (prevState, relativeTimeValue, relativeTimeUnit, unitsLis
   return { age: String(rounded), ageUnit: prevState.ageUnit }
 }
 
-// After a structural change (removing or duplicating a time point),
-// "previous time point" shifts for everything that comes after the
-// change — so their ages, calculated against whatever their predecessor
-// USED to be, go stale. This walks the array forward from fromIndex,
-// recalculating each state's age against its (possibly new) immediate
-// predecessor — cascading the fix through the whole rest of the chain,
-// not just the one state directly touched by the edit.
-const recalculateAgeChainFrom = (states, fromIndex, unitsList) => {
-  const result = [...states]
-  for (let i = Math.max(fromIndex, 1); i < result.length; i++) {
-    const autoAge = computeAutoAge(result[i - 1], result[i].relativeTimeValue, result[i].relativeTimeUnit, unitsList)
-    if (autoAge) result[i] = { ...result[i], ...autoAge }
-  }
-  return result
-}
-
 // ─── label style ─────────────────────────────────────────────────────────────
 
 const LABEL_STYLE = { fontSize: 11, color: '#888', marginBottom: 2 }
@@ -1254,13 +1238,7 @@ export default function Subjects({ form, onChange, data = {} }) {
     emit({ subjects: updated })
   }
   const removeSubjectState = (i, si) => {
-    const updated = subjectsData.map((s, idx) => {
-      if (idx !== i) return s
-      const nextStates = removeStateFromSubject(s, si).states
-      // everything from si onward now has a different (or no) predecessor
-      // than before the removal — recalculate their ages accordingly
-      return { ...s, states: recalculateAgeChainFrom(nextStates, si, ageUnits) }
-    })
+    const updated = subjectsData.map((s, idx) => idx === i ? removeStateFromSubject(s, si) : s)
     setSubjectData(updated)
     emit({ subjects: updated })
   }
@@ -1268,13 +1246,16 @@ export default function Subjects({ form, onChange, data = {} }) {
     const updated = subjectsData.map((s, idx) => {
       if (idx !== i) return s
       const states = s.states || []
-      const copy = { ...states[si], id: Date.now() + Math.random() }
-      const nextStates = [...states.slice(0, si + 1), copy, ...states.slice(si + 1)]
-      // the copy lands at si+1, and everything from there on (the copy
-      // itself, plus whatever used to follow the original) now has a
-      // different immediate predecessor than before — recalculate the
-      // whole rest of the chain, not just the copy in isolation
-      return { ...s, states: recalculateAgeChainFrom(nextStates, si + 1, ageUnits) }
+      const original = states[si]
+      let copy = { ...original, id: Date.now() + Math.random() }
+      // the copy always lands right after the original, so the original is
+      // now the copy's actual previous time point — recalculate the copy's
+      // age against it (same auto-calc as editing "time since previous
+      // time point" normally triggers), rather than leaving the copy's age
+      // stuck at a stale value that no longer matches its new position
+      const autoAge = computeAutoAge(original, copy.relativeTimeValue, copy.relativeTimeUnit, ageUnits)
+      if (autoAge) copy = { ...copy, ...autoAge }
+      return { ...s, states: [...states.slice(0, si + 1), copy, ...states.slice(si + 1)] }
     })
     setSubjectData(updated)
     emit({ subjects: updated })
@@ -1469,12 +1450,7 @@ export default function Subjects({ form, onChange, data = {} }) {
   const removeSubjectStateInGroup = (gi, si, stateIdx) => {
     let nextGroups = groups.map((g, i) => {
       if (i !== gi) return g
-      const subjects = g.subjects.map((s, j) => {
-        if (j !== si) return s
-        const nextStates = removeStateFromSubject(s, stateIdx).states
-        return { ...s, states: recalculateAgeChainFrom(nextStates, stateIdx, ageUnits) }
-      })
-      return { ...g, subjects }
+      return { ...g, subjects: g.subjects.map((s, j) => j === si ? removeStateFromSubject(s, stateIdx) : s) }
     })
     nextGroups = nextGroups.map((g, i) => i === gi ? recomputeGroupStateFromSubjects(g) : g)
     setGroups(nextGroups)
@@ -1487,9 +1463,11 @@ export default function Subjects({ form, onChange, data = {} }) {
       const subjects = g.subjects.map((s, j) => {
         if (j !== si) return s
         const states = s.states || []
-        const copy = { ...states[stateIdx], id: Date.now() + Math.random() }
-        const nextStates = [...states.slice(0, stateIdx + 1), copy, ...states.slice(stateIdx + 1)]
-        return { ...s, states: recalculateAgeChainFrom(nextStates, stateIdx + 1, ageUnits) }
+        const original = states[stateIdx]
+        let copy = { ...original, id: Date.now() + Math.random() }
+        const autoAge = computeAutoAge(original, copy.relativeTimeValue, copy.relativeTimeUnit, ageUnits)
+        if (autoAge) copy = { ...copy, ...autoAge }
+        return { ...s, states: [...states.slice(0, stateIdx + 1), copy, ...states.slice(stateIdx + 1)] }
       })
       return { ...g, subjects }
     })
