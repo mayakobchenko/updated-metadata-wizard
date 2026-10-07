@@ -1553,6 +1553,8 @@ if subject_metadata.get("subjectGroups"):
         has_group_state_data = bool(
             group_state_data.get("ageCategory") or
             group_state_data.get("attribute") or
+            group_state_data.get("handedness") or
+            group_state_data.get("pathology") or
             nonempty(group_state_data.get("ageMin", "")) or
             nonempty(group_state_data.get("ageMax", ""))
         )
@@ -1569,6 +1571,22 @@ if subject_metadata.get("subjectGroups"):
             if group_state_data.get("attribute"):
                 gs_node["attribute"] = as_id_list(
                     group_state_data["attribute"])
+            if group_state_data.get("pathology"):
+                gs_node["pathology"] = as_id_list(
+                    group_state_data["pathology"])
+            # handedness is single-valued on SubjectGroupState (matching how
+            # the wizard treats it per-subject, as a single-select, not a
+            # multi-select like attribute/pathology) — the wizard's group-
+            # level aggregate can legitimately show several distinct values
+            # across a group's subjects, but there's no way to represent
+            # "this group has both left- and right-handed subjects" in a
+            # single-valued property. Only set it when the group
+            # unambiguously agrees on exactly one value; skip otherwise
+            # rather than send multiple values to a field that can't hold
+            # them.
+            handedness_values = group_state_data.get("handedness") or []
+            if len(handedness_values) == 1:
+                gs_node["handedness"] = {"@id": handedness_values[0]}
 
             age_min = nonempty(group_state_data.get("ageMin", ""))
             age_max = nonempty(group_state_data.get("ageMax", ""))
@@ -1696,7 +1714,12 @@ def build_tissue_sample_instance(sample, collection_uuid=None):
             "@type":              [f"{T}TissueSampleState"],
             "lookupLabel":        label,
             "internalIdentifier": label,
-            "pathology":          [{"@id": p} for p in (st.get("pathology") or []) if p],
+            # pathology is a sample-level field in the wizard (shown once,
+            # not per time point — it's a fixed fact about the specimen,
+            # not something that varies as it's processed) — but the
+            # schema still wants it on every TissueSampleState, so the
+            # same sample-level value gets applied to each one here.
+            "pathology":          [{"@id": p} for p in (sample.get("pathology") or []) if p],
             "attribute":          as_id_list(st.get("tissueSampleAttribute") or []),
         }
         st_remarks = nonempty(st.get("additionalRemarks", ""))
@@ -1853,22 +1876,17 @@ for collection in subject_metadata.get("tissueCollections", []):
     # there's actually something to put in it — either a subject link or
     # real state data entered — so an untouched collection doesn't get an
     # empty state record.
-    def _coll_state_has_data(st):
-        return bool(
-            nonempty(st.get("weight", "")) or
-            (st.get("tissueSampleAttribute") or []) or
-            nonempty(st.get("additionalRemarks", ""))
-        )
-
-    # Age/pathology come from the inherited subject state, the SAME value
-    # for every collection state (this is what "shown once, unchangeable"
-    # means on the KG side too — the schema still wants age/pathology per
-    # TissueSampleCollectionState, so the identical inherited value gets
-    # applied to each one, rather than letting it vary per time point).
-    inherited_age = nonempty(coll_subject_state_raw.get(
-        "age", "")) if coll_subject_state_raw else None
-    inherited_age_unit = coll_subject_state_raw.get(
-        "ageUnit") if coll_subject_state_raw else None
+    # ── collection-level state (TissueSampleCollectionState) ────────────────
+    # A single aggregate state (like SubjectGroupState) — NOT a chain of
+    # independently-edited time points anymore. Built from
+    # collection.collectionState data (attribute + age range), aggregated
+    # in the wizard UI from every member sample's own states. Pathology is
+    # still inherited from the linked subject's state, and descendedFrom
+    # links to that same state when the collection is linked to one —
+    # unlike SubjectGroupState, which has no equivalent provenance concept
+    # (a subject group is just a logical grouping, not physically derived
+    # from anything, whereas a collection's samples genuinely were
+    # extracted from a subject).
     inherited_pathology = []
     if coll_subject_state_raw:
         inherited_pathology = [
@@ -1876,55 +1894,51 @@ for collection in subject_metadata.get("tissueCollections", []):
             if p
         ]
 
-    coll_states_raw = collection.get("states") or []
-    collection_studied_state = None
-    if coll_descended_from or any(_coll_state_has_data(st) for st in coll_states_raw):
-        built_coll_states = []
-        for idx, st in enumerate(coll_states_raw or [{}]):
-            coll_state_uuid = str(uuid4())
-            coll_state_label = f"{coll_id_str}_state{idx + 1}"
-            coll_state_node = {
-                "@type":              [f"{T}TissueSampleCollectionState"],
-                "lookupLabel":        coll_state_label,
-                "internalIdentifier": coll_state_label,
-                "pathology":          [{"@id": p} for p in inherited_pathology],
-                "attribute":          as_id_list(st.get("tissueSampleAttribute") or []),
-            }
-            coll_st_remarks = nonempty(st.get("additionalRemarks", ""))
-            if coll_st_remarks:
-                coll_state_node["additionalRemarks"] = coll_st_remarks
-            if inherited_age:
-                coll_state_node["age"] = {
-                    "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": inherited_age_unit or KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"},
-                    "value": normalize_numeric_value(inherited_age)
-                }
-            if nonempty(st.get("weight", "")):
-                coll_state_node["weight"] = {
-                    "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st.get("weightUnit") or KG_PREFIX + "9cf99c79-fb70-4a4d-9806-c5fe1b5687a4"},
-                    "value": normalize_numeric_value(st["weight"])
-                }
-            coll_rel_time = None
-            if idx > 0 and nonempty(st.get("relativeTimeValue", "")) and nonempty(st.get("relativeTimeUnit", "")):
-                coll_rel_time = {
-                    "@type": f"{T}QuantitativeValue",
-                    "unit":  {"@id": st["relativeTimeUnit"]},
-                    "value": normalize_numeric_value(st["relativeTimeValue"])
-                }
-            built_coll_states.append(
-                (coll_state_uuid, coll_state_node, coll_state_label, coll_rel_time))
+    coll_state_data = collection.get("collectionState") or {}
+    has_coll_state_data = bool(
+        coll_state_data.get("attribute") or
+        nonempty(coll_state_data.get("ageMin", "")) or
+        nonempty(coll_state_data.get("ageMax", ""))
+    )
 
-        coll_final_state_uuids = resolve_tissue_states(
-            built_coll_states, results, "TissueSampleCollectionState", "tissueSampleCollectionState",
-            first_state_descended_from=coll_descended_from)
-        if coll_final_state_uuids:
+    collection_studied_state = None
+    if coll_descended_from or has_coll_state_data or inherited_pathology:
+        cs_label = coll_id_str + "_state"
+        cs_node = {
+            "@type":              [f"{T}TissueSampleCollectionState"],
+            "lookupLabel":        cs_label,
+            "internalIdentifier": cs_label,
+            "pathology":          [{"@id": p} for p in inherited_pathology],
+        }
+        if coll_descended_from:
+            cs_node["descendedFrom"] = {"@id": coll_descended_from}
+        if coll_state_data.get("attribute"):
+            cs_node["attribute"] = as_id_list(coll_state_data["attribute"])
+
+        age_min = nonempty(coll_state_data.get("ageMin", ""))
+        age_max = nonempty(coll_state_data.get("ageMax", ""))
+        if age_min or age_max:
+            default_unit = KG_PREFIX + "4042a7c2-20ba-4e21-8cac-d0d2e25145f0"
+            age_range = {"@type": f"{T}QuantitativeValueRange"}
+            if age_min:
+                age_range["minValue"] = normalize_numeric_value(age_min)
+                age_range["minValueUnit"] = {
+                    "@id": coll_state_data.get("ageMinUnit") or default_unit}
+            if age_max:
+                age_range["maxValue"] = normalize_numeric_value(age_max)
+                age_range["maxValueUnit"] = {
+                    "@id": coll_state_data.get("ageMaxUnit") or default_unit}
+            cs_node["age"] = age_range
+
+        final_cs_uuid, cs_result = post_or_patch_state(
+            str(uuid4()), cs_node, cs_label, "TissueSampleCollectionState")
+        results.append({"tissueSampleCollectionState": cs_result})
+        if final_cs_uuid is not None:
             collection_studied_state = [
-                {"@id": KG_PREFIX + su} for su in coll_final_state_uuids]
-        # if coll_final_state_uuids is falsy, the failure is already
-        # reported inside resolve_tissue_states — the collection itself
-        # still gets created, just without this link, rather than blocking
-        # the whole collection
+                {"@id": KG_PREFIX + final_cs_uuid}]
+        # if final_cs_uuid is None, the failure is already reported in
+        # cs_result — the collection itself still gets created, just
+        # without this link, rather than blocking the whole collection
 
     collection_node = {
         "@type":                  [f"{T}TissueSampleCollection"],

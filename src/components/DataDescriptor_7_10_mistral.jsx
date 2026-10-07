@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Form as AntForm, Input, Select, Button, Typography, Tag } from 'antd'
-import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
+import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
-import { buildAgentPrompt, buildAgentSkillMd } from './dataDescriptorAgentPrompt'
 
 const { TextArea } = Input
 const { Option }   = Select
@@ -306,46 +305,6 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   const [summarizing,  setSummarizing]  = useState(false)
   const [summaryError, setSummaryError] = useState('')
-
-  // "Improve with your own AI agent" panel
-  const [promptText,   setPromptText]   = useState('')
-  const [promptCopied, setPromptCopied] = useState(false)
-
-  // Built on demand from the CURRENT form values, so the prompt always
-  // reflects what the user has typed so far.
-  const refreshPrompt = () => {
-    const vals = form.getFieldsValue().dataDescriptor || {}
-    const text = buildAgentPrompt({ data, values: { ...vals, title: data.dataset1?.dataTitle || vals.title } })
-    setPromptText(text)
-    return text
-  }
-
-  const copyPrompt = async () => {
-    const text = refreshPrompt()
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      // clipboard API unavailable (e.g. plain http) — fall back to a hidden textarea
-      const ta = document.createElement('textarea')
-      ta.value = text
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      document.body.removeChild(ta)
-    }
-    setPromptCopied(true)
-    setTimeout(() => setPromptCopied(false), 3000)
-  }
-
-  const downloadSkill = () => {
-    const blob = new Blob([buildAgentSkillMd()], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'SKILL.md'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
 
   // ── main sync effect — runs on mount and whenever data changes ────────
   // Uses full `data` as dep (same pattern as Dataset2) so it always runs
@@ -840,41 +799,6 @@ export default function DataDescriptor({ form, onChange, data }) {
           <TextArea autoSize={{ minRows: 3, maxRows: 10 }}
             placeholder={'1. Smith, J. et al. Title. Nature 123, 456–789 (2022). https://doi.org/…\n2. Jones, A. & Brown, B. Another paper. J. Neurosci. 40, 1234 (2021).'} />
         </Q>
-
-        {/* ══ Improve with your own AI agent ═════════════════════════════ */}
-        <div style={{
-          background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8,
-          padding: '14px 18px', marginTop: 28,
-        }}>
-          <Text strong style={{ display: 'block', marginBottom: 4 }}>
-            <RobotOutlined style={{ marginRight: 6 }} />
-            Improve your Data Descriptor with your own AI assistant
-          </Text>
-          <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
-            Copy a ready-made prompt containing what you have written so far and what a good
-            Data Descriptor looks like, then paste it into the AI assistant you normally use
-            (Claude, ChatGPT, Copilot, …). It is instructed not to invent facts and to ask you
-            for anything missing. Nothing is sent anywhere from this page, and you can still
-            review every suggestion before pasting it back.
-          </Text>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Button icon={<CopyOutlined />} onClick={copyPrompt}>
-              {promptCopied ? 'Copied!' : 'Copy prompt'}
-            </Button>
-            <Button icon={<DownloadOutlined />} onClick={downloadSkill}>
-              Download as skill (SKILL.md)
-            </Button>
-            <Button type="link" onClick={refreshPrompt}>Preview prompt</Button>
-          </div>
-          {promptText && (
-            <TextArea readOnly value={promptText} autoSize={{ minRows: 6, maxRows: 16 }}
-              style={{ marginTop: 10, fontSize: 12, fontFamily: 'monospace' }} />
-          )}
-          <Text style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', display: 'block', marginTop: 8 }}>
-            Tip: do not paste confidential or unpublished data you are not allowed to share with
-            an external AI service. Check your institution's policy first.
-          </Text>
-        </div>
 
         {/* ══ Generate ═══════════════════════════════════════════════════ */}
         <div style={{
