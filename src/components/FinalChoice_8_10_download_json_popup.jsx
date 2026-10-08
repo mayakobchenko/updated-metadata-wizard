@@ -10,22 +10,14 @@ import {
   DownloadOutlined,
 } from '@ant-design/icons'
 
-export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicketId, downloadJson, formData }) {
+export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicketId, formData }) {
 
   const [status, setStatus]             = useState(null)
   const [errorDetail, setErrorDetail]   = useState('')
   const [modalVisible, setModalVisible] = useState(false)
 
   // ── download the form data as a JSON file ─────────────────────────────────
-  // The parent (StepsWizard) owns the form data and passes `downloadJson`, which
-  // downloads the CURRENT form data in the same format that is saved to the ticket.
-  // (This component used to read a `formData` prop that was never passed, so the
-  // downloaded file was always empty.)
   const handleDownloadJson = () => {
-    if (typeof downloadJson === 'function') {
-      downloadJson()
-      return
-    }
     try {
       const dataToSave = formData || {}
       const blob       = new Blob(

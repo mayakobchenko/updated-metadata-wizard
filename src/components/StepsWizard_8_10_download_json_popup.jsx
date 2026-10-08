@@ -551,7 +551,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             saveJsonToDrive={saveJsonToDrive}
             saveJsonToZammad={saveJsonToZammad}
             getTicketId={getTicketId}
-            downloadJson={downloadJson}
           />
         )}
       </div>
