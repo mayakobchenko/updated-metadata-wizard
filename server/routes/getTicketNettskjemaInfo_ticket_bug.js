@@ -123,37 +123,22 @@ async function getZammadInfo(req, res) {
     logger.info(`Fetching Zammad info for ticket: ${ticketNumber}`)
 
     // ── search for ticket by number ───────────────────────────────────────────
-    // The ticket number must be exactly 7+ digits. Zammad's plain `query=` is a
-    // FULL-TEXT search: it also returns tickets that merely MENTION the number in
-    // their title/body (e.g. a test ticket that quotes it). So we (1) ask for an
-    // exact `number:` match and (2) verify the number on every returned ticket
-    // instead of trusting the order of the result list.
-    const cleanNumber = String(ticketNumber).trim()
-    if (!/^\d{5,}$/.test(cleanNumber)) {
-      return res.status(400).json({ error: 'TicketNumber must contain digits only' })
-    }
-    const searchUrl  = `${ZAMMAD_BASE}/api/v1/tickets/search?query=${encodeURIComponent(`number:${cleanNumber}`)}&limit=20`
+    const searchUrl  = `${ZAMMAD_BASE}/api/v1/tickets/search?query=${ticketNumber}`
     const searchResp = await fetch(searchUrl, ZAMMAD_HEADERS)
     if (!searchResp.ok) {
       throw new Error(`Error searching for ticket: ${searchResp.status}`)
     }
     const searchData = await searchResp.json()
 
-    const candidateIds = Array.isArray(searchData.tickets) ? searchData.tickets : [searchData.tickets]
-    const exactIds = candidateIds.filter(
-      id => String(searchData.assets?.Ticket?.[id]?.number) === cleanNumber
-    )
-    logger.info(`zammad search for ${cleanNumber}: candidates=${JSON.stringify(candidateIds)}, exact=${JSON.stringify(exactIds)}`)
+    const ticketId   = Array.isArray(searchData.tickets) && searchData.tickets.length > 1
+      ? searchData.tickets[0]
+      : searchData.tickets
 
-    if (exactIds.length === 0) {
-      return res.status(404).json({ error: `Ticket number ${cleanNumber} not found in Zammad` })
-    }
-    if (exactIds.length > 1) {
-      return res.status(409).json({ error: `Ticket number ${cleanNumber} matches several tickets; please contact the curation team` })
-    }
-    const ticketId   = exactIds[0]
     logger.info(`zammad ticket id : ${ticketId}`)
-    const ticketInfo = searchData.assets.Ticket[ticketId]
+    const ticketInfo = searchData.assets?.Ticket?.[ticketId]
+    if (!ticketInfo) {
+      throw new Error(`Ticket ${ticketNumber} not found in Zammad`)
+    }
 
     //const articleIds = ticketInfo.article_ids || []
     //need to sort articles ids 
@@ -161,25 +146,25 @@ async function getZammadInfo(req, res) {
     logger.info(`found articles ids in the zammad ticket : ${articleIds}`)
 
     // ── extract collab/dataset version ID from first article body ─────────────
+    let collabId         = null
     let datasetVersionId = null
 
-    // Look in the articles in order (first one usually has the Collab link) and
-    // take the first d-<uuid> found. Never log whole article bodies.
-    for (const articleId of articleIds) {
-      const articleResp = await fetch(`${ZAMMAD_BASE}/api/v1/ticket_articles/${articleId}`, ZAMMAD_HEADERS)
+    if (articleIds.length > 0) {
+      const articleUrl  = `${ZAMMAD_BASE}/api/v1/ticket_articles/${articleIds[0]}`
+      const articleResp = await fetch(articleUrl, ZAMMAD_HEADERS)
       if (!articleResp.ok) {
-        throw new Error(`Error fetching article ${articleId}: ${articleResp.status}`)
+        throw new Error(`Error fetching article: ${articleResp.status}`)
       }
       const articleData = await articleResp.json()
-      const matchCollab = (articleData.body || '').match(/d-([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/)
+      collabId          = articleData.body
+      
+      logger.info(`Extracted collab id: ${collabId}`)
+
+      const matchCollab = collabId?.match(/d-([0-9a-fA-F-]{36})/)
       if (matchCollab) {
         datasetVersionId = matchCollab[1]
-        logger.info(`Extracted datasetVersionId: ${datasetVersionId} (article ${articleId})`)
-        break
+        logger.info(`Extracted datasetVersionId: ${datasetVersionId}`)
       }
-    }
-    if (!datasetVersionId) {
-      logger.warn(`No d-<uuid> found in any of the ${articleIds.length} articles of ticket ${cleanNumber}`)
     }
 
     // ── extract nettskjema submission ID from ticket title ────────────────────
@@ -203,7 +188,7 @@ async function getZammadInfo(req, res) {
       submissionId:    submissionId,
       datasetVersionId: datasetVersionId,
       ticketId:        ticketId,          // ← internal Zammad ticket ID (integer)
-      ticketNumber:    cleanNumber,       // ← the human-readable ticket number
+      ticketNumber:    ticketNumber,      // ← the human-readable ticket number
     })
 
   } catch (error) {
