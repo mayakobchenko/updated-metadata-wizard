@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Form as AntForm, Input, Select, Button, Typography, Tag } from 'antd'
 import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
-import { buildAgentPrompt, buildAgentSkillMd } from './dataDescriptorAgentPrompt'
+import { buildAgentPrompt, detectDomain } from './dataDescriptorAgentPrompt'
+import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
 
 const { TextArea } = Input
 const { Option }   = Select
@@ -307,15 +308,23 @@ export default function DataDescriptor({ form, onChange, data }) {
   const [summarizing,  setSummarizing]  = useState(false)
   const [summaryError, setSummaryError] = useState('')
 
-  // "Improve with your own AI agent" panel
-  const [promptText,   setPromptText]   = useState('')
-  const [promptCopied, setPromptCopied] = useState(false)
+  // "Improve with your own AI assistant" panel
+  const [promptText,    setPromptText]    = useState('')
+  const [promptCopied,  setPromptCopied]  = useState(false)
+  const [folderListing, setFolderListing] = useState('')
 
   // Built on demand from the CURRENT form values, so the prompt always
   // reflects what the user has typed so far.
   const refreshPrompt = () => {
     const vals = form.getFieldsValue().dataDescriptor || {}
-    const text = buildAgentPrompt({ data, values: { ...vals, title: data.dataset1?.dataTitle || vals.title } })
+    const text = buildAgentPrompt({
+      data,
+      values: { ...vals, title: data.dataset1?.dataTitle || vals.title },
+      authors,
+      affiliations,
+      folderListing,
+      skill: SKILL_TEXTS,
+    })
     setPromptText(text)
     return text
   }
@@ -335,16 +344,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     }
     setPromptCopied(true)
     setTimeout(() => setPromptCopied(false), 3000)
-  }
-
-  const downloadSkill = () => {
-    const blob = new Blob([buildAgentSkillMd()], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'SKILL.md'
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   // ── main sync effect — runs on mount and whenever data changes ────────
@@ -841,7 +840,7 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder={'1. Smith, J. et al. Title. Nature 123, 456–789 (2022). https://doi.org/…\n2. Jones, A. & Brown, B. Another paper. J. Neurosci. 40, 1234 (2021).'} />
         </Q>
 
-        {/* ══ Improve with your own AI agent ═════════════════════════════ */}
+        {/* ══ Improve with your own AI assistant ═════════════════════════ */}
         <div style={{
           background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8,
           padding: '14px 18px', marginTop: 28,
@@ -851,28 +850,45 @@ export default function DataDescriptor({ form, onChange, data }) {
             Improve your Data Descriptor with your own AI assistant
           </Text>
           <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
-            Copy a ready-made prompt containing what you have written so far and what a good
-            Data Descriptor looks like, then paste it into the AI assistant you normally use
-            (Claude, ChatGPT, Copilot, …). It is instructed not to invent facts and to ask you
-            for anything missing. Nothing is sent anywhere from this page, and you can still
-            review every suggestion before pasting it back.
+            Copy a ready-made prompt and paste it into the AI assistant you normally use
+            (Claude, ChatGPT, Copilot, …). It contains the EBRAINS Data Descriptor guide from
+            the data curation team plus everything you have written so far, so the assistant only
+            asks for what is missing and never invents facts. Nothing is sent anywhere from this
+            page, and you review every suggestion before pasting it back.
           </Text>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+          <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Optional: paste a listing of your dataset's folders and files (names only) so the
+            assistant can help describe the file structure. On Windows run{' '}
+            <code>tree /F</code> in the data folder; on Mac/Linux <code>find . -type f</code>.
+          </Text>
+          <TextArea value={folderListing} onChange={e => setFolderListing(e.target.value)}
+            autoSize={{ minRows: 2, maxRows: 8 }}
+            placeholder="sub-01/ses-1/sub-01_ses-1_task-rest_bold.nii.gz …"
+            style={{ marginBottom: 10, fontSize: 12, fontFamily: 'monospace' }} />
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button icon={<CopyOutlined />} onClick={copyPrompt}>
               {promptCopied ? 'Copied!' : 'Copy prompt'}
             </Button>
-            <Button icon={<DownloadOutlined />} onClick={downloadSkill}>
-              Download as skill (SKILL.md)
+            <Button icon={<DownloadOutlined />} href={SKILL_ZIP_URL} download>
+              Download the skill (.zip)
             </Button>
             <Button type="link" onClick={refreshPrompt}>Preview prompt</Button>
+            {detectDomain(form.getFieldsValue().dataDescriptor || {}) === null && (
+              <Text style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+                Tip: choose a "Field of study" above to get domain-specific questions.
+              </Text>
+            )}
           </div>
           {promptText && (
             <TextArea readOnly value={promptText} autoSize={{ minRows: 6, maxRows: 16 }}
               style={{ marginTop: 10, fontSize: 12, fontFamily: 'monospace' }} />
           )}
           <Text style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', display: 'block', marginTop: 8 }}>
-            Tip: do not paste confidential or unpublished data you are not allowed to share with
-            an external AI service. Check your institution's policy first.
+            The downloadable skill is the same guide as a folder you can load into assistants that
+            support skills (e.g. Claude). Do not paste confidential or unpublished data you are not
+            allowed to share with an external AI service; check your institution's policy first.
           </Text>
         </div>
 
