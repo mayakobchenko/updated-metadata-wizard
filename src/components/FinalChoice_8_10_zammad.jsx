@@ -78,7 +78,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
     let sessionExpired = false
 
     try {
-      const kgResult = await uploadpythonKG(ticketId)
+      const kgResult = await uploadpythonKG()
 
       if (!kgResult) {
         kgErrorDetail = 'No response from the upload server.'

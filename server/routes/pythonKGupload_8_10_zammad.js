@@ -5,9 +5,9 @@ import path              from 'path'
 import { fileURLToPath } from 'url'
 import { writeFile, unlink } from 'fs/promises'
 import { randomUUID }    from 'crypto'
+import nodemailer        from 'nodemailer'
 import tokenFunctions, { SessionExpiredError } from './tokenManager.js'
 import logger            from '../logger.js'
-import { addTicketNote, emailSupport } from './zammadNotify.js'
 
 dotenv.config()
 
@@ -60,19 +60,47 @@ router.get('/hello',                       sayHello)
 router.post('/runpython',                  runPythonScript)
 router.get('/runpython/status/:jobId',     getJobStatus)
 
-// ── failure reporting ──────────────────────────────────────────────────────────
-// Every failure is (1) written as an internal note on the submission's Zammad
-// ticket (when the frontend passed ?ticketId=) and (2) e-mailed to the curators
-// through Zammad. Neither can throw, so reporting never breaks the upload flow.
-async function sendFailureNotification({ datasetTitle, datasetVersionId, errorMessage, stderr, userEmail, ticketId, ticketNumber }) {
-  const info = { reason: errorMessage, datasetTitle, datasetVersionId, userEmail, ticketNumber }
-  if (ticketId) {
-    await addTicketNote(ticketId, {
-      subject: `Upload FAILED — ${String(errorMessage).slice(0, 80)}`,
-      body: `The KG upload failed.\n\nReason: ${errorMessage}\nDataset: ${datasetTitle || '(not set)'}\nDataset version ID: ${datasetVersionId || '(missing)'}\nTime (UTC): ${new Date().toISOString()}`,
-    })
+// ── email transport — configure via env vars ──────────────────────────────────
+
+const mailer = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: process.env.GMAIL_USER ? {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  } : undefined,
+})
+
+async function sendFailureNotification({ datasetTitle, datasetVersionId, errorMessage, stderr, userEmail }) {
+  const to      = 'maya.kobchenko@medisin.uio.no'
+  const from    = process.env.GMAIL_SENDER
+  const subject = `[Metadata Wizard] Upload FAILED — ${datasetTitle || datasetVersionId || 'unknown dataset'}`
+
+  const body = `
+A metadata upload to the EBRAINS Knowledge Graph has FAILED.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dataset title:      ${datasetTitle || '(not set)'}
+Dataset version ID: ${datasetVersionId || '(not set)'}
+User email:         ${userEmail || '(not set)'}
+Timestamp:          ${new Date().toISOString()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Error:
+${errorMessage}
+
+Python stderr (last 2000 chars):
+${(stderr || '').slice(-2000)}
+  `.trim()
+
+  try {
+    await mailer.sendMail({ from, to, subject, text: body })
+    logger.info(`Failure notification sent to ${to}`)
+  } catch (mailErr) {
+    // never let email failure break the response flow
+    logger.error(`Could not send failure notification email: ${mailErr.message}`)
   }
-  await emailSupport(info, { stderr, detail: errorMessage })
 }
 
 async function sayHello(req, res) {
@@ -84,36 +112,7 @@ async function runPythonScript(req, res) {
   const datasetTitle    = jsonData?.dataset1?.dataTitle    || ''
   const datasetVersionId = jsonData?.datasetVersionId      || ''
   const userEmail       = jsonData?.contactperson?.email   || jsonData?.custodian?.email || ''
-  const ticketId        = parseInt(req.query?.ticketId, 10) || null
-  const ticketNumber    = req.query?.ticketNumber ? String(req.query.ticketNumber) : ''
   const submissionStart = Date.now()
-
-  // ── 0a. no valid dataset version ID → the Python script cannot work. Do not start
-  // a job. Instead: add a "failed because of missing UUID" note to the submission's
-  // own Zammad ticket, e-mail the curators, and tell the user.
-  if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(datasetVersionId)) {
-    logger.warn(`[submission] rejected: missing/invalid datasetVersionId ("${datasetVersionId}") for "${datasetTitle}" (ticket id: ${ticketId})`)
-    const info = {
-      reason: 'dataset version UUID (d-<uuid>) is missing - the ticket has no Collab link',
-      datasetTitle, datasetVersionId, userEmail, ticketNumber,
-    }
-    // The frontend has already saved the JSON on the ticket before starting the
-    // upload, so only a short note is added here (no second copy of the JSON).
-    const noteId = ticketId ? await addTicketNote(ticketId, {
-      subject: 'Upload FAILED — dataset version UUID missing',
-      body: 'The upload to the EBRAINS Knowledge Graph was NOT started because no dataset version ID (Collab link d-<uuid>) ' +
-            'was found in this ticket.\n\n' +
-            `Dataset: ${datasetTitle || '(not set)'}\nUser email: ${userEmail || '(not set)'}\nTime (UTC): ${new Date().toISOString()}\n\n` +
-            'The submitted metadata JSON is saved in an earlier note on this ticket. Nothing was written to the Knowledge Graph.',
-    }) : null
-    await emailSupport({ ...info, reason: `${info.reason}. ${noteId ? `Note added on ticket ${ticketId}.` : 'No note could be added on a ticket (no ticket id or Zammad error).'}` })
-    return res.status(400).json({
-      error: 'The upload to the Knowledge Graph was not started because no dataset version ID (Collab link) was found in the Zammad ticket. ' +
-             'The curators were notified' + (noteId ? ' and a note was added to the ticket.' : '; please download your JSON as a backup.'),
-      code: 'MISSING_DATASET_VERSION_ID',
-      datasetTitle,
-    })
-  }
 
   // ── 0. concurrency guard — check AND register in one synchronous step,
   // before any `await`. Splitting "check" and "register" across an await
@@ -221,7 +220,7 @@ async function runPythonScript(req, res) {
     scheduleJobCleanup(jobId)
     releaseDatasetLock()
     await cleanupTempFile()
-    await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage, stderr })
+    await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, errorMessage, stderr })
   })
 
   py.on('close', async (code) => {
@@ -238,7 +237,7 @@ async function runPythonScript(req, res) {
       logger.error(`[submission] job ${jobId} FAILED (${elapsed}s) — ${errMsg} stdout: "${stdout.slice(0, 200)}"`)
       jobs.set(jobId, { status: 'error', error: errMsg, detail: stdout.slice(0, 500) })
       scheduleJobCleanup(jobId)
-      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage: errMsg, stderr })
+      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, errorMessage: errMsg, stderr })
       return
     }
 
@@ -247,7 +246,7 @@ async function runPythonScript(req, res) {
       logger.error(`[submission] job ${jobId} FAILED (${elapsed}s) — Python error: ${parsed.error}`)
       jobs.set(jobId, { status: 'error', error: parsed.error, detail: parsed.detail || '' })
       scheduleJobCleanup(jobId)
-      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage: parsed.error, stderr })
+      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, errorMessage: parsed.error, stderr })
       return
     }
 
@@ -257,7 +256,7 @@ async function runPythonScript(req, res) {
       logger.error(`[submission] job ${jobId} FAILED (${elapsed}s) — ${errMsg}`)
       jobs.set(jobId, { status: 'error', error: errMsg })
       scheduleJobCleanup(jobId)
-      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage: errMsg, stderr })
+      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, errorMessage: errMsg, stderr })
       return
     }
 

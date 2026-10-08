@@ -163,55 +163,23 @@ async function getZammadInfo(req, res) {
     // ── extract collab/dataset version ID from first article body ─────────────
     let datasetVersionId = null
 
-    // The Collab link ("Data sharing collab: .../Collabs/d-<uuid>") is not always in
-    // the FIRST article: it can be posted later in the thread. So read ALL articles
-    // (one request via by_ticket, falling back to one request per article) and pick
-    // the best match, earliest article first:
-    //   1. a line labelled "Data sharing collab" followed by a d-<uuid>
-    //   2. any ".../Collabs/d-<uuid>" link
-    //   3. any d-<uuid>
-    // Never log whole article bodies.
-    const UUID = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
-    const tiers = [
-      new RegExp(`data\\s*sharing\\s*collab[\\s\\S]{0,300}?d-(${UUID})`, 'i'),
-      new RegExp(`Collabs/d-(${UUID})`, 'i'),
-      new RegExp(`d-(${UUID})`, 'i'),
-    ]
-
-    let articles = []
-    const byTicketResp = await fetch(`${ZAMMAD_BASE}/api/v1/ticket_articles/by_ticket/${ticketId}`, ZAMMAD_HEADERS)
-    if (byTicketResp.ok) {
-      articles = (await byTicketResp.json()).sort((x, y) => x.id - y.id)
-    } else {
-      logger.warn(`by_ticket lookup failed (${byTicketResp.status}); fetching ${articleIds.length} articles one by one`)
-      for (const articleId of articleIds) {
-        const r = await fetch(`${ZAMMAD_BASE}/api/v1/ticket_articles/${articleId}`, ZAMMAD_HEADERS)
-        if (!r.ok) throw new Error(`Error fetching article ${articleId}: ${r.status}`)
-        articles.push(await r.json())
+    // Look in the articles in order (first one usually has the Collab link) and
+    // take the first d-<uuid> found. Never log whole article bodies.
+    for (const articleId of articleIds) {
+      const articleResp = await fetch(`${ZAMMAD_BASE}/api/v1/ticket_articles/${articleId}`, ZAMMAD_HEADERS)
+      if (!articleResp.ok) {
+        throw new Error(`Error fetching article ${articleId}: ${articleResp.status}`)
+      }
+      const articleData = await articleResp.json()
+      const matchCollab = (articleData.body || '').match(/d-([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/)
+      if (matchCollab) {
+        datasetVersionId = matchCollab[1]
+        logger.info(`Extracted datasetVersionId: ${datasetVersionId} (article ${articleId})`)
+        break
       }
     }
-
-    const found = new Set()
-    for (const re of tiers) {
-      for (const art of articles) {
-        const m = (art.body || '').match(re)
-        if (m) {
-          found.add(m[1].toLowerCase())
-          if (!datasetVersionId) {
-            datasetVersionId = m[1]
-            logger.info(`Extracted datasetVersionId: ${datasetVersionId} (article ${art.id}, rule ${tiers.indexOf(re) + 1})`)
-          }
-        }
-      }
-      if (datasetVersionId) break
-    }
-    if (datasetVersionId) {
-      // other, different d-<uuid> in the thread? only warn, the labelled one wins
-      const all = new Set()
-      for (const art of articles) for (const m of (art.body || '').matchAll(new RegExp(`d-(${UUID})`, 'gi'))) all.add(m[1].toLowerCase())
-      if (all.size > 1) logger.warn(`Ticket ${cleanNumber}: ${all.size} different d-<uuid> found in the thread; using ${datasetVersionId}`)
-    } else {
-      logger.warn(`No d-<uuid> found in any of the ${articles.length} articles of ticket ${cleanNumber}`)
+    if (!datasetVersionId) {
+      logger.warn(`No d-<uuid> found in any of the ${articleIds.length} articles of ticket ${cleanNumber}`)
     }
 
     // ── extract nettskjema submission ID from ticket title ────────────────────

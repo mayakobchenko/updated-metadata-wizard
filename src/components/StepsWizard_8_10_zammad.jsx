@@ -367,9 +367,9 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const KG_POLL_INTERVAL_MS = 3000
   const KG_MAX_WAIT_MS      = 15 * 60 * 1000 // 15 min safety cap
 
-  const savePythonKG = async (ticketId) => {
+  const savePythonKG = async () => {
     const payload  = await mapDataset1OptionsToIds(formDataRef.current)
-    const startRes = await fetch(`api/python/runpython${ticketId ? `?ticketId=${encodeURIComponent(ticketId)}&ticketNumber=${encodeURIComponent(skjemaInfo?.ticketNumber || '')}` : ''}`, {
+    const startRes = await fetch('api/python/runpython', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload, null, 2),
