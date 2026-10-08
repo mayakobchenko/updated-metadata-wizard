@@ -15,7 +15,6 @@ import PopoverSave from './FinalChoice.jsx'
 import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
-import { normalizeImportedJson } from './importNormalize.js'
 
 const { Text } = Typography
 
@@ -162,19 +161,9 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return false
   }
 
-  const applyImportedJson = async () => {
+  const applyImportedJson = () => {
     if (!importPreview) return
-    // The exported JSON holds KG URLs for "type of data" and free-form values for
-    // the data standards; map them back to what the form widgets understand.
-    let dataTypes = []
-    try {
-      const res = await fetch('api/kginfo/datatypes')
-      if (res.ok) dataTypes = (await res.json()).dataTypes || []
-    } catch (e) {
-      console.warn('Could not load KG data types for import:', e.message)
-    }
-    const normalized = normalizeImportedJson(importPreview, dataTypes)
-    const merged = deepMerge(formDataRef.current, normalized)
+    const merged = deepMerge(formDataRef.current, importPreview)
     formDataRef.current = merged
     setFormData(merged)
     form.setFieldsValue(normalizeDatesForForm(merged))

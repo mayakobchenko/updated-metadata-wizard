@@ -261,24 +261,6 @@ async function runPythonScript(req, res) {
       return
     }
 
-    // ── partial upload: the script finished but skipped / failed some items (e.g.
-    // KG answered HTTP 500). This must NOT be reported as success. ───────────────
-    if (Array.isArray(parsed.failures) && parsed.failures.length > 0) {
-      const n     = parsed.failures.length
-      const lines = parsed.failures.slice(0, 10).map(f => `- ${f.where}: ${f.error}`).join('\n')
-      const more  = n > 10 ? `\n... and ${n - 10} more` : ''
-      const errMsg = `Upload INCOMPLETE: ${n} item(s) could not be written to the Knowledge Graph.\n${lines}${more}`
-      logger.error(`[submission] job ${jobId} INCOMPLETE (${elapsed}s) — ${n} failed/skipped item(s)`)
-      jobs.set(jobId, {
-        status: 'error',
-        error:  `The upload was incomplete: ${n} item(s) could not be written to the Knowledge Graph (it may have been temporarily unavailable). The curators were notified and your metadata is saved in the ticket. Please try again later.`,
-        detail: JSON.stringify(parsed.failures).slice(0, 1500),
-      })
-      scheduleJobCleanup(jobId)
-      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage: errMsg, stderr })
-      return
-    }
-
     // ── success ───────────────────────────────────────────────────────────────
     logger.info(`[submission] job ${jobId} SUCCESS (${elapsed}s) — dataset: "${datasetTitle}" | dsv: ${datasetVersionId}`)
     jobs.set(jobId, { status: 'success', result: parsed })

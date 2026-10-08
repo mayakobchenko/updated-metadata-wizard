@@ -1110,6 +1110,78 @@ def patch_dataset(dataset_uuid, dataset_attributes):
     return result
 
 
+# ── find existing Dataset first — needed to know both whether to create
+# vs patch, AND whether this is the Dataset's first version ────────────────
+
+try:
+    dataset_uuid = find_dataset_via_neighbors(dsv_id)
+    dataset_lookup_failed = False
+except KGLookupError as e:
+    print(
+        f"DEBUG could not confirm whether a parent Dataset already exists for this "
+        f"DatasetVersion — NOT creating one, to avoid a duplicate: {e}", file=sys.stderr)
+    results.append({"dataset": {
+        "error": "Could not verify whether a parent Dataset already exists, due to a KG "
+                 "connectivity issue — skipped to avoid creating a duplicate. Please retry.",
+        "skipped": True,
+    }})
+    dataset_uuid = None
+    dataset_lookup_failed = True
+
+
+def is_first_dataset_version(existing_dataset_uuid, this_dsv_uuid):
+    """
+    True when this DatasetVersion is the first (or only) one linked to its
+    parent Dataset — either the Dataset doesn't exist yet at all (about to
+    be created fresh, so this is necessarily its first version), or it
+    exists but its hasVersion list contains only this one DatasetVersion.
+    False when the Dataset already links to at least one OTHER version.
+
+    On any doubt (a lookup failure, or genuinely uncertain data) this
+    returns False rather than True — the cost of skipping an author
+    upload that should have happened is a missed opportunity the person
+    can redo; the cost of guessing True incorrectly is silently
+    overwriting the Dataset-level author list that a later, unrelated
+    version had already set correctly. Silence-on-skip is the safer
+    direction here.
+    """
+    if existing_dataset_uuid is None:
+        return True
+    try:
+        headers = {"accept": "*/*",
+                   "Authorization": "Bearer " + personal_token}
+        resp = kg_get_with_retry(
+            f"{KG_API}{existing_dataset_uuid}?stage=IN_PROGRESS", headers)
+    except KGLookupError as e:
+        print(
+            f"DEBUG could not fetch parent Dataset {existing_dataset_uuid} to check its "
+            f"version count — treating as NOT the first version, to avoid risking an "
+            f"incorrect author overwrite on uncertain data: {e}", file=sys.stderr)
+        return False
+
+    dataset_data = resp.json().get("data", {})
+    has_version = dataset_data.get(f"{V}hasVersion") or []
+    if isinstance(has_version, dict):
+        has_version = [has_version]
+    other_version_uuids = {
+        (v.get("@id") or "").rstrip("/").split("/")[-1]
+        for v in has_version
+        if (v.get("@id") or "").rstrip("/").split("/")[-1] != this_dsv_uuid
+    }
+    is_first = len(other_version_uuids) == 0
+    print(
+        f"DEBUG parent Dataset {existing_dataset_uuid} hasVersion (excluding this one): "
+        f"{other_version_uuids or '(none)'} → is_first_version={is_first}", file=sys.stderr)
+    return is_first
+
+
+if dataset_lookup_failed:
+    # Same reasoning as the lookup-failure branch above: uncertain data,
+    # skip rather than risk an incorrect author write.
+    dataset_is_first_version = False
+else:
+    dataset_is_first_version = is_first_dataset_version(dataset_uuid, dsv_id)
+
 # ── build Dataset attributes from form data ───────────────────────────────────
 # Dataset shares title, authors and custodian with DatasetVersion
 # but does NOT have description, license, embargo etc. — those live on DSV.
@@ -1125,29 +1197,27 @@ if dsv_short_title:
 if brief_summary:
     dataset_attributes["description"] = brief_summary
 """
-# authors — same list resolved above for DSV
-if valid_authors:
+# authors — same list resolved above for DSV. Only written to the Dataset
+# (as opposed to the DatasetVersion, which always gets them) when this is
+# the Dataset's first version — otherwise a later version's own author
+# list would silently overwrite whatever the first version's authors
+# already correctly set at the Dataset level.
+if valid_authors and dataset_is_first_version:
     dataset_attributes["author"] = [{"@id": a} for a in valid_authors]
+elif valid_authors:
+    print(
+        f"DEBUG NOT writing author to Dataset — this DatasetVersion is not "
+        f"the first version of its parent Dataset, so the Dataset-level "
+        f"author list (set by the first version) is left untouched",
+        file=sys.stderr)
 
 # custodian
 if custodian_url and isinstance(custodian_url, str) and custodian_url.startswith("http"):
     dataset_attributes["custodian"] = {"@id": custodian_url}
 
-# ── find existing Dataset or create new one ───────────────────────────────────
+# ── create or patch the Dataset with the attributes built above ────────────
 
-try:
-    dataset_uuid = find_dataset_via_neighbors(dsv_id)
-except KGLookupError as e:
-    print(
-        f"DEBUG could not confirm whether a parent Dataset already exists for this "
-        f"DatasetVersion — NOT creating one, to avoid a duplicate: {e}", file=sys.stderr)
-    results.append({"dataset": {
-        "error": "Could not verify whether a parent Dataset already exists, due to a KG "
-                 "connectivity issue — skipped to avoid creating a duplicate. Please retry.",
-        "skipped": True,
-    }})
-    dataset_uuid = None
-else:
+if not dataset_lookup_failed:
     if dataset_uuid:
         print(
             f"DEBUG updating existing Dataset {dataset_uuid}", file=sys.stderr)
@@ -1995,33 +2065,4 @@ if specimen_list:
 
 # ── done ──────────────────────────────────────────────────────────────────────
 
-# ── report incomplete uploads ─────────────────────────────────────────────────
-# Items the script skipped or could not write (KG 500s, lookups that could not
-# be confirmed, failed creations) are recorded in `results` as {"error": ...}.
-# Surface them at the top level so the caller can tell a COMPLETE upload from a
-# PARTIAL one instead of reporting both as success.
-
-
-def collect_failures(node, path=""):
-    found = []
-    if isinstance(node, dict):
-        err = node.get("error")
-        if err:
-            found.append({"where": path or "(root)", "error": str(err)[:300]})
-        for k, v in node.items():
-            if k in ("error", "detail"):
-                continue
-            found.extend(collect_failures(v, f"{path}/{k}" if path else k))
-    elif isinstance(node, list):
-        for i, v in enumerate(node):
-            found.extend(collect_failures(v, f"{path}[{i}]"))
-    return found
-
-
-failures = collect_failures(results)
-if failures:
-    print(f"DEBUG UPLOAD INCOMPLETE: {len(failures)} item(s) failed or were skipped",
-          file=sys.stderr)
-print(json.dumps({"results": results,
-                  "partial": bool(failures),
-                  "failures": failures}))
+print(json.dumps({"results": results}))
