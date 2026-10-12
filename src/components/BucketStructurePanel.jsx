@@ -53,7 +53,7 @@ export default function BucketStructurePanel({ datasetVersionId, onInsert, onLis
     setCopied(true); setTimeout(() => setCopied(false), 2500)
   }
 
-  const insert = () => { onInsert(text); setInserted(true) }
+  const insert = () => { onInsert({ tree: meta.tree, formats: meta.formats }); setInserted(true) }
 
   return (
     <div style={{ background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8, padding: '14px 18px', margin: '4px 0 20px' }}>
@@ -64,8 +64,8 @@ export default function BucketStructurePanel({ datasetVersionId, onInsert, onLis
       <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
         If you have already uploaded your data to your dataset's bucket, the wizard can read the
         file and folder <b>names and sizes</b> (never the contents) and draft the folder layout and
-        the table of file formats that the template asks for. Please check it and describe what
-        each file contains in the square brackets.
+        the table of file formats that the template asks for. After adding it you can edit both below:
+        describe what each file contains in the square brackets and which software created each format.
       </Text>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
@@ -95,15 +95,15 @@ export default function BucketStructurePanel({ datasetVersionId, onInsert, onLis
           {meta && (
             <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
               {meta.totals.files} files, {meta.totals.size} in {meta.bucket}
-              {meta.truncated ? ' (the bucket is larger; only the first files are shown)' : ''}. You can edit the text below.
+              {meta.truncated ? ' (the bucket is larger; only the first files are shown)' : ''}. You can edit everything after adding it below.
             </Text>
           )}
-          <TextArea value={text} onChange={e => { setText(e.target.value); onListing?.(e.target.value) }}
+          <TextArea value={text} readOnly
             autoSize={{ minRows: 8, maxRows: 24 }} wrap="off"
             style={{ fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre' }} />
           <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
             <Button icon={<ImportOutlined />} onClick={insert}>
-              {inserted ? 'Added to the description field' : 'Add to "Describe the dataset structure"'}
+              {inserted ? 'Added to the fields below' : 'Use as file structure and format table'}
             </Button>
             <Button icon={<CopyOutlined />} onClick={copy}>{copied ? 'Copied!' : 'Copy'}</Button>
           </div>

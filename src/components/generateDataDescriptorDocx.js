@@ -8,8 +8,9 @@ import {
 // static asset from /public, fetched at generation time and embedded as an
 // ImageRun (docx needs raw image bytes, not a URL).
 const LOGO_URL = '/logo.png'
-const LOGO_WIDTH  = 150
-const LOGO_HEIGHT = 64 // matches the 127x54 source aspect ratio
+// same size as the logo in the EBRAINS Data Descriptor template (3.35 cm x 1.43 cm)
+const LOGO_WIDTH  = 127
+const LOGO_HEIGHT = 54
 
 async function fetchLogoBytes() {
   try {
@@ -33,6 +34,8 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
 
   const title   = dd.title || d1.dataTitle || 'Untitled Dataset'
   const version = dd.version || '1'
+  // the running page header shows the SHORT title (the full title is the TITLE section)
+  const shortTitle = (d1.shortTitle || '').trim() || title
 
   // ── text style helpers ───────────────────────────────────────────────────
   // Sizes below are taken directly from the template's styles.xml (w:sz is
@@ -41,7 +44,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   // template is DATA DESCRIPTOR, set to 20pt per explicit request (the
   // template's own Heading 1 is 14pt).
   const mainHeading = (text) => new Paragraph({
-    spacing: { before: 0, after: 200 },
+    spacing: { before: 0, after: 60 },
     children: [new TextRun({
       text: text.toUpperCase(),
       bold: true, size: 40, font: 'Calibri', color: '000000', // 20pt
@@ -50,8 +53,8 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
 
   // Section labels (TITLE, AUTHORS, AFFILIATIONS, SUMMARY, etc.) — bold,
   // 11pt, matching the template's Heading 2 / Heading 3 styles exactly.
-  const sectionHeading = (text, { allCaps = true } = {}) => new Paragraph({
-    spacing: { before: 320, after: 120 },
+  const sectionHeading = (text, { allCaps = true, first = false } = {}) => new Paragraph({
+    spacing: { before: first ? 60 : 320, after: 120 },
     children: [new TextRun({
       text: allCaps ? text.toUpperCase() : text,
       bold: true, size: 22, font: 'Calibri', color: '000000', // 11pt
@@ -196,14 +199,54 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
     return out
   }
 
+  // ── Data Records helpers ───────────────────────────────────────────────────
+  // "  /name [description]": indentation = two spaces per folder level, the bracketed
+  // description is set smaller, as in the template.
+  const treeParagraphs = (text) => String(text).split('\n').filter(l => l.trim() !== '').map((line) => {
+    const lead = (line.match(/^ */) || [''])[0].length
+    const body = line.trim()
+    const m = body.match(/^(.*?)(?:\s*\[(.*)\])?$/)
+    const name = (m && m[1]) || body
+    const note = m && m[2]
+    const runs = [new TextRun({ text: name, size: 20, font: 'Calibri' })]
+    if (note) runs.push(new TextRun({ text: ` [${note}]`, size: 15, font: 'Calibri' }))
+    return new Paragraph({
+      spacing: { after: 20 },
+      indent: { left: Math.floor(lead / 2) * 360 },
+      children: runs,
+    })
+  })
+
+  const FORMAT_COLS = [3000, 1400, 5238]   // Format | Extension | Software used / file specification
+  const formatsTable = (rows) => {
+    const cell = (text, w, { header = false, bold = false } = {}) => new TableCell({
+      width: { size: w, type: WidthType.DXA },
+      borders: cellBorders,
+      children: String(text || '').split('\n').map(t => new Paragraph({
+        children: [new TextRun({ text: t, italics: header, bold: header || bold, size: 20, font: 'Calibri' })],
+      })),
+    })
+    const head = ['Format', 'Extension', 'Software used / file specification']
+    return new Table({
+      width: { size: FORMAT_COLS.reduce((a, b) => a + b, 0), type: WidthType.DXA },
+      columnWidths: FORMAT_COLS,
+      rows: [
+        new TableRow({ tableHeader: true, children: head.map((h, i) => cell(h, FORMAT_COLS[i], { header: true })) }),
+        ...rows.map(r => new TableRow({
+          cantSplit: true,
+          children: [cell(r.format, FORMAT_COLS[0]), cell(r.extension, FORMAT_COLS[1]), cell(r.software, FORMAT_COLS[2])],
+        })),
+      ],
+    })
+  }
+
   // ── build children ────────────────────────────────────────────────────────
   const children = []
   const push = (...items) => items.flat().filter(Boolean).forEach((i) => children.push(i))
 
   push(mainHeading('Data Descriptor'))
-  push(spacer(160))
 
-  push(sectionHeading('Title'))
+  push(sectionHeading('Title', { first: true }))
   push(...bodyLines(title))
 
   if (authorsList.length || custodianName) {
@@ -260,11 +303,23 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   }
   push(...attachmentsFor('usage'))
 
-  // DATA RECORDS
-  const hasDataRecords = dd.dataDescription || dd.results || dd.dataRepository
+  // DATA RECORDS — follows the template: (1) reduced layout of the repository, one "/entry" per
+  // line with a short description in square brackets; (2) a table of all file formats.
+  const formatRows = (dd.dataRecordsFormats || []).filter(r => r.format || r.extension || r.software)
+  const hasDataRecords = dd.dataDescription || dd.dataRecordsTree || formatRows.length ||
+    dd.results || dd.dataRepository
   if (hasDataRecords) {
     push(sectionHeading('Data Records'))
     if (dd.dataDescription) push(...bodyLines(dd.dataDescription))
+    if (dd.dataRecordsTree) {
+      push(new Paragraph({
+        spacing: { before: 120, after: 80 },
+        children: [new TextRun({ text: 'The data are stored in the following structure (incl. info on file content):', size: 22, font: 'Calibri' })],
+      }))
+      push(...treeParagraphs(dd.dataRecordsTree))
+      push(spacer(120))
+    }
+    if (formatRows.length) push(formatsTable(formatRows), spacer(160))
     if (dd.results) {
       push(subLabel('Key results'))
       push(...bodyLines(dd.results))
@@ -281,6 +336,13 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   if (dd.funding) {
     push(sectionHeading('Acknowledgements', { allCaps: false }))
     push(...bodyLines(dd.funding))
+  }
+
+  // AUTHOR CONTRIBUTIONS — one line per author ("Forename Surname: what they did")
+  if (dd.authorContributions && dd.authorContributions.trim()) {
+    push(sectionHeading('Author contributions', { allCaps: false }))
+    push(...String(dd.authorContributions).split('\n').map(l => l.trim()).filter(Boolean).map(line =>
+      new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: line, size: 22, font: 'Calibri' })] })))
   }
 
   // REFERENCES
@@ -321,7 +383,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
           },
           children: [new Paragraph({
             children: [
-              new TextRun({ text: `Title: '${title}'`, italics: true, size: 22, font: 'Calibri', color: '444444' }),
+              new TextRun({ text: `Title: '${shortTitle}'`, italics: true, size: 22, font: 'Calibri', color: '444444' }),
               new TextRun({ text: `  |  version: ${version}`, size: 22, font: 'Calibri', color: '444444' }),
             ]
           })],

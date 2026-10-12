@@ -72,10 +72,16 @@ function buildTrie(objects) {
   return root
 }
 
+// Layout used by the EBRAINS Data Descriptor template: one entry per line, each starting with "/",
+// two spaces of indentation per folder level, a short description in square brackets.
+//   /repository-root
+//     /sub-XXX
+//       /sub-XXX_slice-XXXX.tif [brain slice scan of subject XXX]
 // opts: maxFiles = files listed individually per folder before grouping,
-//       examples = example names kept per group, placeholders = add "[ ]" slots
-function renderNode(node, prefix, lines, opts) {
+//       examples = example names kept per group, placeholders = add "[ ]" slots for files
+function renderNode(node, depth, lines, opts) {
   const { maxFiles, examples, placeholders } = opts
+  const pad = '  '.repeat(depth)
   const entries = []
 
   // sibling folders with the same name pattern (sub-001, sub-002, ...) -> show one
@@ -89,10 +95,9 @@ function renderNode(node, prefix, lines, opts) {
     members.sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
     if (members.length >= 3 && members[0][0] !== dirSignature(members[0][0])) {
       const [first] = members
-      const total = members.reduce((s, m) => s + m[1].count, 0)
       entries.push({
         kind: 'dir', name: first[0], node: first[1],
-        note: `${members.length} similar folders: ${first[0]} … ${members[members.length - 1][0]}; ${total} files in total`,
+        note: `${members.length} similar folders: ${first[0]} … ${members[members.length - 1][0]}`,
       })
     } else {
       for (const [name, child] of members) entries.push({ kind: 'dir', name, node: child })
@@ -117,34 +122,29 @@ function renderNode(node, prefix, lines, opts) {
       else {
         list.slice(0, examples).forEach(f => fileEntries.push({ kind: 'file', name: f.name }))
         const bytes = list.reduce((s, f) => s + f.bytes, 0)
-        fileEntries.push({ kind: 'more', name: `… ${list.length - examples} more .${ext} files (${list.length} in total, ${humanSize(bytes)})` })
+        fileEntries.push({ kind: 'more', name: `… ${list.length - examples} more .${ext} files`, note: `${list.length} .${ext} files in total, ${humanSize(bytes)}` })
       }
     }
   }
 
-  const all = [...entries, ...fileEntries]
-  all.forEach((e, i) => {
-    const last = i === all.length - 1
-    const branch = last ? '└── ' : '├── '
-    const childPrefix = prefix + (last ? '    ' : '│   ')
+  for (const e of [...entries, ...fileEntries]) {
     if (e.kind === 'dir') {
-      const meta = e.note ? ` (${e.note})` : ` (${e.node.count} file${e.node.count === 1 ? '' : 's'})`
-      lines.push(`${prefix}${branch}${e.name}/${meta}${placeholders ? '' : ''}`)
-      renderNode(e.node, childPrefix, lines, opts)
+      lines.push(`${pad}/${e.name}${e.note ? ` [${e.note}]` : ''}`)
+      renderNode(e.node, depth + 1, lines, opts)
     } else if (e.kind === 'more') {
-      lines.push(`${prefix}${branch}${e.name}${placeholders ? ' [describe files]' : ''}`)
+      lines.push(`${pad}/${e.name} [${e.note}${placeholders ? '; describe the files' : ''}]`)
     } else {
       const known = KNOWN_FILES[e.name.toLowerCase()]
-      lines.push(`${prefix}${branch}${e.name}${known ? ` [${known}]` : (placeholders ? ' [describe file]' : '')}`)
+      lines.push(`${pad}/${e.name}${known ? ` [${known}]` : (placeholders ? ' [describe file]' : '')}`)
     }
-  })
+  }
 }
 
-export function buildTree(objects, rootLabel, options = {}) {
+export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
   const opts = { maxFiles: 8, examples: 2, placeholders: true, ...options }
   const root = buildTrie(objects)
-  const lines = [`${rootLabel}/ (${root.count} files, ${humanSize(root.bytes)})`]
-  renderNode(root, '', lines, opts)
+  const lines = [`/${rootLabel}`]
+  renderNode(root, 1, lines, opts)
   return lines.join('\n')
 }
 
@@ -158,14 +158,14 @@ export function buildFormatTable(objects) {
     byExt.set(ext, row)
   }
   return [...byExt.values()].sort((a, b) => b.files - a.files).map(r => ({
-    format: FORMAT_NAMES[r.ext] || '[format name]', extension: r.ext, files: r.files,
+    format: FORMAT_NAMES[r.ext] || '', extension: r.ext, files: r.files,
     size: humanSize(r.bytes), example: r.example,
   }))
 }
 
 export function formatTableText(rows) {
   const head = ['Format', 'Extension', 'Files', 'Size', 'Software used / file specification']
-  const body = rows.map(r => [r.format, r.extension, String(r.files), r.size, '[software / specification; e.g. ' + r.example + ']'])
+  const body = rows.map(r => [r.format || '[format name]', r.extension, String(r.files), r.size, '[software / specification; e.g. ' + r.example + ']'])
   const w = head.map((h, i) => Math.max(h.length, ...body.map(b => b[i].length)))
   const line = (cols) => cols.map((c, i) => c.padEnd(w[i])).join('  ').trimEnd()
   return [line(head), line(w.map(n => '-'.repeat(n))), ...body.map(line)].join('\n')
@@ -175,7 +175,7 @@ export function formatTableText(rows) {
 // what the data MEAN has to come from the researcher).
 export function buildSummarySentence(objects, formats, totalSize) {
   const names = formats.slice(0, 5).map(f =>
-    f.format.startsWith('[') ? `.${f.extension} files` : `${f.format} (.${f.extension})`)
+    !f.format ? `.${f.extension} files` : `${f.format} (.${f.extension})`)
   const more = formats.length > 5 ? ` and ${formats.length - 5} other format${formats.length - 5 === 1 ? '' : 's'}` : ''
   const top = new Set()
   for (const o of objects) {
@@ -190,7 +190,7 @@ export function buildSummarySentence(objects, formats, totalSize) {
 }
 
 export function describeBucket(objects, bucketName, options = {}) {
-  const tree = buildTree(objects, bucketName, options)
+  const tree = buildTree(objects, 'repository-root', options)
   const formats = buildFormatTable(objects)
   const totalBytes = objects.reduce((s, o) => s + o.bytes, 0)
   const text =

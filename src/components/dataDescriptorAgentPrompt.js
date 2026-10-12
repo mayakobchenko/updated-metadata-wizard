@@ -107,6 +107,10 @@ export function buildAgentPrompt({
     block('Methods (MATERIALS AND METHODS > Equipment, Experimental procedure, Processing)', values.methods),
     block('Software and analysis tools (MATERIALS AND METHODS > Processing & analysis)', values.software),
     block('Dataset structure and content (DATA RECORDS)', values.dataDescription),
+    block('File structure written so far (DATA RECORDS, part 1)', values.dataRecordsTree),
+    block('File format table written so far (DATA RECORDS, part 2)',
+      (values.dataRecordsFormats || []).map(r => `${r.format || '?'} | ${r.extension} | ${r.software || ''}`).join('\n')),
+    block('Author contributions (Author contributions section)', values.authorContributions),
     block('Type of data shared (from the wizard, Dataset part 1)', (data.dataset1?.optionsData || []).filter(v => typeof v === 'string' && !v.startsWith('http')).join(', ')),
     block('Usage notes (USAGE NOTES)', values.usageNotes),
     block('Limitations and caveats (USAGE NOTES)', values.limitations),
@@ -128,7 +132,7 @@ export function buildAgentPrompt({
 2. You cannot read my files. For DATA RECORDS use the folder listing below if there is one; if not, ask me to paste a folder tree (file and folder names only).
 3. NEVER invent facts, numbers, species, equipment, software versions, DOIs or references. If something is not in my answers, ask me.
 4. Keep my wording where it is already good. Write in clear, neutral, third-person scientific English and define abbreviations on first use.
-5. The wizard does not collect VERSION SPECIFICATIONS or Author contributions, so you will need to ask me for those.
+5. The wizard does not collect VERSION SPECIFICATIONS, so you will need to ask me for it. Author contributions are pre-filled with the authors only: ask me what each author did if a line has nothing after the colon.
 6. When we are done, give me: (a) the complete data-descriptor.md in ONE fenced markdown block; (b) a list of anything still missing, from the skill's validation checklist; (c) improved text for these wizard fields so I can paste them back: Summary, Methods, Software, Dataset structure and content, Usage notes, Limitations.
 
 # WHAT I HAVE ALREADY WRITTEN (from the wizard)
@@ -210,10 +214,12 @@ Anatomical information: if applicable, give the entity of the data (e.g. cell ty
     label: 'Data records',
     field: 'dataDescription',
     template: `DATA RECORDS. Describe how the data are stored, as well as their file types and content.
-1. Provide a reduced generic layout of the file repository structure displaying the storage convention. Add a one sentence summary describing the content of each (example) file in square brackets. If a (meta)data standard was followed (e.g. BIDS), include this information.
+1. Provide a reduced generic layout of the file repository structure displaying the storage convention: one entry per line starting with "/", indented two spaces per folder level. Add a one sentence summary describing the content of each (example) file in square brackets. If a (meta)data standard was followed (e.g. BIDS), include this information.
 2. List all file formats and include which software created the respective files (table: Format / Extension / Software used / file specification). If files were created manually, explain their internal structure.`,
     answers: (v) => [
       block('Data records text I have written so far', v.dataDescription),
+      block('File structure so far', v.dataRecordsTree),
+      block('File format table so far', (v.dataRecordsFormats || []).map(r => `${r.format || '?'} | ${r.extension} | ${r.software || ''}`).join('\n')),
     ],
     wantsListing: true,
     wantsRecordsGuide: true,
