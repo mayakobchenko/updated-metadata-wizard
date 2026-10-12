@@ -12,6 +12,7 @@ import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
 import mistralRoutes from './routes/mistral.js'
+import bucketRoutes from './routes/bucketStructure.js'
 import { resetFundingInProgressFlag } from './KG_utils/fetchDataFromKG.js'
 
 
@@ -53,6 +54,7 @@ app.use('/api/zammad/', zammadInfo)
 app.use('/api/python/', runpython)
 app.use('/api/drive/', driveupload)
 app.use('/api/mistral/', mistralRoutes)
+app.use('/api/bucket/', bucketRoutes)
 
 app.get('/health', (req, res) => res.status(200).send('ok'))
 app.get('/api/test', (req, res) => res.send('BACKEND_OK'))

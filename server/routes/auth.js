@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import crypto from 'crypto'
 import tokenFunctions from './tokenManager.js'
+import { createUserSession } from './userSessions.js'
 dotenv.config()
 
 const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
@@ -203,6 +204,9 @@ async function getToken(req, res) {
       access_token, expires_in,
       refresh_token, refresh_expires_in
     )
+
+    // the user's own token, kept server-side behind an HttpOnly cookie (used for read-only bucket listing)
+    createUserSession(req, res, tokenData)
 
     // ── 2. extract user info — id_token first, KG endpoint as fallback ────────
     let userInfo = null

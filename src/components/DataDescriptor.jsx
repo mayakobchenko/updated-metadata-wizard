@@ -4,6 +4,7 @@ import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, Thu
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 import { buildAgentPrompt, detectDomain } from './dataDescriptorAgentPrompt'
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
+import BucketStructurePanel from './BucketStructurePanel'
 
 const { TextArea } = Input
 const { Option }   = Select
@@ -795,6 +796,16 @@ export default function DataDescriptor({ form, onChange, data }) {
           <TextArea autoSize={{ minRows: 4, maxRows: 10 }}
             placeholder="The dataset contains spike-sorted activity. Files are provided in NWB format…" />
         </Q>
+
+        <BucketStructurePanel
+          datasetVersionId={data.datasetVersionId}
+          onListing={setFolderListing}
+          onInsert={(generatedText) => {
+            const current = form.getFieldValue(['dataDescriptor', 'dataDescription']) || ''
+            form.setFieldsValue({ dataDescriptor: { dataDescription: current.trim() ? `${current.trim()}\n\n${generatedText}` : generatedText } })
+            emitAll(authors, affiliations)
+          }}
+        />
 
         <Q label="What are the key results or findings?" name="results"
           hint="Briefly summarise the main scientific findings. Published? In which journal? (2–4 sentences)">

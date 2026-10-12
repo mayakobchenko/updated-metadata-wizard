@@ -67,11 +67,19 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
   // the template's Normal / "1) Body Text HBP" style (not bold, not enlarged).
   const bodyLines = (text) => {
     if (!text) return []
+    // lines of a file-tree / table (box-drawing characters, leading spaces or
+    // column padding) keep their layout in a monospaced font
+    const isLayout = (l) => /^[\s│├└─]*[│├└]/.test(l) || /^\S.*\/ \(\d+ files?,/.test(l) || / {3,}\S/.test(l) || /^-{3,}( +-{3,})*$/.test(l)
     return text.split('\n').filter((l) => l.trim() !== '').map((line) =>
-      new Paragraph({
-        spacing: { after: 160 },
-        children: [new TextRun({ text: line, size: 22, font: 'Calibri' })]
-      })
+      isLayout(line)
+        ? new Paragraph({
+            spacing: { after: 0 },
+            children: [new TextRun({ text: line, size: 18, font: 'Courier New' })]
+          })
+        : new Paragraph({
+            spacing: { after: 160 },
+            children: [new TextRun({ text: line, size: 22, font: 'Calibri' })]
+          })
     )
   }
 
