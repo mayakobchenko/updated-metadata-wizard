@@ -171,6 +171,24 @@ export function formatTableText(rows) {
   return [line(head), line(w.map(n => '-'.repeat(n))), ...body.map(line)].join('\n')
 }
 
+// One factual sentence for the SUMMARY (counts, formats, top-level folders only;
+// what the data MEAN has to come from the researcher).
+export function buildSummarySentence(objects, formats, totalSize) {
+  const names = formats.slice(0, 5).map(f =>
+    f.format.startsWith('[') ? `.${f.extension} files` : `${f.format} (.${f.extension})`)
+  const more = formats.length > 5 ? ` and ${formats.length - 5} other format${formats.length - 5 === 1 ? '' : 's'}` : ''
+  const top = new Set()
+  for (const o of objects) {
+    const parts = String(o.name).split('/').filter(Boolean)
+    if (parts.length > 1) top.add(parts[0])
+  }
+  const folders = [...top].sort()
+  const folderText = folders.length
+    ? `, organised in ${folders.length} top-level folder${folders.length === 1 ? '' : 's'} (${folders.slice(0, 6).join(', ')}${folders.length > 6 ? ', …' : ''})`
+    : ''
+  return `The shared data comprise ${objects.length} file${objects.length === 1 ? '' : 's'} (${totalSize}) in ${formats.length} file format${formats.length === 1 ? '' : 's'}: ${names.join(', ')}${more}${folderText}.`
+}
+
 export function describeBucket(objects, bucketName, options = {}) {
   const tree = buildTree(objects, bucketName, options)
   const formats = buildFormatTable(objects)
@@ -178,5 +196,10 @@ export function describeBucket(objects, bucketName, options = {}) {
   const text =
     'The data are stored in the following structure (incl. info on file content):\n\n' + tree +
     '\n\nFile formats:\n\n' + formatTableText(formats)
-  return { tree, formats, text, totals: { files: objects.length, bytes: totalBytes, size: humanSize(totalBytes) } }
+  const size = humanSize(totalBytes)
+  return {
+    tree, formats, text,
+    summarySentence: buildSummarySentence(objects, formats, size),
+    totals: { files: objects.length, bytes: totalBytes, size },
+  }
 }

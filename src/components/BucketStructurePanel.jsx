@@ -8,7 +8,7 @@ const UUID_RE = /^(d-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 // Reads (names and sizes only) the files the user has uploaded to the dataset's
 // EBRAINS bucket and drafts the "file structure" part of DATA RECORDS.
-export default function BucketStructurePanel({ datasetVersionId, onInsert, onListing }) {
+export default function BucketStructurePanel({ datasetVersionId, onInsert, onListing, onResult }) {
   const [uuid,      setUuid]      = useState(datasetVersionId || '')
   const [token,     setToken]     = useState('')
   const [showToken, setShowToken] = useState(false)
@@ -39,7 +39,8 @@ export default function BucketStructurePanel({ datasetVersionId, onInsert, onLis
       }
       setText(body.text)
       setMeta(body)
-      onListing?.(body.text)          // also feeds the "AI assistant" prompt
+      onListing?.(body.text)          // also feeds the "AI assistant" prompts
+      onResult?.(body)
     } catch {
       setError({ error: 'Could not reach the wizard server. Please try again.' })
     } finally {

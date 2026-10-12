@@ -26,7 +26,7 @@ async function fetchLogoBytes() {
 // institutions by DataDescriptor.jsx — this file must NOT recompute author
 // names from fullData.contribution.authors itself, since those only hold
 // raw KG URLs, not resolved names).
-export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
+export async function generateDataDescriptorDocx({ fullData = {}, figures = [], ...dd }) {
   const d1   = fullData.dataset1      || {}
   const cust = fullData.custodian     || {}
   const cont = fullData.contactperson || {}
@@ -131,6 +131,71 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     )
   }
 
+  // ── figures and tables uploaded in the wizard ───────────────────────────
+  // Tables get their caption ABOVE, figures BELOW (usual journal convention).
+  const CONTENT_WIDTH_PX = 560      // A4 minus margins, at 96 dpi, with a little room
+  const MAX_FIGURE_HEIGHT_PX = 640
+  const CONTENT_WIDTH_DXA = 9638
+  const base64ToBytes = (dataUrl) => {
+    const bin = atob(String(dataUrl).split(',')[1] || '')
+    const out = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+    return out
+  }
+  const captionPara = (label, caption) => new Paragraph({
+    spacing: { before: 60, after: 200 },
+    children: [
+      new TextRun({ text: `${label}. `, bold: true, size: 20, font: 'Calibri' }),
+      new TextRun({ text: caption || '', size: 20, font: 'Calibri' }),
+    ],
+  })
+  const thin = { style: BorderStyle.SINGLE, size: 4, color: '999999' }
+  const cellBorders = { top: thin, bottom: thin, left: thin, right: thin }
+  const tableBlocks = (rows, label, caption) => {
+    const cols = Math.max(...rows.map(r => r.length), 1)
+    const w = Math.floor(CONTENT_WIDTH_DXA / cols)
+    const table = new Table({
+      width: { size: w * cols, type: WidthType.DXA },
+      columnWidths: Array(cols).fill(w),
+      rows: rows.map((r, ri) => new TableRow({
+        tableHeader: ri === 0,
+        children: Array.from({ length: cols }, (_, ci) => new TableCell({
+          width: { size: w, type: WidthType.DXA },
+          borders: cellBorders,
+          children: [new Paragraph({ children: [new TextRun({ text: String(r[ci] ?? ''), bold: ri === 0, size: 18, font: 'Calibri' })] })],
+        })),
+      })),
+    })
+    return [
+      new Paragraph({ spacing: { before: 160, after: 60 }, keepNext: true, children: [
+        new TextRun({ text: `${label}. `, bold: true, size: 20, font: 'Calibri' }),
+        new TextRun({ text: caption || '', size: 20, font: 'Calibri' })] }),
+      table,
+      spacer(160),
+    ]
+  }
+  const figureBlocks = (img, label, caption) => {
+    let width = Math.min(CONTENT_WIDTH_PX, img.width || CONTENT_WIDTH_PX)
+    let height = Math.round(width * (img.height || 1) / (img.width || 1))
+    if (height > MAX_FIGURE_HEIGHT_PX) { height = MAX_FIGURE_HEIGHT_PX; width = Math.round(height * (img.width || 1) / (img.height || 1)) }
+    return [
+      new Paragraph({ spacing: { before: 160, after: 40 }, keepNext: true, children: [
+        new ImageRun({ type: img.type === 'png' ? 'png' : 'jpg', data: base64ToBytes(img.dataUrl), transformation: { width, height } })] }),
+      captionPara(label, caption),
+    ]
+  }
+  // everything the researcher attached for one placement, numbered per kind in list order
+  const attachmentsFor = (placement) => {
+    const out = []
+    figures.filter(f => f.placement === placement).forEach((f) => {
+      const same = figures.filter(x => x.kind === f.kind)
+      const label = `${f.kind === 'table' ? 'Table' : 'Figure'} ${same.indexOf(f) + 1}`
+      out.push(...(f.kind === 'table' && f.rows ? tableBlocks(f.rows, label, f.caption)
+        : f.image ? figureBlocks(f.image, label, f.caption) : []))
+    })
+    return out
+  }
+
   // ── build children ────────────────────────────────────────────────────────
   const children = []
   const push = (...items) => items.flat().filter(Boolean).forEach((i) => children.push(i))
@@ -167,6 +232,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
     push(sectionHeading('Summary'))
     push(...bodyLines(summaryText))
   }
+  push(...attachmentsFor('summary'))
 
   push(sectionHeading('Version specifications:'))
   push(...bodyLines(`This is version ${version} of this dataset.`))
@@ -181,6 +247,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
       push(...bodyLines(dd.software))
     }
   }
+  push(...attachmentsFor('methods'))
 
   // USAGE NOTES
   if (dd.usageNotes || dd.limitations) {
@@ -191,24 +258,12 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
       push(...bodyLines(dd.limitations))
     }
   }
+  push(...attachmentsFor('usage'))
 
   // DATA RECORDS
-  const hasDataRecords = dd.dataType || dd.fieldOfStudy || dd.studyType ||
-    dd.dataDescription || dd.results || dd.dataRepository
+  const hasDataRecords = dd.dataDescription || dd.results || dd.dataRepository
   if (hasDataRecords) {
     push(sectionHeading('Data Records'))
-    if (dd.dataType) {
-      push(subLabel('Data type'))
-      push(...bodyLines(dd.dataType))
-    }
-    if (dd.fieldOfStudy) {
-      push(subLabel('Field of study'))
-      push(...bodyLines(dd.fieldOfStudy))
-    }
-    if (dd.studyType) {
-      push(subLabel('Type of study'))
-      push(...bodyLines(dd.studyType))
-    }
     if (dd.dataDescription) push(...bodyLines(dd.dataDescription))
     if (dd.results) {
       push(subLabel('Key results'))
@@ -219,6 +274,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, ...dd }) {
       push(...bodyLines(dd.dataRepository))
     }
   }
+  push(...attachmentsFor('records'))
 
   // ACKNOWLEDGEMENTS — kept in title case, matching the template (the one
   // section header that is NOT rendered in all caps).

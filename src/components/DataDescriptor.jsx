@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Form as AntForm, Input, Select, Button, Typography, Tag } from 'antd'
-import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, ThunderboltOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
+import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
-import { buildAgentPrompt, detectDomain } from './dataDescriptorAgentPrompt'
+import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
 import BucketStructurePanel from './BucketStructurePanel'
+import SectionAiHelper from './SectionAiHelper'
+import AiKeyButton from './AiKeyButton'
+import FiguresTablesPanel from './FiguresTablesPanel'
+import { getFigures } from './figuresStore'
 
 const { TextArea } = Input
-const { Option }   = Select
 const { Text }     = Typography
 
 const EXTRA = { fontSize: 12, color: 'rgba(0,0,0,0.45)' }
@@ -54,11 +57,11 @@ const SectionHeading = ({ number, title }) => (
 // makes React treat it as a different component type and remount the
 // underlying <input>/<textarea> on every keystroke — causing focus loss
 // after a single character typed.
-const Q = ({ label, name, hint, required, prefilled, children }) => (
+const Q = ({ label, name, hint, required, prefilled, rules, children }) => (
   <AntForm.Item
     label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
     name={['dataDescriptor', name]}
-    rules={required ? [{ required: true, message: `Please fill in "${label}".` }] : []}
+    rules={[...(required ? [{ required: true, message: `Please fill in "${label}".` }] : []), ...(rules || [])]}
     extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
   >
     {prefilled && <PrefilledHint />}
@@ -66,20 +69,45 @@ const Q = ({ label, name, hint, required, prefilled, children }) => (
   </AntForm.Item>
 )
 
-const FIELDS_OF_STUDY = [
-  'Neuroimaging', 'Electrophysiology', 'Anatomy / Neuroanatomy',
-  'Behavioural neuroscience', 'Computational neuroscience',
-  'Cellular / molecular neuroscience', 'Systems neuroscience',
-  'Clinical neuroscience', 'Cognitive neuroscience', 'Other',
-]
-
-const STUDY_TYPES = [
-  'Animal study (in vivo)', 'Human study (in vivo)', 'In vitro',
-  'In silico / computational', 'Post-mortem / histology',
-  'Clinical / patient study', 'Multimodal', 'Other',
-]
-
 // ── helpers ────────────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const SUMMARY_MAX_WORDS = 220
+export const countWords = (t) => (String(t || '').trim().match(/\S+/g) || []).length
+
+// "experimental, raw and derived data" from the Dataset part 1 check boxes (labels only)
+function dataTypePhrase(options = []) {
+  const map = { 'Experimental data': 'experimental', 'Simulated data': 'simulated', 'Raw data': 'raw', 'Derived data': 'derived' }
+  const words = options.map(o => map[o]).filter(Boolean)
+  if (!words.length) return ''
+  const joined = words.length > 1 ? `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}` : words[0]
+  return `${joined} data`
+}
+
+// "Forename Surname: email" lines (older saved data) -> [{ name, email }]
+export function parseCorrespondingAuthors(text) {
+  return String(text || '').split(/\n|;/).map(l => l.trim()).filter(Boolean).map(line => {
+    const i = line.indexOf(':')
+    if (i > -1) return { name: line.slice(0, i).trim(), email: line.slice(i + 1).trim() }
+    return line.includes('@') ? { name: '', email: line } : { name: line, email: '' }
+  })
+}
+export const formatCorrespondingAuthors = (list) =>
+  list.filter(a => a.name || a.email).map(a => [a.name, a.email].filter(Boolean).join(': ')).join('\n')
+
+// The data custodian is the corresponding author (template); the contact person is added if different.
+function prefillCorrespondingAuthors(data) {
+  const out = []
+  for (const p of [data.custodian, data.contactperson]) {
+    if (!p) continue
+    const name = `${p.firstName || ''} ${p.familyName || ''}`.trim()
+    const email = (p.email || '').trim()
+    if (!name && !email) continue
+    if (email && out.some(o => o.email.toLowerCase() === email.toLowerCase())) continue
+    out.push({ name, email })
+  }
+  return out
+}
 
 function buildSubjectSummary(subj) {
   if (!subj) return ''
@@ -198,31 +226,19 @@ function computeFieldValues(data) {
   return {
     title,   // always from Dataset1, not from dd.title
 
-    correspondingAuthor: pf(dd.correspondingAuthor, (() => {
-      const name  = `${cont.firstName || ''} ${cont.familyName || ''}`.trim()
-      const email = cont.email || ''
-      return [name, email].filter(Boolean).join(': ')
-    })()),
-
-    dataType: pf(dd.dataType, (() => {
-      const vals = d1.optionsData || []
-      return vals.map(v =>
-        typeof v === 'string' && v.startsWith('http') ? v.split('/').pop() : v
-      ).join(', ')
-    })()),
-
-    fieldOfStudy:      dd.fieldOfStudy      || '',
-    studyType:         dd.studyType         || '',
-
     whatAreTheData: pf(dd.whatAreTheData, (() => {
+      const types = dataTypePhrase(d1.optionsData || [])
       const s = buildSubjectSummary(subj)
+      if (types && s) return `This dataset contains ${types} from ${s}.`
+      if (types)      return `This dataset contains ${types}.`
       return s ? `This dataset contains data from ${s}.` : ''
     })()),
 
     scientificContext: dd.scientificContext  || '',
     motivation:        dd.motivation        || '',
     hypothesis:        dd.hypothesis        || '',
-    summary:           dd.summary           || '',
+    // the brief summary from Dataset part 1 is the starting point
+    summary:           pf(dd.summary, d1.briefSummary),
     methods:           dd.methods           || '',
 
     software: pf(dd.software, (() => {
@@ -258,9 +274,8 @@ function computeAutoPopulated(data) {
   const dd   = data.dataDescriptor  || {}
   const no   = (k) => !dd[k] || dd[k] === ''
   return {
-    correspondingAuthor: no('correspondingAuthor') && !!(cont.firstName || cont.email),
-    dataType:            no('dataType')            && !!(d1.optionsData?.length),
-    whatAreTheData:      no('whatAreTheData')      && !!buildSubjectSummary(subj),
+    whatAreTheData:      no('whatAreTheData')      && !!(dataTypePhrase(d1.optionsData || []) || buildSubjectSummary(subj)),
+    summary:             no('summary')             && !!d1.briefSummary,
     software:            no('software')            && !!(exp.techniques?.length || exp.preparationTypes?.length),
     dataDescription:     no('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
     dataRepository:      no('dataRepository')      && !!(d2.Data2UrlDoiRepo || d2.homePage),
@@ -306,8 +321,17 @@ export default function DataDescriptor({ form, onChange, data }) {
   const [generated,  setGenerated]  = useState(false)
   const [genError,   setGenError]   = useState('')
 
-  const [summarizing,  setSummarizing]  = useState(false)
-  const [summaryError, setSummaryError] = useState('')
+  // corresponding authors: the template wants name AND email for each. Older saved data only
+  // has the text form "Name: email", which is parsed here.
+  const [corrAuthors, setCorrAuthors] = useState(() => {
+    if (Array.isArray(dd.correspondingAuthors) && dd.correspondingAuthors.length) return dd.correspondingAuthors
+    const parsed = parseCorrespondingAuthors(dd.correspondingAuthor)
+    return parsed.length ? parsed : prefillCorrespondingAuthors(data)
+  })
+  const corrRef = useRef(corrAuthors)
+  const [showCorrErrors, setShowCorrErrors] = useState(false)
+  const [bucketResult, setBucketResult] = useState(null)
+  const [keyHint, setKeyHint] = useState(false)
 
   // "Improve with your own AI assistant" panel
   const [promptText,    setPromptText]    = useState('')
@@ -412,6 +436,19 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   const autoPopulated = computeAutoPopulated(data)
 
+  // corresponding authors arriving later (JSON import, custodian filled in earlier steps)
+  useEffect(() => {
+    if (!corrRef.current.every(c => !c.name && !c.email)) return
+    const incoming = Array.isArray(dd.correspondingAuthors) && dd.correspondingAuthors.length
+      ? dd.correspondingAuthors
+      : (parseCorrespondingAuthors(dd.correspondingAuthor).length
+        ? parseCorrespondingAuthors(dd.correspondingAuthor) : prefillCorrespondingAuthors(data))
+    if (!incoming.length) return
+    corrRef.current = incoming
+    setCorrAuthors(incoming)
+    emitAll(authors, affiliations)
+  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── emit all changes upward ───────────────────────────────────────────
   const emitAll = (newAuthors, newAffs, formVals, extra = {}) => {
     const vals = formVals !== undefined
@@ -427,6 +464,8 @@ export default function DataDescriptor({ form, onChange, data }) {
         // no manual add/remove anymore, so there's nothing to carry forward
         // for them; removedAffiliationIds is still needed since
         // affiliations keep their add/remove UI.
+        correspondingAuthors: corrRef.current,
+        correspondingAuthor:  formatCorrespondingAuthors(corrRef.current),
         affiliationsAutoGenerated: dd.affiliationsAutoGenerated,
         removedAffiliationIds:     dd.removedAffiliationIds || [],
         authors:           newAuthors,
@@ -477,53 +516,54 @@ export default function DataDescriptor({ form, onChange, data }) {
     setAffiliations(next); emitAll(authors, next, undefined, { affiliationsAutoGenerated: false })
   }
 
-  // Calls the backend, which calls Mistral server-side (the API key never
-  // reaches the browser). Sends the researcher's own answers so far — the
-  // model is instructed not to invent facts, only combine what's given.
-  const generateSummary = async () => {
-    setSummaryError('')
-    const vals = form.getFieldsValue().dataDescriptor || {}
-    const payload = {
-      title:             data.dataset1?.dataTitle || vals.title || '',
-      briefSummary:      data.dataset1?.briefSummary || '',
-      whatAreTheData:    vals.whatAreTheData || '',
-      scientificContext: vals.scientificContext || '',
-      motivation:        vals.motivation || '',
-      hypothesis:        vals.hypothesis || '',
-    }
+  // ── corresponding author handlers ───────────────────────────────────────
+  const changeCorrAuthors = (next) => {
+    corrRef.current = next
+    setCorrAuthors(next)
+    emitAll(authors, affiliations)
+  }
+  const updateCorrAuthor = (i, patch) => changeCorrAuthors(corrAuthors.map((c, idx) => idx === i ? { ...c, ...patch } : c))
+  const addCorrAuthor    = () => changeCorrAuthors([...corrAuthors, { name: '', email: '' }])
+  const removeCorrAuthor = (i) => changeCorrAuthors(corrAuthors.filter((_, idx) => idx !== i))
+  const corrProblem = (c) => {
+    if (!c.name.trim()) return 'Please enter the name.'
+    if (!c.email.trim()) return 'Please enter the email address.'
+    if (!EMAIL_RE.test(c.email.trim())) return 'This email address does not look valid.'
+    return ''
+  }
+  const corrAuthorsValid = corrAuthors.length > 0 && corrAuthors.every(c => !corrProblem(c))
 
-    setSummarizing(true)
-    try {
-      const res = await fetch('/api/mistral/generate-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const result = await res.json()
-      if (!res.ok) {
-        setSummaryError(result.error || 'Could not generate a summary — please try again.')
-        return
-      }
-      form.setFieldValue(['dataDescriptor', 'summary'], result.summary)
-      emitAll(authors, affiliations, { ...vals, summary: result.summary })
-    } catch (err) {
-      console.error('generateSummary failed:', err)
-      setSummaryError('Could not reach the server — please try again.')
-    } finally {
-      setSummarizing(false)
-    }
+  // text of the current answers for the per-section AI prompts
+  const sectionPrompt = (key) => buildSectionPrompt(key, {
+    data,
+    values: { ...(form.getFieldsValue().dataDescriptor || {}), title: data.dataset1?.dataTitle },
+    folderListing,
+    skill: SKILL_TEXTS,
+  })
+  const useSectionText = (field, text) => {
+    form.setFieldValue(['dataDescriptor', field], text)
+    emitAll(authors, affiliations)
   }
 
   const handleGenerate = async () => {
     setGenError('')
     const requiredFields = [
-      'fieldOfStudy', 'whatAreTheData', 'scientificContext',
+      'whatAreTheData', 'scientificContext', 'summary',
       'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes',
     ]
+    setShowCorrErrors(true)
+    if (!corrAuthorsValid) {
+      setGenError('Please give the name and a valid email address of every corresponding author.')
+      return
+    }
     try {
       await form.validateFields(requiredFields.map((f) => ['dataDescriptor', f]))
     } catch {
-      setGenError('Please fill in all required fields (marked with *) before generating.')
+      setGenError('Please fill in all required fields (marked with *) before generating. The summary can have at most 220 words.')
+      return
+    }
+    if (getFigures().some(f => !f.caption.trim())) {
+      setGenError('Every figure and table needs a caption.')
       return
     }
     setGenerating(true)
@@ -532,8 +572,10 @@ export default function DataDescriptor({ form, onChange, data }) {
       await generateDataDescriptorDocx({
         ...ddData,
         title:             data.dataset1?.dataTitle || ddData.title,
+        correspondingAuthor: formatCorrespondingAuthors(corrRef.current),
         authors,
         affiliations_list: affiliations,
+        figures:           getFigures(),
         fullData:          data,
       })
       setGenerated(true)
@@ -573,6 +615,7 @@ export default function DataDescriptor({ form, onChange, data }) {
               pre-filled
             </Tag>{' '}
             were automatically populated from your other wizard answers. Click <strong>Generate</strong> to download a formatted Word document.
+            {' '}You may upload tables and figures (with captions) for improved readability where you see fit.
           </Text>
         </div>
       </div>
@@ -612,11 +655,42 @@ export default function DataDescriptor({ form, onChange, data }) {
           </div>
         </AntForm.Item>
 
-        <Q label="Corresponding author / contact" name="correspondingAuthor"
-          hint="Name and email of the person to contact regarding this dataset."
-          prefilled={autoPopulated.correspondingAuthor}>
-          <Input placeholder="e.g. Jane Smith: jane.smith@university.edu" />
-        </Q>
+        {/* ── Corresponding authors: name AND email required for each ───── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 2 }}>
+            <span style={{ fontWeight: 500, fontSize: 14 }}>
+              <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>Corresponding author(s)
+            </span>
+          </div>
+          <span style={EXTRA}>
+            The corresponding author is the person with the most detailed knowledge about the data and
+            the contact for questions about it. The data custodian should always be listed; you may add
+            more people. Name and email are required for each.
+          </span>
+          {corrAuthors.map((c, i) => {
+            const problem = showCorrErrors ? corrProblem(c) : ''
+            return (
+              <div key={i} style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <Input value={c.name} onChange={e => updateCorrAuthor(i, { name: e.target.value })}
+                    placeholder="Forename Surname" style={{ flex: '1 1 40%' }}
+                    status={showCorrErrors && !c.name.trim() ? 'error' : ''} />
+                  <Input value={c.email} onChange={e => updateCorrAuthor(i, { email: e.target.value })}
+                    onBlur={() => setShowCorrErrors(true)}
+                    placeholder="email@address" style={{ flex: '1 1 50%' }}
+                    status={showCorrErrors && (!c.email.trim() || !EMAIL_RE.test(c.email.trim())) ? 'error' : ''} />
+                  <Button size="small" type="text" danger icon={<DeleteOutlined />}
+                    disabled={corrAuthors.length <= 1} onClick={() => removeCorrAuthor(i)} />
+                </div>
+                {problem && <div style={{ color: '#d32f2f', fontSize: 12, marginTop: 2 }}>{problem}</div>}
+              </div>
+            )
+          })}
+          <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addCorrAuthor}
+            style={{ marginTop: 8, width: '30%' }}>
+            Add corresponding author
+          </Button>
+        </div>
 
         {/* ── Authors ──────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 20 }}>
@@ -690,38 +764,15 @@ export default function DataDescriptor({ form, onChange, data }) {
           </Button>
         </div>
 
-        {/* ══ 2. Dataset identity ════════════════════════════════════════ */}
-        <SectionHeading number="2" title="Dataset identity" />
-
-        <Q label="What type of data do you share?" name="dataType"
-          hint="e.g. experimental data, raw recordings, derived/analysed data, software."
-          prefilled={autoPopulated.dataType}>
-          <Input placeholder="e.g. Experimental electrophysiological recordings (raw and spike-sorted)" />
-        </Q>
-
-        <Q label="Field of study" name="fieldOfStudy"
-          hint="Select the primary scientific domain of this dataset." required>
-          <Select placeholder="Select field of study" style={{ width: '100%' }}>
-            {FIELDS_OF_STUDY.map(f => <Option key={f} value={f}>{f}</Option>)}
-          </Select>
-        </Q>
-
-        <Q label="Type of study" name="studyType"
-          hint="What kind of experimental or computational approach was used?">
-          <Select placeholder="Select study type" style={{ width: '100%' }}>
-            {STUDY_TYPES.map(s => <Option key={s} value={s}>{s}</Option>)}
-          </Select>
-        </Q>
+        {/* ══ 2. Summary (was "Dataset identity" + "Scientific context") ══ */}
+        <SectionHeading number="2" title="Summary" />
 
         <Q label="What are the data?" name="whatAreTheData"
-          hint='Start with "This dataset contains…". Describe modality, number of subjects/samples, species. (1–3 sentences)'
+          hint='Start with "This dataset contains…". Describe the type of data, modality, number of subjects/samples, species. (1–3 sentences)'
           required prefilled={autoPopulated.whatAreTheData}>
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="This dataset contains electrophysiological recordings from 10 freely behaving rats…" />
+            placeholder="This dataset contains experimental and raw electrophysiological recordings from 10 freely behaving rats…" />
         </Q>
-
-        {/* ══ 3. Scientific context ══════════════════════════════════════ */}
-        <SectionHeading number="3" title="Scientific context" />
 
         <Q label="What is the scientific background and context?" name="scientificContext"
           hint="What is the broader field of research? What was already known? Why is this area important? (2–4 sentences)"
@@ -743,35 +794,36 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder="We hypothesised that attention-like modulation of theta sweeps would be observable…" />
         </Q>
 
-        <div style={{ marginBottom: 20 }}>
-          <AntForm.Item
-            label={
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-              }}>
-                <span>Summary</span>
-                <Button size="small" icon={<ThunderboltOutlined />}
-                  loading={summarizing} onClick={generateSummary}>
-                  Generate with AI
-                </Button>
-              </div>
-            }
-            name={['dataDescriptor', 'summary']}
-            extra={<span style={EXTRA}>
-              A short paragraph combining your answers above into one flowing summary. Optional —
-              if left empty, the generated Data Descriptor will build one automatically from your answers.
-            </span>}
-          >
-            <TextArea autoSize={{ minRows: 3, maxRows: 8 }}
-              placeholder='Click "Generate with AI" to draft a summary from your answers above, or write your own.' />
-          </AntForm.Item>
-          {summaryError && (
-            <div style={{ color: '#d32f2f', fontSize: 12, marginTop: -12 }}>{summaryError}</div>
-          )}
-        </div>
+        <Q label="Summary" name="summary" prefilled={autoPopulated.summary} required
+          hint="Maximum 220 words, no references. Summarise the content, provenance and usage potential of the shared data (subjects, methods and materials, study targets, how the data could be reused). Describe the shared data, not the research results, in a way that any scientist can understand."
+          rules={[{
+            validator: (_, v) => countWords(v) <= SUMMARY_MAX_WORDS
+              ? Promise.resolve()
+              : Promise.reject(new Error(`The summary has ${countWords(v)} words; the maximum is ${SUMMARY_MAX_WORDS}.`)),
+          }]}>
+          <TextArea autoSize={{ minRows: 5, maxRows: 14 }}
+            showCount={{ formatter: ({ value }) => `${countWords(value)} / ${SUMMARY_MAX_WORDS} words` }}
+            placeholder="Write one sentence about the origin of the dataset, one or two giving an overview of the data, one or two on methods and materials, and one on reusability." />
+        </Q>
+        {bucketResult?.summarySentence && (
+          <div style={{ margin: '-8px 0 12px' }}>
+            <Button size="small" onClick={() => {
+              const cur = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
+              useSectionText('summary', cur ? `${cur} ${bucketResult.summarySentence}` : bucketResult.summarySentence)
+            }}>
+              Add a sentence about the files (from the file structure below)
+            </Button>
+            <Text style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', marginLeft: 8 }}>
+              Only counts, formats and folder names: please add what the data mean yourself.
+            </Text>
+          </div>
+        )}
+        <SectionAiHelper label="the Summary" buildPrompt={() => sectionPrompt('summary')}
+          onUse={(t) => useSectionText('summary', t)} onNeedKey={() => setKeyHint(true)} />
+        {keyHint && <div style={{ margin: '-10px 0 14px' }}><AiKeyButton /></div>}
 
-        {/* ══ 4. Methods ═════════════════════════════════════════════════ */}
-        <SectionHeading number="4" title="Methods" />
+        {/* ══ 3. Methods ═════════════════════════════════════════════════ */}
+        <SectionHeading number="3" title="Methods" />
 
         <Q label="What methods were used to acquire the data?" name="methods"
           hint="Describe the experimental setup, equipment, recording parameters, and preprocessing."
@@ -779,6 +831,8 @@ export default function DataDescriptor({ form, onChange, data }) {
           <TextArea autoSize={{ minRows: 4, maxRows: 12 }}
             placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia…" />
         </Q>
+        <SectionAiHelper label="Materials and methods" buildPrompt={() => sectionPrompt('methods')}
+          onUse={(t) => useSectionText('methods', t)} onNeedKey={() => setKeyHint(true)} />
 
         <Q label="What software and analysis tools were used?" name="software"
           hint="List key software packages, toolboxes, or custom scripts (with versions if known)."
@@ -787,8 +841,8 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder="Kilosort 2.5 (spike sorting), MATLAB R2021b (analysis), Python 3.9 (visualisation)…" />
         </Q>
 
-        {/* ══ 5. Data description ════════════════════════════════════════ */}
-        <SectionHeading number="5" title="Data description" />
+        {/* ══ 4. Data description ════════════════════════════════════════ */}
+        <SectionHeading number="4" title="Data description" />
 
         <Q label="Describe the dataset structure and content" name="dataDescription"
           hint="What files are included? What format? Did you follow a metadata standard (e.g. BIDS, NWB)?"
@@ -800,12 +854,16 @@ export default function DataDescriptor({ form, onChange, data }) {
         <BucketStructurePanel
           datasetVersionId={data.datasetVersionId}
           onListing={setFolderListing}
+          onResult={setBucketResult}
           onInsert={(generatedText) => {
             const current = form.getFieldValue(['dataDescriptor', 'dataDescription']) || ''
             form.setFieldsValue({ dataDescriptor: { dataDescription: current.trim() ? `${current.trim()}\n\n${generatedText}` : generatedText } })
             emitAll(authors, affiliations)
           }}
         />
+
+        <SectionAiHelper label="Data records" buildPrompt={() => sectionPrompt('dataRecords')}
+          onUse={(t) => useSectionText('dataDescription', t)} onNeedKey={() => setKeyHint(true)} />
 
         <Q label="What are the key results or findings?" name="results"
           hint="Briefly summarise the main scientific findings. Published? In which journal? (2–4 sentences)">
@@ -819,8 +877,8 @@ export default function DataDescriptor({ form, onChange, data }) {
           <Input placeholder="https://doi.org/10.25493/…" />
         </Q>
 
-        {/* ══ 6. Usage ═══════════════════════════════════════════════════ */}
-        <SectionHeading number="6" title="Usage and reuse" />
+        {/* ══ 5. Usage ═══════════════════════════════════════════════════ */}
+        <SectionHeading number="5" title="Usage and reuse" />
 
         <Q label="What can this dataset be used for?" name="usageNotes"
           hint='Suggestions for use. e.g. "particularly suitable for precise spike-time analyses"'
@@ -828,6 +886,8 @@ export default function DataDescriptor({ form, onChange, data }) {
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="The data can be used to examine spatial-coding neural populations…" />
         </Q>
+        <SectionAiHelper label="Usage notes" buildPrompt={() => sectionPrompt('usage')}
+          onUse={(t) => useSectionText('usageNotes', t)} onNeedKey={() => setKeyHint(true)} />
 
         <Q label="Are there any limitations or important caveats?" name="limitations"
           hint='Warn about inappropriate uses. e.g. "data are from adult subjects, unsuitable for developmental studies"'>
@@ -835,8 +895,8 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder="Spike sorting was performed automatically. Dataset limited to adult male rats…" />
         </Q>
 
-        {/* ══ 7. Acknowledgements ════════════════════════════════════════ */}
-        <SectionHeading number="7" title="Acknowledgements and References" />
+        {/* ══ 6. Acknowledgements ════════════════════════════════════════ */}
+        <SectionHeading number="6" title="Acknowledgements and References" />
 
         <Q label="Funding and acknowledgements" name="funding"
           hint="Brief acknowledgements of non-author contributors and funding sources (grant name and number)."
@@ -851,6 +911,9 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder={'1. Smith, J. et al. Title. Nature 123, 456–789 (2022). https://doi.org/…\n2. Jones, A. & Brown, B. Another paper. J. Neurosci. 40, 1234 (2021).'} />
         </Q>
 
+        {/* ══ Figures and tables ═════════════════════════════════════════ */}
+        <FiguresTablesPanel />
+
         {/* ══ Improve with your own AI assistant ═════════════════════════ */}
         <div style={{
           background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8,
@@ -861,11 +924,12 @@ export default function DataDescriptor({ form, onChange, data }) {
             Improve your Data Descriptor with your own AI assistant
           </Text>
           <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
-            Copy a ready-made prompt and paste it into the AI assistant you normally use
-            (Claude, ChatGPT, Copilot, …). It contains the EBRAINS Data Descriptor guide from
+            Copy a ready-made prompt for the whole Data Descriptor (or use the buttons under the
+            Summary, Methods, Data records and Usage notes fields to work on one section at a time)
+            and paste it into the AI assistant you normally use (Claude, ChatGPT, Copilot, …). It contains the EBRAINS Data Descriptor guide from
             the data curation team plus everything you have written so far, so the assistant only
             asks for what is missing and never invents facts. Nothing is sent anywhere from this
-            page, and you review every suggestion before pasting it back.
+            page unless you add your own AI key; you review every suggestion before using it.
           </Text>
 
           <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
@@ -886,11 +950,24 @@ export default function DataDescriptor({ form, onChange, data }) {
               Download the skill (.zip)
             </Button>
             <Button type="link" onClick={refreshPrompt}>Preview prompt</Button>
-            {detectDomain(form.getFieldsValue().dataDescriptor || {}) === null && (
-              <Text style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
-                Tip: choose a "Field of study" above to get domain-specific questions.
-              </Text>
-            )}
+            <AiKeyButton />
+          </div>
+
+          <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Text style={{ fontSize: 12 }}>Kind of data (for domain-specific questions):</Text>
+            <AntForm.Item name={['dataDescriptor', 'aiDomain']} style={{ margin: 0 }}>
+              <Select size="small" allowClear style={{ width: 240 }}
+                placeholder={(() => {
+                  const d = detectDomain({}, folderListing)
+                  return d ? `Detected from the files: ${({ fmri: 'MRI / fMRI', electrophysiology: 'electrophysiology', histology: 'histology / microscopy' })[d]}` : 'Detected automatically if possible'
+                })()}
+                options={[
+                  { value: 'fmri', label: 'MRI / fMRI' },
+                  { value: 'electrophysiology', label: 'Electrophysiology' },
+                  { value: 'histology', label: 'Histology / microscopy' },
+                  { value: 'other', label: 'Something else' },
+                ]} />
+            </AntForm.Item>
           </div>
           {promptText && (
             <TextArea readOnly value={promptText} autoSize={{ minRows: 6, maxRows: 16 }}

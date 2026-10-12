@@ -6,6 +6,8 @@ import dayjs from 'dayjs'
 const { TextArea } = Input
 const { Option }   = Select
 
+const TITLE_MAX_LENGTH = 110
+
 export default function Dataset1({ form, onChange, data }) {
   const [license, setLicense]               = useState([])
   const [embargo, setEmbargo]               = useState(data.dataset1?.embargo || false)
@@ -116,11 +118,19 @@ export default function Dataset1({ form, onChange, data }) {
         <AntForm.Item
           label="Dataset title"
           name={['dataset1', 'dataTitle']}
-          rules={[{ required: true, message: 'Please enter title of your dataset' }]}
-          extra="Please provide a title for your dataset (max. 110 characters including spaces).
-          Please choose a descriptive title, and avoid acronyms and abbreviations where possible."
+          rules={[
+            { required: true, message: 'Please enter title of your dataset' },
+            { max: TITLE_MAX_LENGTH, message: `The title can have at most ${TITLE_MAX_LENGTH} characters including spaces.` },
+            { validator: (_, v) => /[:()]/.test(v || '')
+                ? Promise.reject(new Error('Please remove colons and parentheses from the title.'))
+                : Promise.resolve() },
+          ]}
+          extra={<span>
+            Maximum {TITLE_MAX_LENGTH} characters including spaces. No colons and parentheses.<br />
+            The title should be descriptive of the presented data. The use of acronyms and abbreviations should be avoided where possible.
+          </span>}
         >
-          <Input />
+          <Input showCount maxLength={TITLE_MAX_LENGTH + 40} />
         </AntForm.Item>
 
         <AntForm.Item
