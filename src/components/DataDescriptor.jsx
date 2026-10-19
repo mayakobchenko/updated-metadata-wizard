@@ -8,6 +8,8 @@ import BucketStructurePanel from './BucketStructurePanel'
 import AiDraftAll from './AiDraftAll'
 import WordCountArea, { countWords } from './WordCountArea'
 import { saveDraft, loadDraft, clearDraft } from './draftStore'
+import { buildLookups } from './metadataLookups'
+import { describeExperiment, factsText, methodsStarter } from './experimentFacts'
 import FiguresTablesPanel from './FiguresTablesPanel'
 import FormatsTable from './FormatsTable'
 import { getFigures, useFigures } from './figuresStore'
@@ -131,13 +133,17 @@ function buildSubjectSummary(subj) {
 
 function buildFundingText(fund) {
   const funders = fund?.funders || []
-  if (!funders.length) return ''
-  return funders.map(f => {
-    const parts = [f.funderName || f.customFunderName]
-    if (f.awardTitle  || f.customAwardTitle)  parts.push(f.awardTitle || f.customAwardTitle)
-    if (f.grantId     || f.awardNumber)       parts.push(`grant no. ${f.grantId || f.awardNumber}`)
-    return parts.filter(Boolean).join(', ')
-  }).filter(Boolean).join('.\n')
+  const items = funders.map(f => {
+    const name = f.funderName || f.customFunderName
+    if (!name) return ''
+    const title = f.awardTitle || f.customAwardTitle
+    const num = f.grantId || f.awardNumber
+    const extra = [title, num && `grant no. ${num}`].filter(Boolean).join(', ')
+    return extra ? `${name} (${extra})` : name
+  }).filter(Boolean)
+  if (!items.length) return ''
+  const joined = items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items[0]
+  return `This study was supported by ${joined}.`
 }
 
 // ── detect a name that's still a KG reference, not a resolved display name ─
@@ -214,7 +220,6 @@ function computeFieldValues(data) {
   const d1   = data.dataset1        || {}
   const d2   = data.dataset2        || {}
   const cont = data.contactperson   || {}
-  const exp  = data.experiments     || {}
   const fund = data.funding         || {}
   const subj = data.subjectMetadata || {}
   const dd   = data.dataDescriptor  || {}
@@ -243,14 +248,7 @@ function computeFieldValues(data) {
     summary:           pf(dd.summary, d1.briefSummary),
     methods:           dd.methods           || '',
 
-    software: pf(dd.software, (() => {
-      const parts = []
-      if (exp.techniques?.length)
-        parts.push(`${exp.techniques.length} technique(s) selected in the Experiments step — please replace with specific tool names and versions.`)
-      if (exp.preparationTypes?.length)
-        parts.push(`Preparation type(s) selected in the Experiments step.`)
-      return parts.join(' ')
-    })()),
+    software: dd.software || '',
 
     dataDescription: pf(dd.dataDescription, (() => {
       const stds = (d1.dataStandart || []).filter(s => s !== "No, I didn't use a standard")
@@ -273,7 +271,6 @@ function computeAutoPopulated(data) {
   const d1   = data.dataset1        || {}
   const d2   = data.dataset2        || {}
   const cont = data.contactperson   || {}
-  const exp  = data.experiments     || {}
   const fund = data.funding         || {}
   const subj = data.subjectMetadata || {}
   const dd   = data.dataDescriptor  || {}
@@ -281,7 +278,6 @@ function computeAutoPopulated(data) {
   return {
     whatAreTheData:      no('whatAreTheData')      && !!(dataTypePhrase(d1.optionsData || []) || buildSubjectSummary(subj)),
     summary:             no('summary')             && !!d1.briefSummary,
-    software:            no('software')            && !!(exp.techniques?.length || exp.preparationTypes?.length),
     dataDescription:     no('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
     dataRepository:      no('dataRepository')      && !!(d2.Data2UrlDoiRepo || d2.homePage),
     funding:             no('funding')             && !!buildFundingText(fund),
@@ -362,7 +358,7 @@ export default function DataDescriptor({ form, onChange, data }) {
     const vals = form.getFieldsValue().dataDescriptor || {}
     const text = buildAgentPrompt({
       data,
-      values: { ...vals, dataRecordsFormats: formatsRef.current, title: data.dataset1?.dataTitle || vals.title },
+      values: { ...vals, dataRecordsFormats: formatsRef.current, title: data.dataset1?.dataTitle || vals.title, experimentFacts: factsText(facts) },
       authors,
       affiliations,
       folderListing,
@@ -643,7 +639,7 @@ export default function DataDescriptor({ form, onChange, data }) {
   // text of the current answers for the per-section AI prompts
   const sectionPrompt = (key) => buildSectionPrompt(key, {
     data,
-    values: { ...(form.getFieldsValue().dataDescriptor || {}), dataRecordsFormats: formatsRef.current, title: data.dataset1?.dataTitle },
+    values: { ...(form.getFieldsValue().dataDescriptor || {}), dataRecordsFormats: formatsRef.current, title: data.dataset1?.dataTitle, experimentFacts: factsBlock },
     folderListing,
     skill: SKILL_TEXTS,
   })
@@ -651,6 +647,25 @@ export default function DataDescriptor({ form, onChange, data }) {
     form.setFieldValue(['dataDescriptor', field], text)
     emitAll(authors, affiliations)
   }
+
+  // ── facts from the Experiments / Subjects steps ─────────────────────────
+  const [facts, setFacts] = useState(null)
+  useEffect(() => {
+    let live = true
+    buildLookups().then(lk => { if (live) setFacts(describeExperiment(data, lk)) }).catch(() => {})
+    return () => { live = false }
+  }, [data.experiments, data.subjectMetadata]) // eslint-disable-line react-hooks/exhaustive-deps
+  const factsBlock = factsText(facts)
+  // Methods starter (subject / preparation / techniques from the Experiments step): only into an empty field
+  useEffect(() => {
+    if (!facts) return
+    const cur = (form.getFieldValue(['dataDescriptor', 'methods']) || '').trim()
+    const starter = methodsStarter(facts)
+    if (starter && !cur) {
+      form.setFieldValue(['dataDescriptor', 'methods'], starter)
+      emitAll(authors, affiliations)
+    }
+  }, [facts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── saved draft (this browser only) ──────────────────────────────────────
   const draftId = data.datasetVersionId
@@ -686,7 +701,7 @@ export default function DataDescriptor({ form, onChange, data }) {
     { label: 'Motivation', field: 'motivation', ok: !!fv('motivation') },
     { label: 'Hypothesis or research question', field: 'hypothesis', ok: !!fv('hypothesis') },
     { label: `Summary (at most ${SUMMARY_MAX_WORDS} words)`, field: 'summary', ok: !!fv('summary') && countWords(fv('summary')) <= SUMMARY_MAX_WORDS },
-    { label: 'Methods', field: 'methods', ok: !!fv('methods') },
+    { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
     { label: 'Dataset structure and content', field: 'dataDescription', ok: !!fv('dataDescription') },
     { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
     { label: 'Author contributions (every author has a contribution)', field: 'authorContributions', ok: !!fv('authorContributions') && contribMissing === 0 },

@@ -110,6 +110,7 @@ export function buildAgentPrompt({
     block('File structure written so far (DATA RECORDS, part 1)', values.dataRecordsTree),
     block('File format table written so far (DATA RECORDS, part 2)',
       (values.dataRecordsFormats || []).map(r => `${r.format || '?'} | ${r.extension} | ${r.software || ''}`).join('\n')),
+    block('Facts from the Experiments and Subjects steps of the wizard (controlled KG terms; reliable)', values.experimentFacts),
     block('Author contributions (Author contributions section)', values.authorContributions),
     block('Type of data shared (from the wizard, Dataset part 1)', (data.dataset1?.optionsData || []).filter(v => typeof v === 'string' && !v.startsWith('http')).join(', ')),
     block('Usage notes (USAGE NOTES)', values.usageNotes),
@@ -259,7 +260,7 @@ export function buildSectionPrompt(sectionKey, { data = {}, values = {}, folderL
 ${spec.template}
 
 # WHAT I HAVE ALREADY WRITTEN
-${spec.answers(values, data, ctx).join('\n')}
+${spec.answers(values, data, ctx).join('\n')}${values.experimentFacts ? `\n### Facts from the Experiments and Subjects steps (reliable)\n${values.experimentFacts}\n` : ''}
 ${spec.wantsListing ? `# DATASET FOLDER LISTING (names only)\n${listing || '(not provided)'}\n` : ''}
 ${extras.join('\n\n')}
 `
