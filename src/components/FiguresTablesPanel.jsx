@@ -9,6 +9,16 @@ import {
 const { Text } = Typography
 const { TextArea } = Input
 
+// "hypo_atlas_registration_fig1.png" -> "Hypo atlas registration." (a starting point only)
+const STOP = new Set(['fig', 'figure', 'table', 'tab', 'img', 'image', 'final', 'v1', 'v2', 'copy', 'new'])
+export function suggestCaption(fileName, kind) {
+  const words = String(fileName || '').replace(/\.[^.]+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2').split(/[\s_.\-]+/)
+    .filter(w => w && !/^\d+$/.test(w) && !STOP.has(w.toLowerCase()))
+  if (!words.length) return ''
+  const t = words.join(' ').toLowerCase()
+  return `${kind === 'table' ? 'Table of' : 'Figure showing'} ${t}.`
+}
+
 const readAsDataUrl = (file) => new Promise((resolve, reject) => {
   const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file)
 })
@@ -100,7 +110,16 @@ export default function FiguresTablesPanel() {
           <TextArea value={item.caption} onChange={e => updateFigure(item.id, { caption: e.target.value })}
             autoSize={{ minRows: 1, maxRows: 4 }} status={item.caption.trim() ? '' : 'error'}
             placeholder={`Caption for this ${item.kind} (required)`} />
-          {!item.caption.trim() && <Text type="danger" style={{ fontSize: 11 }}>Please add a caption.</Text>}
+          {!item.caption.trim() && (
+            <div style={{ fontSize: 11 }}>
+              <Text type="danger">Please add a caption. </Text>
+              {suggestCaption(item.fileName, item.kind) && (
+                <a onClick={() => updateFigure(item.id, { caption: suggestCaption(item.fileName, item.kind) })}>
+                  Start from the file name: “{suggestCaption(item.fileName, item.kind)}”
+                </a>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </div>

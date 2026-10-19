@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { Form as AntForm, Input, Select, Button, Typography, Tag } from 'antd'
+import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert } from 'antd'
 import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
 import BucketStructurePanel from './BucketStructurePanel'
 import AiDraftAll from './AiDraftAll'
+import WordCountArea, { countWords } from './WordCountArea'
+import { saveDraft, loadDraft, clearDraft } from './draftStore'
 import FiguresTablesPanel from './FiguresTablesPanel'
 import FormatsTable from './FormatsTable'
-import { getFigures } from './figuresStore'
+import { getFigures, useFigures } from './figuresStore'
 
 const { TextArea } = Input
 const { Text }     = Typography
@@ -73,7 +75,7 @@ const Q = ({ label, name, hint, required, prefilled, rules, children }) => (
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SUMMARY_MAX_WORDS = 220
-export const countWords = (t) => (String(t || '').trim().match(/\S+/g) || []).length
+export { countWords }
 
 // "experimental, raw and derived data" from the Dataset part 1 check boxes (labels only)
 function dataTypePhrase(options = []) {
@@ -650,6 +652,48 @@ export default function DataDescriptor({ form, onChange, data }) {
     emitAll(authors, affiliations)
   }
 
+  // ── saved draft (this browser only) ──────────────────────────────────────
+  const draftId = data.datasetVersionId
+  const [restoredAt, setRestoredAt] = useState(null)
+  useEffect(() => {
+    const d = loadDraft(draftId)
+    if (!d) return
+    let changed = false
+    Object.entries(d.values || {}).forEach(([f, v]) => {
+      if (!(form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()) {
+        form.setFieldValue(['dataDescriptor', f], v); changed = true
+        if (f === 'authorContributions') lastAutoContrib.current = v
+      }
+    })
+    if (!formatsRef.current.length && d.formats?.length) {
+      formatsRef.current = d.formats; setFormatRows(d.formats); changed = true
+    }
+    if (changed) { setRestoredAt(d.savedAt); emitAll(authors, affiliations) }
+  }, [draftId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const t = setTimeout(() => saveDraft(draftId, data.dataDescriptor, formatsRef.current), 800)
+    return () => clearTimeout(t)
+  }, [data.dataDescriptor, formatRows, draftId])
+
+  // ── completeness checklist ───────────────────────────────────────────────
+  const fv = (f) => (form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()
+  const figs = useFigures()
+  const checklist = [
+    { label: 'Dataset title (Dataset part 1)', ok: !!(data.dataset1?.dataTitle || '').trim() },
+    { label: 'Corresponding author(s): name and valid email', ok: corrAuthorsValid },
+    { label: 'What are the data?', field: 'whatAreTheData', ok: !!fv('whatAreTheData') },
+    { label: 'Scientific background and context', field: 'scientificContext', ok: !!fv('scientificContext') },
+    { label: 'Motivation', field: 'motivation', ok: !!fv('motivation') },
+    { label: 'Hypothesis or research question', field: 'hypothesis', ok: !!fv('hypothesis') },
+    { label: `Summary (at most ${SUMMARY_MAX_WORDS} words)`, field: 'summary', ok: !!fv('summary') && countWords(fv('summary')) <= SUMMARY_MAX_WORDS },
+    { label: 'Methods', field: 'methods', ok: !!fv('methods') },
+    { label: 'Dataset structure and content', field: 'dataDescription', ok: !!fv('dataDescription') },
+    { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
+    { label: 'Author contributions (every author has a contribution)', field: 'authorContributions', ok: !!fv('authorContributions') && contribMissing === 0 },
+    { label: 'Captions for all figures and tables', ok: figs.every(f => f.caption.trim()) },
+  ]
+  const missing = checklist.filter(c => !c.ok)
+
   const handleGenerate = async () => {
     setGenError('')
     const requiredFields = [
@@ -734,6 +778,12 @@ export default function DataDescriptor({ form, onChange, data }) {
       >
 
         {/* ══ 1. Header ══════════════════════════════════════════════════ */}
+        {restoredAt && (
+          <Alert type="info" showIcon closable style={{ marginBottom: 12 }} onClose={() => setRestoredAt(null)}
+            message={`Your saved draft from ${new Date(restoredAt).toLocaleString()} was restored in this browser.`}
+            description={<>Drafts are kept only in this browser. <a onClick={() => { clearDraft(draftId); setRestoredAt(null) }}>Delete the saved draft</a></>} />
+        )}
+
         <AiDraftAll
           sections={[
             { key: 'summary',     label: 'Summary',         field: 'summary' },
@@ -887,27 +937,27 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q label="What are the data?" name="whatAreTheData"
           hint='Start with "This dataset contains…". Describe the type of data, modality, number of subjects/samples, species. (1–3 sentences)'
           required prefilled={autoPopulated.whatAreTheData}>
-          <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
+          <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="This dataset contains experimental and raw electrophysiological recordings from 10 freely behaving rats…" />
         </Q>
 
         <Q label="What is the scientific background and context?" name="scientificContext"
           hint="What is the broader field of research? What was already known? Why is this area important? (2–4 sentences)"
           required>
-          <TextArea autoSize={{ minRows: 3, maxRows: 8 }}
+          <WordCountArea autoSize={{ minRows: 3, maxRows: 8 }}
             placeholder="Grid cells in the medial entorhinal cortex are thought to provide a metric for spatial navigation…" />
         </Q>
 
         <Q label="What was the motivation for creating and sharing this dataset?" name="motivation"
           hint="Why was this study conducted? What gap does it fill? Why is sharing the data valuable?"
           required>
-          <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
+          <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="We created this dataset to enable researchers to investigate theta-sweep dynamics…" />
         </Q>
 
         <Q label="What was the central hypothesis or research question?" name="hypothesis"
           hint="What did you set out to test or discover? One or two sentences." required>
-          <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
+          <WordCountArea autoSize={{ minRows: 2, maxRows: 4 }}
             placeholder="We hypothesised that attention-like modulation of theta sweeps would be observable…" />
         </Q>
 
@@ -918,8 +968,7 @@ export default function DataDescriptor({ form, onChange, data }) {
               ? Promise.resolve()
               : Promise.reject(new Error(`The summary has ${countWords(v)} words; the maximum is ${SUMMARY_MAX_WORDS}.`)),
           }]}>
-          <TextArea autoSize={{ minRows: 5, maxRows: 14 }}
-            showCount={{ formatter: ({ value }) => `${countWords(value)} / ${SUMMARY_MAX_WORDS} words` }}
+          <WordCountArea max={SUMMARY_MAX_WORDS} autoSize={{ minRows: 5, maxRows: 14 }}
             placeholder="Write one sentence about the origin of the dataset, one or two giving an overview of the data, one or two on methods and materials, and one on reusability." />
         </Q>
 
@@ -929,14 +978,14 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q label="What methods were used to acquire the data?" name="methods"
           hint="Describe the experimental setup, equipment, recording parameters, and preprocessing."
           required>
-          <TextArea autoSize={{ minRows: 4, maxRows: 12 }}
+          <WordCountArea autoSize={{ minRows: 4, maxRows: 12 }}
             placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia…" />
         </Q>
 
         <Q label="What software and analysis tools were used?" name="software"
           hint="List key software packages, toolboxes, or custom scripts (with versions if known)."
           prefilled={autoPopulated.software}>
-          <TextArea autoSize={{ minRows: 2, maxRows: 5 }}
+          <WordCountArea autoSize={{ minRows: 2, maxRows: 5 }}
             placeholder="Kilosort 2.5 (spike sorting), MATLAB R2021b (analysis), Python 3.9 (visualisation)…" />
         </Q>
 
@@ -946,7 +995,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q label="Describe the dataset structure and content" name="dataDescription"
           hint="What files are included? What format? Did you follow a metadata standard (e.g. BIDS, NWB)?"
           required prefilled={autoPopulated.dataDescription}>
-          <TextArea autoSize={{ minRows: 4, maxRows: 10 }}
+          <WordCountArea autoSize={{ minRows: 4, maxRows: 10 }}
             placeholder="The dataset contains spike-sorted activity. Files are provided in NWB format…" />
         </Q>
 
@@ -968,7 +1017,7 @@ export default function DataDescriptor({ form, onChange, data }) {
 
         <Q label="What are the key results or findings?" name="results"
           hint="Briefly summarise the main scientific findings. Published? In which journal? (2–4 sentences)">
-          <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
+          <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="Grid cells showed consistent theta-sweep modulation. Results published in Nature (2024, doi:…)." />
         </Q>
 
@@ -984,13 +1033,13 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q label="What can this dataset be used for?" name="usageNotes"
           hint='Suggestions for use. e.g. "particularly suitable for precise spike-time analyses"'
           required>
-          <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
+          <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="The data can be used to examine spatial-coding neural populations…" />
         </Q>
 
         <Q label="Are there any limitations or important caveats?" name="limitations"
           hint='Warn about inappropriate uses. e.g. "data are from adult subjects, unsuitable for developmental studies"'>
-          <TextArea autoSize={{ minRows: 2, maxRows: 5 }}
+          <WordCountArea autoSize={{ minRows: 2, maxRows: 5 }}
             placeholder="Spike sorting was performed automatically. Dataset limited to adult male rats…" />
         </Q>
 
@@ -1000,7 +1049,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         <Q label="Funding and acknowledgements" name="funding"
           hint="Brief acknowledgements of non-author contributors and funding sources (grant name and number)."
           prefilled={autoPopulated.funding}>
-          <TextArea autoSize={{ minRows: 2, maxRows: 4 }}
+          <WordCountArea autoSize={{ minRows: 2, maxRows: 4 }}
             placeholder="This project received funding from the European Research Council (ERC) under grant agreement No. …" />
         </Q>
 
@@ -1073,6 +1122,19 @@ export default function DataDescriptor({ form, onChange, data }) {
             support skills (e.g. Claude). Do not paste confidential or unpublished data you are not
             allowed to share with an external AI service; check your institution's policy first.
           </Text>
+        </div>
+
+        <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 16px', marginTop: 24, background: missing.length ? '#fffbe6' : '#f6ffed' }}>
+          <Text strong>{missing.length ? `Before you generate: ${missing.length} item${missing.length > 1 ? 's' : ''} still to complete` : '✓ All required items are complete'}</Text>
+          {missing.length > 0 && (
+            <ul style={{ margin: '6px 0 0', paddingLeft: 20, fontSize: 13 }}>
+              {missing.map(m => (
+                <li key={m.label}>
+                  {m.field ? <a onClick={() => form.scrollToField(['dataDescriptor', m.field])}>{m.label}</a> : m.label}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* ══ Generate ═══════════════════════════════════════════════════ */}

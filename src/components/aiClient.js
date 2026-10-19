@@ -37,7 +37,8 @@ export function useAiSettings() {
 
 const ONE_SHOT = `\n\n---\nThis is a single request, not a chat: do NOT ask me questions. Write the best draft you can from the facts above and put [TO COMPLETE: what is missing] where information is missing. Reply with the section text only.`
 
-export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 120000 } = {}) {
+// attachments: [{ name, base64 }] PDF files sent to the provider together with the prompt.
+export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 120000, attachments = [] } = {}) {
   if (!settings?.key) throw new Error('No API key set.')
   const provider = PROVIDERS[settings.provider]
   if (!provider) throw new Error('Unknown AI provider.')
@@ -56,13 +57,17 @@ export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 1
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true',
         },
-        body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content: text }] }),
+        body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content: attachments.length
+          ? [...attachments.map(a => ({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.base64 } })), { type: 'text', text }]
+          : text }] }),
       })
     } else {
       res = await fetchImpl('https://api.openai.com/v1/chat/completions', {
         method: 'POST', signal: controller.signal,
         headers: { 'content-type': 'application/json', Authorization: `Bearer ${settings.key}` },
-        body: JSON.stringify({ model, messages: [{ role: 'user', content: text }] }),
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: attachments.length
+          ? [...attachments.map(a => ({ type: 'file', file: { filename: a.name, file_data: `data:application/pdf;base64,${a.base64}` } })), { type: 'text', text }]
+          : text }] }),
       })
     }
     const body = await res.json().catch(() => ({}))
