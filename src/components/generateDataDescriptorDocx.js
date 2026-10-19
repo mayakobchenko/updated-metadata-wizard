@@ -107,13 +107,9 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
     authorsList.forEach((a, i) => {
       if (i > 0) runs.push(new TextRun({ text: ', ', size: 22, font: 'Calibri' }))
       runs.push(new TextRun({ text: a.name || '', size: 22, font: 'Calibri' }))
-      const marks = [a.affiliationNumbers, a.equal && equalAuthors.length > 1 ? String(equalMarker) : ''].filter(Boolean).join(',')
-      if (marks) {
-        runs.push(new TextRun({ text: marks, size: 16, font: 'Calibri', superScript: true }))
-      }
-      if (a.corresponding) {
-        runs.push(new TextRun({ text: '*', size: 22, font: 'Calibri', superScript: true }))
-      }
+      // superscript at the body size (Word shrinks it itself), "1,3*" like the EBRAINS template
+      const marks = [a.affiliationNumbers, a.equal && equalAuthors.length > 1 ? String(equalMarker) : ''].filter(Boolean).join(',') + (a.corresponding ? '*' : '')
+      if (marks) runs.push(new TextRun({ text: marks, size: 22, font: 'Calibri', superScript: true }))
     })
     return [new Paragraph({ spacing: { after: 160 }, children: runs })]
   }
@@ -402,7 +398,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
           },
           children: [new Paragraph({
             children: [
-              new TextRun({ text: `Title: '${shortTitle}'`, italics: true, size: 22, font: 'Calibri', color: '444444' }),
+              new TextRun({ text: `Title: ${shortTitle}`, italics: true, size: 22, font: 'Calibri', color: '444444' }),
               new TextRun({ text: `  |  version: ${version}`, size: 22, font: 'Calibri', color: '444444' }),
             ]
           })],
