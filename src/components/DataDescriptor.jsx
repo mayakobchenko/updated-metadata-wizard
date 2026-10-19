@@ -354,7 +354,6 @@ export default function DataDescriptor({ form, onChange, data }) {
   const lastAutoContrib = useRef('')
 
   // "Improve with your own AI assistant" panel
-  const [promptText,    setPromptText]    = useState('')
   const [promptCopied,  setPromptCopied]  = useState(false)
   const [folderListing, setFolderListing] = useState('')
 
@@ -370,7 +369,6 @@ export default function DataDescriptor({ form, onChange, data }) {
       folderListing,
       skill: SKILL_TEXTS,
     })
-    setPromptText(text)
     return text
   }
 
@@ -563,16 +561,24 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   // ── file structure / format table ────────────────────────────────────────
   const changeFormats = (next) => { formatsRef.current = next; setFormatRows(next); emitAll(authors, affiliations) }
-  // Use the generated structure: the tree replaces the tree field; format rows are merged by
-  // extension so that software/format text the researcher already typed is kept.
-  const useBucketStructure = ({ tree, formats }) => {
-    form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], tree)
+  // Called automatically when the bucket has been read. The tree field is filled only while it is
+  // empty or still the previous automatic text (so nothing the researcher typed is overwritten);
+  // format rows are merged by extension so typed format/software text is kept.
+  const lastAutoTree = useRef('')
+  const applyBucket = (body) => {
+    setBucketResult(body)
+    const { tree, formats } = body
+    const cur = form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || ''
+    if (tree && (!cur.trim() || cur === lastAutoTree.current)) {
+      form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], tree)
+      lastAutoTree.current = tree
+    }
     const old = new Map(formatsRef.current.map(r => [r.extension, r]))
-    const merged = formats.map(f => {
+    const merged = (formats || []).map(f => {
       const prev = old.get(f.extension)
       return { format: prev?.format || f.format || '', extension: f.extension, software: prev?.software || '', example: f.example }
     })
-    const extra = formatsRef.current.filter(r => !formats.some(f => f.extension === r.extension) && (r.format || r.software))
+    const extra = formatsRef.current.filter(r => !(formats || []).some(f => f.extension === r.extension) && (r.format || r.software))
     formatsRef.current = [...merged, ...extra]
     setFormatRows(formatsRef.current)
     emitAll(authors, affiliations)
@@ -928,8 +934,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         <BucketStructurePanel
           datasetVersionId={data.datasetVersionId}
           onListing={setFolderListing}
-          onResult={setBucketResult}
-          onInsert={useBucketStructure}
+          onResult={applyBucket}
         />
 
         <Q label="File structure of the data" name="dataRecordsTree"
@@ -1023,32 +1028,19 @@ export default function DataDescriptor({ form, onChange, data }) {
             Improve your Data Descriptor with your own AI assistant
           </Text>
           <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
-            Copy a ready-made prompt for the whole Data Descriptor (or use the buttons under the
-            Summary, Methods, Data records and Usage notes fields to work on one section at a time)
-            and paste it into the AI assistant you normally use (Claude, ChatGPT, Copilot, …). It contains the EBRAINS Data Descriptor guide from
+            Copy one ready-made prompt for the whole Data Descriptor and paste it into the AI assistant you normally use (Claude, ChatGPT, Copilot, …). It contains the EBRAINS Data Descriptor guide from
             the data curation team plus everything you have written so far, so the assistant only
             asks for what is missing and never invents facts. Nothing is sent anywhere from this
             page unless you add your own AI key; you review every suggestion before using it.
           </Text>
 
-          <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-            Optional: paste a listing of your dataset's folders and files (names only) so the
-            assistant can help describe the file structure. On Windows run{' '}
-            <code>tree /F</code> in the data folder; on Mac/Linux <code>find . -type f</code>.
-          </Text>
-          <TextArea value={folderListing} onChange={e => setFolderListing(e.target.value)}
-            autoSize={{ minRows: 2, maxRows: 8 }}
-            placeholder="sub-01/ses-1/sub-01_ses-1_task-rest_bold.nii.gz …"
-            style={{ marginBottom: 10, fontSize: 12, fontFamily: 'monospace' }} />
-
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button icon={<CopyOutlined />} onClick={copyPrompt}>
-              {promptCopied ? 'Copied!' : 'Copy prompt'}
+              {promptCopied ? 'Copied!' : 'Copy AI prompt'}
             </Button>
             <Button icon={<DownloadOutlined />} href={SKILL_ZIP_URL} download>
               Download the skill (.zip)
             </Button>
-            <Button type="link" onClick={refreshPrompt}>Preview prompt</Button>
             <AiKeyButton />
           </div>
 
@@ -1068,10 +1060,6 @@ export default function DataDescriptor({ form, onChange, data }) {
                 ]} />
             </AntForm.Item>
           </div>
-          {promptText && (
-            <TextArea readOnly value={promptText} autoSize={{ minRows: 6, maxRows: 16 }}
-              style={{ marginTop: 10, fontSize: 12, fontFamily: 'monospace' }} />
-          )}
           <Text style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', display: 'block', marginTop: 8 }}>
             The downloadable skill is the same guide as a folder you can load into assistants that
             support skills (e.g. Claude). Do not paste confidential or unpublished data you are not
