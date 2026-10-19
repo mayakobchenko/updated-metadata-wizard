@@ -5,8 +5,7 @@ import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
 import BucketStructurePanel from './BucketStructurePanel'
-import SectionAiHelper from './SectionAiHelper'
-import AiKeyButton from './AiKeyButton'
+import AiDraftAll from './AiDraftAll'
 import FiguresTablesPanel from './FiguresTablesPanel'
 import FormatsTable from './FormatsTable'
 import { getFigures } from './figuresStore'
@@ -346,8 +345,6 @@ export default function DataDescriptor({ form, onChange, data }) {
   })
   const corrRef = useRef(corrAuthors)
   const [showCorrErrors, setShowCorrErrors] = useState(false)
-  const [bucketResult, setBucketResult] = useState(null)
-  const [keyHint, setKeyHint] = useState(false)
   const [formatRows, setFormatRows] = useState(Array.isArray(dd.dataRecordsFormats) ? dd.dataRecordsFormats : [])
   const formatsRef = useRef(formatRows)
   const [contribTypes, setContribTypes] = useState(new Map())   // KG identifier -> readable name
@@ -565,8 +562,17 @@ export default function DataDescriptor({ form, onChange, data }) {
   // empty or still the previous automatic text (so nothing the researcher typed is overwritten);
   // format rows are merged by extension so typed format/software text is kept.
   const lastAutoTree = useRef('')
+  const lastAutoSentence = useRef('')
   const applyBucket = (body) => {
-    setBucketResult(body)
+    // one sentence about the files goes into the Summary by itself (once per distinct sentence)
+    const sentence = (body.summarySentence || '').trim()
+    if (sentence && sentence !== lastAutoSentence.current) {
+      const sum = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
+      if (!sum.includes(sentence)) {
+        form.setFieldValue(['dataDescriptor', 'summary'], sum ? `${sum} ${sentence}` : sentence)
+      }
+      lastAutoSentence.current = sentence
+    }
     const { tree, formats } = body
     const cur = form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || ''
     if (tree && (!cur.trim() || cur === lastAutoTree.current)) {
@@ -599,13 +605,33 @@ export default function DataDescriptor({ form, onChange, data }) {
     })
     return authors.filter(a => a.name).map(a => `${a.name}: ${(typesByName.get(a.name.toLowerCase()) || []).join(', ')}`.trimEnd()).join('\n')
   }
-  // keep the field in step with the authors until the researcher edits it
+  // Keep the field in step with the authors. Lines the researcher has written are kept; authors
+  // missing from the text are appended, and an empty "Name:" is completed when the contributor
+  // roles are known. If the text is still the previous automatic text it is simply replaced.
+  const mergeContributions = (cur, auto) => {
+    if (!cur.trim() || cur === lastAutoContrib.current) return auto
+    const keyOf = (l) => l.split(':')[0].trim().toLowerCase()
+    const lines = cur.split('\n')
+    const have = new Map(lines.map((l, i) => [keyOf(l), i]))
+    auto.split('\n').forEach(al => {
+      const k = keyOf(al)
+      if (!have.has(k)) { lines.push(al); return }
+      const i = have.get(k)
+      const written = lines[i].includes(':') ? lines[i].slice(lines[i].indexOf(':') + 1).trim() : ''
+      const proposed = al.includes(':') ? al.slice(al.indexOf(':') + 1).trim() : ''
+      if (!written && proposed) lines[i] = al
+    })
+    return lines.join('\n')
+  }
   useEffect(() => {
     const auto = buildContributionLines()
+    if (!auto) return
     const cur = form.getFieldValue(['dataDescriptor', 'authorContributions']) || ''
-    if (auto && (!cur.trim() || cur === lastAutoContrib.current) && auto !== cur) {
-      form.setFieldValue(['dataDescriptor', 'authorContributions'], auto)
-      lastAutoContrib.current = auto
+    const next = mergeContributions(cur, auto)
+    if (next !== cur) {
+      const replacedAll = !cur.trim() || cur === lastAutoContrib.current
+      form.setFieldValue(['dataDescriptor', 'authorContributions'], next)
+      if (replacedAll) lastAutoContrib.current = next
       emitAll(authors, affiliations)
     }
   }, [authors, contribTypes, personMap, data.contribution]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -708,6 +734,17 @@ export default function DataDescriptor({ form, onChange, data }) {
       >
 
         {/* ══ 1. Header ══════════════════════════════════════════════════ */}
+        <AiDraftAll
+          sections={[
+            { key: 'summary',     label: 'Summary',         field: 'summary' },
+            { key: 'methods',     label: 'Methods',         field: 'methods' },
+            { key: 'dataRecords', label: 'Data records',    field: 'dataDescription' },
+            { key: 'usage',       label: 'Usage notes',     field: 'usageNotes' },
+          ]}
+          buildPrompt={sectionPrompt}
+          onUse={useSectionText}
+        />
+
         <SectionHeading number="1" title="Header information" />
 
         {/* title — read-only, always mirrors Dataset1 */}
@@ -885,22 +922,6 @@ export default function DataDescriptor({ form, onChange, data }) {
             showCount={{ formatter: ({ value }) => `${countWords(value)} / ${SUMMARY_MAX_WORDS} words` }}
             placeholder="Write one sentence about the origin of the dataset, one or two giving an overview of the data, one or two on methods and materials, and one on reusability." />
         </Q>
-        {bucketResult?.summarySentence && (
-          <div style={{ margin: '-8px 0 12px' }}>
-            <Button size="small" onClick={() => {
-              const cur = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
-              useSectionText('summary', cur ? `${cur} ${bucketResult.summarySentence}` : bucketResult.summarySentence)
-            }}>
-              Add a sentence about the files (from the file structure below)
-            </Button>
-            <Text style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', marginLeft: 8 }}>
-              Only counts, formats and folder names: please add what the data mean yourself.
-            </Text>
-          </div>
-        )}
-        <SectionAiHelper label="the Summary" buildPrompt={() => sectionPrompt('summary')}
-          onUse={(t) => useSectionText('summary', t)} onNeedKey={() => setKeyHint(true)} />
-        {keyHint && <div style={{ margin: '-10px 0 14px' }}><AiKeyButton /></div>}
 
         {/* ══ 3. Methods ═════════════════════════════════════════════════ */}
         <SectionHeading number="3" title="Methods" />
@@ -911,8 +932,6 @@ export default function DataDescriptor({ form, onChange, data }) {
           <TextArea autoSize={{ minRows: 4, maxRows: 12 }}
             placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia…" />
         </Q>
-        <SectionAiHelper label="Materials and methods" buildPrompt={() => sectionPrompt('methods')}
-          onUse={(t) => useSectionText('methods', t)} onNeedKey={() => setKeyHint(true)} />
 
         <Q label="What software and analysis tools were used?" name="software"
           hint="List key software packages, toolboxes, or custom scripts (with versions if known)."
@@ -946,8 +965,6 @@ export default function DataDescriptor({ form, onChange, data }) {
 
         <FormatsTable rows={formatRows} onChange={changeFormats} />
 
-        <SectionAiHelper label="Data records" buildPrompt={() => sectionPrompt('dataRecords')}
-          onUse={(t) => useSectionText('dataDescription', t)} onNeedKey={() => setKeyHint(true)} />
 
         <Q label="What are the key results or findings?" name="results"
           hint="Briefly summarise the main scientific findings. Published? In which journal? (2–4 sentences)">
@@ -970,8 +987,6 @@ export default function DataDescriptor({ form, onChange, data }) {
           <TextArea autoSize={{ minRows: 3, maxRows: 6 }}
             placeholder="The data can be used to examine spatial-coding neural populations…" />
         </Q>
-        <SectionAiHelper label="Usage notes" buildPrompt={() => sectionPrompt('usage')}
-          onUse={(t) => useSectionText('usageNotes', t)} onNeedKey={() => setKeyHint(true)} />
 
         <Q label="Are there any limitations or important caveats?" name="limitations"
           hint='Warn about inappropriate uses. e.g. "data are from adult subjects, unsuitable for developmental studies"'>
@@ -996,12 +1011,6 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder={'Jane Smith: image acquisition, data analysis\nJohn Doe: supervision'} />
         </Q>
         <div style={{ margin: '-8px 0 16px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button size="small" onClick={() => {
-            const auto = buildContributionLines()
-            form.setFieldValue(['dataDescriptor', 'authorContributions'], auto)
-            lastAutoContrib.current = auto
-            emitAll(authors, affiliations)
-          }}>Reset the list from the authors</Button>
           {contribMissing > 0 && (
             <Text style={{ fontSize: 12, color: '#d48806' }}>
               {contribMissing} author{contribMissing > 1 ? 's still have' : ' still has'} no contribution written after the colon.
@@ -1041,7 +1050,6 @@ export default function DataDescriptor({ form, onChange, data }) {
             <Button icon={<DownloadOutlined />} href={SKILL_ZIP_URL} download>
               Download the skill (.zip)
             </Button>
-            <AiKeyButton />
           </div>
 
           <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
