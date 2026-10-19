@@ -130,7 +130,12 @@ export default function Dataset1({ form, onChange, data }) {
             The title should be descriptive of the presented data. The use of acronyms and abbreviations should be avoided where possible.
           </span>}
         >
-          <Input showCount maxLength={TITLE_MAX_LENGTH + 40} />
+          <Input maxLength={TITLE_MAX_LENGTH + 40}
+            showCount={{ formatter: ({ count }) => (
+              <span style={{ color: count > TITLE_MAX_LENGTH ? '#cf1322' : undefined, fontWeight: count > TITLE_MAX_LENGTH ? 600 : undefined }}>
+                {count} / {TITLE_MAX_LENGTH}
+              </span>
+            ) }} />
         </AntForm.Item>
 
         <AntForm.Item
