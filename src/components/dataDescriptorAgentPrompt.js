@@ -129,7 +129,8 @@ export function buildAgentPrompt({
 
 ## How to run it in this chat (these instructions take priority over the skill where they differ)
 1. I use the EBRAINS Metadata Wizard, which has already collected much of what the skill's interview asks. My answers are under "WHAT I HAVE ALREADY WRITTEN". Treat them as answered interview questions: do NOT ask them again. For each template section, show me a short draft built from my answers, improve clarity and structure, and ask me ONLY for what is missing or unclear.
-2. You cannot read my files. For DATA RECORDS use the folder listing below if there is one; if not, ask me to paste a folder tree (file and folder names only).
+2. The skill below was written for an agent that can run scripts and open files. You cannot, so ignore its instructions to run fill_word_template.py, to open or sample files, and to produce a .docx: the wizard creates the Word file itself. The folder listing below (read from my EBRAINS bucket by the wizard) counts as the required file listing; treat container contents, units and sampling rates as author-stated unless I give them. Do keep the skill's length limits (e.g. title, summary) and its reconcile and validation steps.
+   You cannot read my files. For DATA RECORDS use the folder listing below if there is one; if not, ask me to paste a folder tree (file and folder names only).
 3. NEVER invent facts, numbers, species, equipment, software versions, DOIs or references. If something is not in my answers, ask me.
 4. Keep my wording where it is already good. Write in clear, neutral, third-person scientific English and define abbreviations on first use.
 5. The wizard does not collect VERSION SPECIFICATIONS, so you will need to ask me for it. Author contributions are pre-filled with the authors only: ask me what each author did if a line has nothing after the colon.
@@ -154,6 +155,9 @@ ${stripFrontmatter(skill.dataRecordsGuide)}
 
 ## reference/file-formats.md
 ${stripFrontmatter(skill.fileFormats)}
+
+## reference/listing-and-sampling.md
+${stripFrontmatter(skill.listingAndSampling)}
 
 ${domainText}
 `

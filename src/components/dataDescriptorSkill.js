@@ -9,6 +9,7 @@ import skillMd from '../data-descriptor-skill/SKILL.md?raw'
 import template from '../data-descriptor-skill/template.md?raw'
 import dataRecordsGuide from '../data-descriptor-skill/reference/data-records-guide.md?raw'
 import fileFormats from '../data-descriptor-skill/reference/file-formats.md?raw'
+import listingAndSampling from '../data-descriptor-skill/reference/listing-and-sampling.md?raw'
 import fmri from '../data-descriptor-skill/domains/fmri.md?raw'
 import histology from '../data-descriptor-skill/domains/histology.md?raw'
 import electrophysiology from '../data-descriptor-skill/domains/electrophysiology.md?raw'
@@ -18,6 +19,7 @@ export const SKILL_TEXTS = {
   template,
   dataRecordsGuide,
   fileFormats,
+  listingAndSampling,
   domains: { fmri, histology, electrophysiology },
 }
 

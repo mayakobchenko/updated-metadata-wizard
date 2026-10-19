@@ -18,7 +18,8 @@ core question bank in SKILL.md. Reference examples:
 
 ## Recording hardware
 - Amplifier / acquisition system (model)?
-- Sampling rate(s) — note if they differ across subjects?
+- Sampling rate per file kind — field recordings and sweeps often differ, and the
+  rate in the files is what is stated, not the acquisition setting?
 - Reference scheme?
 
 ## Task / stimulation
@@ -32,6 +33,12 @@ core question bank in SKILL.md. Reference examples:
 - What is shared — raw, or pre-processed (e.g. LFP)?
 
 ## Data Records pointers
+- Recording mode (voltage clamp, current clamp), holding potential and cell type
+  are stated as fields or columns, per recording, not as a sentence in a free-text
+  description. Where files of one kind differ in mode, give the count on each side.
+- Calibration a comparison depends on (access resistance, bridge balance) is either
+  recorded per recording or stated as not recorded, so a reuser knows which
+  comparisons the data supports.
 - Recordings often use a rich custom filename scheme encoding subject /
   condition / stimulation parameters — define every token in a filename-code
   legend (see ephys example).
