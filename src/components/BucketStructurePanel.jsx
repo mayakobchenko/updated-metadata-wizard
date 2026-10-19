@@ -29,7 +29,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
         body: JSON.stringify({ datasetVersionId: String(datasetVersionId).trim(), token: useToken ? token.trim() || undefined : undefined }),
       })
       const body = await res.json().catch(() => ({}))
-      if (!res.ok) { setError(body); return }
+      if (!res.ok || !body.text) { setError(res.ok ? { error: 'The bucket answered with an unexpected result.' } : body); return }
       setMeta(body)
       onListing?.(body.text)
       onResult?.(body)

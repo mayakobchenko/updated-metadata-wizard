@@ -96,6 +96,9 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   const affiliationsList = Array.isArray(dd.affiliations_list) ? dd.affiliations_list : []
   const custodianName    = `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
 
+  // authors who contributed equally share one extra footnote number after the affiliations
+  const equalAuthors = authorsList.filter(a => a.equal && a.name)
+  const equalMarker = affiliationsList.length + 1
   const authorsParagraph = () => {
     if (!authorsList.length) {
       return custodianName ? bodyLines(custodianName) : []
@@ -104,10 +107,12 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
     authorsList.forEach((a, i) => {
       if (i > 0) runs.push(new TextRun({ text: ', ', size: 22, font: 'Calibri' }))
       runs.push(new TextRun({ text: a.name || '', size: 22, font: 'Calibri' }))
-      if (a.affiliationNumbers) {
-        runs.push(new TextRun({
-          text: a.affiliationNumbers, size: 16, font: 'Calibri', superScript: true
-        }))
+      const marks = [a.affiliationNumbers, a.equal && equalAuthors.length > 1 ? String(equalMarker) : ''].filter(Boolean).join(',')
+      if (marks) {
+        runs.push(new TextRun({ text: marks, size: 16, font: 'Calibri', superScript: true }))
+      }
+      if (a.corresponding) {
+        runs.push(new TextRun({ text: '*', size: 22, font: 'Calibri', superScript: true }))
       }
     })
     return [new Paragraph({ spacing: { after: 160 }, children: runs })]
@@ -115,10 +120,21 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
 
   const affiliationsParagraphs = () => {
     if (affiliationsList.length) {
-      return affiliationsList.map((aff) => new Paragraph({
+      const lines = affiliationsList.map((aff) => new Paragraph({
         spacing: { after: 40 },
         children: [new TextRun({ text: `${aff.number}. ${aff.text || ''}`, size: 22, font: 'Calibri' })]
       }))
+      if (equalAuthors.length > 1) {
+        const names = equalAuthors.map(a => a.name)
+        lines.push(new Paragraph({
+          spacing: { after: 40 },
+          children: [new TextRun({
+            text: `${equalMarker}. These authors contributed equally: ${names.length > 2 ? names.slice(0, -1).join(', ') : names[0]}${names.length > 2 ? ',' : ''} and ${names[names.length - 1]}`,
+            size: 22, font: 'Calibri',
+          })]
+        }))
+      }
+      return lines
     }
     return cust.institution ? bodyLines(cust.institution) : []
   }
@@ -278,7 +294,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   push(...attachmentsFor('summary'))
 
   push(sectionHeading('Version specifications:'))
-  push(...bodyLines(`This is version ${version} of this dataset.`))
+  push(...bodyLines((dd.versionSpec || '').trim() || `This is version ${version} of this dataset.`))
 
   // MATERIALS AND METHODS
   const hasMethods = dd.methods || dd.software
@@ -348,7 +364,10 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   // REFERENCES
   if (dd.references) {
     push(sectionHeading('References'))
-    push(...bodyLines(dd.references))
+    // number the references if the researcher did not (the text cites them as superscript numbers)
+    const refLines = String(dd.references).split('\n').map(l => l.trim()).filter(Boolean)
+    const numbered = refLines.some(l => /^\d+[.)]\s/.test(l))
+    push(...bodyLines(numbered ? refLines.join('\n') : refLines.map((l, i) => `${i + 1}. ${l}`).join('\n')))
   }
 
   // ── header: "Title: '<title>' | version: 1" on the left, EBRAINS logo

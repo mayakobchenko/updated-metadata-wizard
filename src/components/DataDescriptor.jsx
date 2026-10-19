@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert } from 'antd'
+import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Checkbox } from 'antd'
 import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
@@ -66,9 +66,8 @@ const Q = ({ label, name, hint, required, prefilled, rules, children }) => (
     label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
     name={['dataDescriptor', name]}
     rules={[...(required ? [{ required: true, message: `Please fill in "${label}".` }] : []), ...(rules || [])]}
-    extra={hint ? <span style={EXTRA}>{hint}</span> : undefined}
+    extra={(hint || prefilled) ? <>{prefilled && <PrefilledHint />}{hint && <span style={EXTRA}>{hint}</span>}</> : undefined}
   >
-    {prefilled && <PrefilledHint />}
     {children}
   </AntForm.Item>
 )
@@ -88,6 +87,12 @@ function dataTypePhrase(options = []) {
   return `${joined} data`
 }
 
+export const deriveCorresponding = (authors = []) =>
+  authors.filter(a => a.corresponding).map(a => ({ name: a.name || '', email: (a.email || '').trim() }))
+export const deriveContributionLines = (authors = []) =>
+  authors.filter(a => a.name && (a.contributions || []).length)
+    .map(a => `${a.name}: ${(a.contributions || []).join('; ')}`).join('\n')
+
 // "Forename Surname: email" lines (older saved data) -> [{ name, email }]
 export function parseCorrespondingAuthors(text) {
   return String(text || '').split(/\n|;/).map(l => l.trim()).filter(Boolean).map(line => {
@@ -98,20 +103,6 @@ export function parseCorrespondingAuthors(text) {
 }
 export const formatCorrespondingAuthors = (list) =>
   list.filter(a => a.name || a.email).map(a => [a.name, a.email].filter(Boolean).join(': ')).join('\n')
-
-// The data custodian is the corresponding author (template); the contact person is added if different.
-function prefillCorrespondingAuthors(data) {
-  const out = []
-  for (const p of [data.custodian, data.contactperson]) {
-    if (!p) continue
-    const name = `${p.firstName || ''} ${p.familyName || ''}`.trim()
-    const email = (p.email || '').trim()
-    if (!name && !email) continue
-    if (email && out.some(o => o.email.toLowerCase() === email.toLowerCase())) continue
-    out.push({ name, email })
-  }
-  return out
-}
 
 function buildSubjectSummary(subj) {
   if (!subj) return ''
@@ -189,6 +180,9 @@ function buildAutoAuthors(data, personMap) {
       id:                 'cust-0',
       name:               custName,
       affiliationNumbers: '1',
+      email:              (cust.email || '').trim(),
+      corresponding:      true,       // the data custodian is the corresponding author by default
+      equal:              false,
     })
   }
 
@@ -198,10 +192,15 @@ function buildAutoAuthors(data, personMap) {
     if (!name) return
     // skip duplicate of custodian
     if (custName && name.toLowerCase() === custName.toLowerCase()) return
+    const cp = data.contactperson || {}
+    const cpName = `${cp.firstName || ''} ${cp.familyName || ''}`.trim().toLowerCase()
     rows.push({
       id:                 a.id || `contrib-${i}`,
       name,
       affiliationNumbers: '',
+      email:              cpName && cpName === name.toLowerCase() ? (cp.email || '').trim() : '',
+      corresponding:      false,
+      equal:              false,
     })
   })
 
@@ -247,6 +246,7 @@ function computeFieldValues(data) {
     // the brief summary from Dataset part 1 is the starting point
     summary:           pf(dd.summary, d1.briefSummary),
     methods:           dd.methods           || '',
+    versionSpec:       dd.versionSpec       || '',
 
     software: dd.software || '',
 
@@ -330,23 +330,14 @@ export default function DataDescriptor({ form, onChange, data }) {
   const [authors,      setAuthors]      = useState(dd.authors           || [])
   const [affiliations, setAffiliations] = useState(dd.affiliations_list || [])
 
+  const [showAuthorErrors, setShowAuthorErrors] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generated,  setGenerated]  = useState(false)
   const [genError,   setGenError]   = useState('')
 
-  // corresponding authors: the template wants name AND email for each. Older saved data only
-  // has the text form "Name: email", which is parsed here.
-  const [corrAuthors, setCorrAuthors] = useState(() => {
-    if (Array.isArray(dd.correspondingAuthors) && dd.correspondingAuthors.length) return dd.correspondingAuthors
-    const parsed = parseCorrespondingAuthors(dd.correspondingAuthor)
-    return parsed.length ? parsed : prefillCorrespondingAuthors(data)
-  })
-  const corrRef = useRef(corrAuthors)
-  const [showCorrErrors, setShowCorrErrors] = useState(false)
   const [formatRows, setFormatRows] = useState(Array.isArray(dd.dataRecordsFormats) ? dd.dataRecordsFormats : [])
   const formatsRef = useRef(formatRows)
   const [contribTypes, setContribTypes] = useState(new Map())   // KG identifier -> readable name
-  const lastAutoContrib = useRef('')
 
   // "Improve with your own AI assistant" panel
   const [promptCopied,  setPromptCopied]  = useState(false)
@@ -418,7 +409,17 @@ export default function DataDescriptor({ form, onChange, data }) {
       }))
     const existingAuthorIds = new Set(existingAuthors.map(a => a.id))
     const newAuthors = autoAuthors.filter(a => !existingAuthorIds.has(a.id))
-    const nextAuthors = [...existingAuthors, ...newAuthors]
+    let nextAuthors = [...existingAuthors, ...newAuthors]
+    // saved data from before the author table: derive the corresponding authors from the old list
+    if (nextAuthors.length && nextAuthors.every(a => a.corresponding === undefined)) {
+      const old = Array.isArray(dd.correspondingAuthors) && dd.correspondingAuthors.length
+        ? dd.correspondingAuthors : parseCorrespondingAuthors(dd.correspondingAuthor)
+      const known = (a) => old.find(o => (o.name || '').toLowerCase() === (a.name || '').toLowerCase())
+      nextAuthors = nextAuthors.map((a, idx) => {
+        const o = known(a)
+        return { ...a, corresponding: !!o || (!old.length && idx === 0), email: (o && o.email) || a.email || '' }
+      })
+    }
 
     // 3. affiliations — unlike authors, these aren't sourced from a single
     // authoritative list elsewhere in the wizard (only the custodian's
@@ -449,24 +450,22 @@ export default function DataDescriptor({ form, onChange, data }) {
 
   const autoPopulated = computeAutoPopulated(data)
 
+  // software named in the Methods / Software text, offered for the "Software used" column
+  const TOOLS = ['RABIES', 'ANTs', 'AFNI', 'FSL', 'SPM', 'FreeSurfer', 'BrkRaw', 'MATLAB', 'Python', 'ImageJ', 'Fiji', 'QuPath',
+    'Kilosort', 'Suite2p', 'DeepLabCut', 'Neuroglancer', 'ITK-SNAP', '3D Slicer', 'NWB', 'MRtrix', 'fMRIPrep', 'Nipype', 'R']
+  const toolText = `${form.getFieldValue(['dataDescriptor', 'methods']) || ''} ${form.getFieldValue(['dataDescriptor', 'software']) || ''}`
+  const toolsFound = TOOLS.filter(t => new RegExp(`(^|[^A-Za-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^A-Za-z0-9])`).test(toolText))
+  const fillSoftware = () => {
+    const txt = `Generated by ${toolsFound.join(', ')}`
+    const next = formatsRef.current.map(r => r.software ? r : { ...r, software: txt })
+    formatsRef.current = next; setFormatRows(next); emitAll(authors, affiliations)
+  }
+
   // file-format rows arriving later (JSON import)
   useEffect(() => {
     if (formatsRef.current.length || !Array.isArray(dd.dataRecordsFormats) || !dd.dataRecordsFormats.length) return
     formatsRef.current = dd.dataRecordsFormats
     setFormatRows(dd.dataRecordsFormats)
-  }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // corresponding authors arriving later (JSON import, custodian filled in earlier steps)
-  useEffect(() => {
-    if (!corrRef.current.every(c => !c.name && !c.email)) return
-    const incoming = Array.isArray(dd.correspondingAuthors) && dd.correspondingAuthors.length
-      ? dd.correspondingAuthors
-      : (parseCorrespondingAuthors(dd.correspondingAuthor).length
-        ? parseCorrespondingAuthors(dd.correspondingAuthor) : prefillCorrespondingAuthors(data))
-    if (!incoming.length) return
-    corrRef.current = incoming
-    setCorrAuthors(incoming)
-    emitAll(authors, affiliations)
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── emit all changes upward ───────────────────────────────────────────
@@ -485,8 +484,10 @@ export default function DataDescriptor({ form, onChange, data }) {
         // for them; removedAffiliationIds is still needed since
         // affiliations keep their add/remove UI.
         dataRecordsFormats:   formatsRef.current,
-        correspondingAuthors: corrRef.current,
-        correspondingAuthor:  formatCorrespondingAuthors(corrRef.current),
+        // derived from the author table (Authors section)
+        correspondingAuthors: deriveCorresponding(newAuthors),
+        correspondingAuthor:  formatCorrespondingAuthors(deriveCorresponding(newAuthors)),
+        authorContributions:  deriveContributionLines(newAuthors) || dd.authorContributions || '',
         affiliationsAutoGenerated: dd.affiliationsAutoGenerated,
         removedAffiliationIds:     dd.removedAffiliationIds || [],
         authors:           newAuthors,
@@ -506,11 +507,6 @@ export default function DataDescriptor({ form, onChange, data }) {
   // Contributors + Custodian, reconciled in the sync effect above. The only
   // thing still editable per-author here is the affiliation number linking
   // them to an entry in the Affiliations list below.
-  const updateAuthorAffiliationNumbers = (i, value) => {
-    const next = authors.map((a, idx) => idx === i ? { ...a, affiliationNumbers: value } : a)
-    setAuthors(next); emitAll(next, affiliations)
-  }
-
   // ── affiliation handlers ────────────────────────────────────────────────
   // Same rule as authors: a manual edit stops the auto-sync from Custodian.
   const addAffiliation = () => {
@@ -537,15 +533,8 @@ export default function DataDescriptor({ form, onChange, data }) {
     setAffiliations(next); emitAll(authors, next, undefined, { affiliationsAutoGenerated: false })
   }
 
-  // ── corresponding author handlers ───────────────────────────────────────
-  const changeCorrAuthors = (next) => {
-    corrRef.current = next
-    setCorrAuthors(next)
-    emitAll(authors, affiliations)
-  }
-  const updateCorrAuthor = (i, patch) => changeCorrAuthors(corrAuthors.map((c, idx) => idx === i ? { ...c, ...patch } : c))
-  const addCorrAuthor    = () => changeCorrAuthors([...corrAuthors, { name: '', email: '' }])
-  const removeCorrAuthor = (i) => changeCorrAuthors(corrAuthors.filter((_, idx) => idx !== i))
+  // ── corresponding authors come from the author table ────────────────────
+  const corrAuthors = deriveCorresponding(authors)
   const corrProblem = (c) => {
     if (!c.name.trim()) return 'Please enter the name.'
     if (!c.email.trim()) return 'Please enter the email address.'
@@ -553,6 +542,10 @@ export default function DataDescriptor({ form, onChange, data }) {
     return ''
   }
   const corrAuthorsValid = corrAuthors.length > 0 && corrAuthors.every(c => !corrProblem(c))
+  const updateAuthor = (i, patch) => {
+    const next = authors.map((a, idx) => idx === i ? { ...a, ...patch } : a)
+    setAuthors(next); emitAll(next, affiliations)
+  }
 
   // ── file structure / format table ────────────────────────────────────────
   const changeFormats = (next) => { formatsRef.current = next; setFormatRows(next); emitAll(authors, affiliations) }
@@ -570,6 +563,13 @@ export default function DataDescriptor({ form, onChange, data }) {
         form.setFieldValue(['dataDescriptor', 'summary'], sum ? `${sum} ${sentence}` : sentence)
       }
       lastAutoSentence.current = sentence
+    }
+    // version specification: what this version of the dataset includes (only into an empty field)
+    if (!(form.getFieldValue(['dataDescriptor', 'versionSpec']) || '').trim() && body.totals?.files) {
+      const fm = (body.formats || []).map(f => f.format || f.extension).filter(Boolean)
+      const list = fm.length > 1 ? `${fm.slice(0, -1).join(', ')} and ${fm[fm.length - 1]}` : fm[0]
+      form.setFieldValue(['dataDescriptor', 'versionSpec'],
+        `This version of the dataset includes ${body.totals.files} files${list ? ` (${list})` : ''}.`)
     }
     const { tree, formats } = body
     const cur = form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || ''
@@ -594,47 +594,26 @@ export default function DataDescriptor({ form, onChange, data }) {
     const id = entry.selectedOtherContr || ''
     return personMap.get(id) || personMap.get(String(id).split('/').pop()) || ''
   }
-  const buildContributionLines = () => {
-    const typesByName = new Map()
+  // Contribution roles chosen in the Contributors step (other contributors) pre-fill the matching
+  // author once; after that the researcher owns the list.
+  useEffect(() => {
+    if (!contribTypes.size || !authors.length) return
+    const byName = new Map()
     ;(data.contribution?.contributor?.othercontr || []).forEach(c => {
       const n = personNameFor(c).toLowerCase()
       const names = (c.contributionTypes || []).map(t => contribTypes.get(t)).filter(Boolean)
-      if (n && names.length) typesByName.set(n, names.map(x => x.toLowerCase()))
+      if (n && names.length) byName.set(n, names)
     })
-    return authors.filter(a => a.name).map(a => `${a.name}: ${(typesByName.get(a.name.toLowerCase()) || []).join(', ')}`.trimEnd()).join('\n')
-  }
-  // Keep the field in step with the authors. Lines the researcher has written are kept; authors
-  // missing from the text are appended, and an empty "Name:" is completed when the contributor
-  // roles are known. If the text is still the previous automatic text it is simply replaced.
-  const mergeContributions = (cur, auto) => {
-    if (!cur.trim() || cur === lastAutoContrib.current) return auto
-    const keyOf = (l) => l.split(':')[0].trim().toLowerCase()
-    const lines = cur.split('\n')
-    const have = new Map(lines.map((l, i) => [keyOf(l), i]))
-    auto.split('\n').forEach(al => {
-      const k = keyOf(al)
-      if (!have.has(k)) { lines.push(al); return }
-      const i = have.get(k)
-      const written = lines[i].includes(':') ? lines[i].slice(lines[i].indexOf(':') + 1).trim() : ''
-      const proposed = al.includes(':') ? al.slice(al.indexOf(':') + 1).trim() : ''
-      if (!written && proposed) lines[i] = al
+    let changed = false
+    const next = authors.map(a => {
+      if (a.contributions !== undefined) return a
+      changed = true
+      return { ...a, contributions: byName.get((a.name || '').toLowerCase()) || [] }
     })
-    return lines.join('\n')
-  }
-  useEffect(() => {
-    const auto = buildContributionLines()
-    if (!auto) return
-    const cur = form.getFieldValue(['dataDescriptor', 'authorContributions']) || ''
-    const next = mergeContributions(cur, auto)
-    if (next !== cur) {
-      const replacedAll = !cur.trim() || cur === lastAutoContrib.current
-      form.setFieldValue(['dataDescriptor', 'authorContributions'], next)
-      if (replacedAll) lastAutoContrib.current = next
-      emitAll(authors, affiliations)
-    }
+    if (changed) { setAuthors(next); emitAll(next, affiliations) }
   }, [authors, contribTypes, personMap, data.contribution]) // eslint-disable-line react-hooks/exhaustive-deps
-  const contribMissing = (form.getFieldValue(['dataDescriptor', 'authorContributions']) || '')
-    .split('\n').map(l => l.trim()).filter(Boolean).filter(l => /:\s*$/.test(l) || !l.includes(':')).length
+  const contributionOptions = [...new Set([...contribTypes.values()])].sort((x, y) => x.localeCompare(y)).map(v => ({ value: v, label: v }))
+  const authorsWithoutContribution = authors.filter(a => a.name && !(a.contributions || []).length)
 
   // text of the current answers for the per-section AI prompts
   const sectionPrompt = (key) => buildSectionPrompt(key, {
@@ -677,7 +656,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     Object.entries(d.values || {}).forEach(([f, v]) => {
       if (!(form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()) {
         form.setFieldValue(['dataDescriptor', f], v); changed = true
-        if (f === 'authorContributions') lastAutoContrib.current = v
       }
     })
     if (!formatsRef.current.length && d.formats?.length) {
@@ -694,8 +672,9 @@ export default function DataDescriptor({ form, onChange, data }) {
   const fv = (f) => (form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()
   const figs = useFigures()
   const checklist = [
-    { label: 'Dataset title (Dataset part 1)', ok: !!(data.dataset1?.dataTitle || '').trim() },
-    { label: 'Corresponding author(s): name and valid email', ok: corrAuthorsValid },
+    { label: 'Dataset title (Dataset part 1): at most 110 characters, without colons or parentheses', ok: !!(data.dataset1?.dataTitle || '').trim() && data.dataset1.dataTitle.length <= 110 && !/[:()]/.test(data.dataset1.dataTitle) },
+    { label: 'At least one corresponding author, with a valid email (Authors)', ok: corrAuthorsValid },
+    { label: 'Affiliation number for every author (Authors)', ok: authors.every(a => (a.affiliationNumbers || '').trim()) },
     { label: 'What are the data?', field: 'whatAreTheData', ok: !!fv('whatAreTheData') },
     { label: 'Scientific background and context', field: 'scientificContext', ok: !!fv('scientificContext') },
     { label: 'Motivation', field: 'motivation', ok: !!fv('motivation') },
@@ -704,7 +683,7 @@ export default function DataDescriptor({ form, onChange, data }) {
     { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
     { label: 'Dataset structure and content', field: 'dataDescription', ok: !!fv('dataDescription') },
     { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
-    { label: 'Author contributions (every author has a contribution)', field: 'authorContributions', ok: !!fv('authorContributions') && contribMissing === 0 },
+    { label: `Contribution for every author (Authors): ${authorsWithoutContribution.length} missing`, ok: authors.length > 0 && authorsWithoutContribution.length === 0 },
     { label: 'Captions for all figures and tables', ok: figs.every(f => f.caption.trim()) },
   ]
   const missing = checklist.filter(c => !c.ok)
@@ -713,11 +692,15 @@ export default function DataDescriptor({ form, onChange, data }) {
     setGenError('')
     const requiredFields = [
       'whatAreTheData', 'scientificContext', 'summary',
-      'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes', 'authorContributions',
+      'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes',
     ]
-    setShowCorrErrors(true)
+    setShowAuthorErrors(true)
     if (!corrAuthorsValid) {
-      setGenError('Please give the name and a valid email address of every corresponding author.')
+      setGenError('Please mark at least one corresponding author and give a valid email address for every corresponding author.')
+      return
+    }
+    if (authorsWithoutContribution.length) {
+      setGenError('Please give a contribution for every author.')
       return
     }
     try {
@@ -736,7 +719,8 @@ export default function DataDescriptor({ form, onChange, data }) {
       await generateDataDescriptorDocx({
         ...ddData,
         title:             data.dataset1?.dataTitle || ddData.title,
-        correspondingAuthor: formatCorrespondingAuthors(corrRef.current),
+        correspondingAuthor: formatCorrespondingAuthors(corrAuthors),
+        authorContributions: deriveContributionLines(authors) || ddData.authorContributions || dd.authorContributions || '',
         dataRecordsFormats: formatsRef.current,
         authors,
         affiliations_list: affiliations,
@@ -837,47 +821,12 @@ export default function DataDescriptor({ form, onChange, data }) {
           </div>
         </AntForm.Item>
 
-        {/* ── Corresponding authors: name AND email required for each ───── */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ marginBottom: 2 }}>
-            <span style={{ fontWeight: 500, fontSize: 14 }}>
-              <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>Corresponding author(s)
-            </span>
-          </div>
-          <span style={EXTRA}>
-            The corresponding author is the person with the most detailed knowledge about the data and
-            the contact for questions about it. The data custodian should always be listed; you may add
-            more people. Name and email are required for each.
-          </span>
-          {corrAuthors.map((c, i) => {
-            const problem = showCorrErrors ? corrProblem(c) : ''
-            return (
-              <div key={i} style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Input value={c.name} onChange={e => updateCorrAuthor(i, { name: e.target.value })}
-                    placeholder="Forename Surname" style={{ flex: '1 1 40%' }}
-                    status={showCorrErrors && !c.name.trim() ? 'error' : ''} />
-                  <Input value={c.email} onChange={e => updateCorrAuthor(i, { email: e.target.value })}
-                    onBlur={() => setShowCorrErrors(true)}
-                    placeholder="email@address" style={{ flex: '1 1 50%' }}
-                    status={showCorrErrors && (!c.email.trim() || !EMAIL_RE.test(c.email.trim())) ? 'error' : ''} />
-                  <Button size="small" type="text" danger icon={<DeleteOutlined />}
-                    disabled={corrAuthors.length <= 1} onClick={() => removeCorrAuthor(i)} />
-                </div>
-                {problem && <div style={{ color: '#d32f2f', fontSize: 12, marginTop: 2 }}>{problem}</div>}
-              </div>
-            )
-          })}
-          <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={addCorrAuthor}
-            style={{ marginTop: 8, width: '30%' }}>
-            Add corresponding author
-          </Button>
-        </div>
-
-        {/* ── Authors ──────────────────────────────────────────────────── */}
+        {/* ── Authors: affiliations, contributions, corresponding, equal contribution ── */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ marginBottom: 4 }}>
-            <span style={{ fontWeight: 500, fontSize: 14 }}>Authors</span>
+            <span style={{ fontWeight: 500, fontSize: 14 }}>
+              <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>Authors
+            </span>
           </div>
           <div style={{
             background: '#f0faf4', border: '1px solid #b7ebce',
@@ -886,21 +835,43 @@ export default function DataDescriptor({ form, onChange, data }) {
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <InfoCircleOutlined style={{ flexShrink: 0 }} />
-            This list always matches the Contributors step exactly — add, remove, or edit
-            authors there. You only set affiliation number(s) here, to link each author to
-            an institution in the list below.
+            The list of authors comes from the Contributors step (add or remove people there). Here you
+            give each author's affiliation number(s) and contribution(s), and mark who is a corresponding
+            author (an email is required) and who contributed equally.
           </div>
 
           {authors.map((author, i) => (
-            <div key={author.id} style={{
-              display: 'flex', gap: 8, alignItems: 'center', marginTop: 8,
-            }}>
-              <span style={{ flex: '1 1 200px', fontSize: 13 }}>{author.name}</span>
-              <span style={{ fontSize: 11, color: '#888', flexShrink: 0 }}>Affiliation no(s)</span>
-              <Input size="small" value={author.affiliationNumbers}
-                onChange={e => updateAuthorAffiliationNumbers(i, e.target.value)}
-                placeholder="e.g. 1,2"
-                style={{ width: 90, flexShrink: 0 }} />
+            <div key={author.id} style={{ border: '1px solid #e1e8ef', borderRadius: 6, padding: '8px 12px', marginTop: 8, background: '#fff' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ flex: '1 1 200px', fontSize: 14, fontWeight: 500 }}>{author.name}</span>
+                <span style={{ fontSize: 11, color: '#888' }}>Affiliation no(s)</span>
+                <Input size="small" value={author.affiliationNumbers}
+                  onChange={e => updateAuthor(i, { affiliationNumbers: e.target.value })}
+                  placeholder="e.g. 1,2" style={{ width: 90 }} />
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <span style={{ fontSize: 11, color: '#888' }}>Contribution(s)</span>
+                <Select mode="tags" size="small" style={{ width: '100%' }}
+                  value={author.contributions || []}
+                  onChange={vals => updateAuthor(i, { contributions: vals })}
+                  options={contributionOptions}
+                  tokenSeparators={[';']}
+                  placeholder="Select the type(s) of contribution (you can also type your own)"
+                  status={showAuthorErrors && !(author.contributions || []).length ? 'error' : ''} />
+              </div>
+              <div style={{ marginTop: 6, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Checkbox checked={!!author.corresponding} onChange={e => updateAuthor(i, { corresponding: e.target.checked })}>
+                  Corresponding author
+                </Checkbox>
+                {author.corresponding && (
+                  <Input size="small" value={author.email || ''} onChange={e => updateAuthor(i, { email: e.target.value })}
+                    placeholder="email@address" style={{ width: 260 }}
+                    status={!author.email || !EMAIL_RE.test((author.email || '').trim()) ? 'error' : ''} />
+                )}
+                <Checkbox checked={!!author.equal} onChange={e => updateAuthor(i, { equal: e.target.checked })}>
+                  Contributed equally (first authors)
+                </Checkbox>
+              </div>
             </div>
           ))}
           {authors.length === 0 && (
@@ -990,6 +961,12 @@ export default function DataDescriptor({ form, onChange, data }) {
         {/* ══ 3. Methods ═════════════════════════════════════════════════ */}
         <SectionHeading number="3" title="Methods" />
 
+        <Q label="Version specifications" name="versionSpec"
+          hint='What does this version of the dataset include (and, for later versions, what changed)? e.g. "This version of the dataset includes resting-state fMRI acquisitions along with the motion correction tables."'>
+          <WordCountArea autoSize={{ minRows: 2, maxRows: 5 }}
+            placeholder="This version of the dataset includes…" />
+        </Q>
+
         <Q label="What methods were used to acquire the data?" name="methods"
           hint="Describe the experimental setup, equipment, recording parameters, and preprocessing."
           required>
@@ -1028,6 +1005,12 @@ export default function DataDescriptor({ form, onChange, data }) {
         </Q>
 
         <FormatsTable rows={formatRows} onChange={changeFormats} />
+        {toolsFound.length > 0 && formatRows.some(r => !r.software) && (
+          <div style={{ margin: '-8px 0 16px', fontSize: 12 }}>
+            Software named in your methods: <b>{toolsFound.join(', ')}</b>.{' '}
+            <a onClick={fillSoftware}>Use it in the empty “Software used” cells</a> (then correct each row).
+          </div>
+        )}
 
 
         <Q label="What are the key results or findings?" name="results"
@@ -1067,20 +1050,6 @@ export default function DataDescriptor({ form, onChange, data }) {
           <WordCountArea autoSize={{ minRows: 2, maxRows: 4 }}
             placeholder="This project received funding from the European Research Council (ERC) under grant agreement No. …" />
         </Q>
-
-        <Q label="Author contributions" name="authorContributions" required
-          hint="Briefly state each author's contribution to producing or maintaining the data and to publishing them, one author per line (e.g. “Jane Smith: data acquisition, data analysis”). Pre-filled with the authors from the Contributors step."
-          prefilled={!!authors.length}>
-          <TextArea autoSize={{ minRows: 3, maxRows: 10 }}
-            placeholder={'Jane Smith: image acquisition, data analysis\nJohn Doe: supervision'} />
-        </Q>
-        <div style={{ margin: '-8px 0 16px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {contribMissing > 0 && (
-            <Text style={{ fontSize: 12, color: '#d48806' }}>
-              {contribMissing} author{contribMissing > 1 ? 's still have' : ' still has'} no contribution written after the colon.
-            </Text>
-          )}
-        </div>
 
         <Q label="References" name="references"
           hint="All references cited above, using Nature referencing style (Author et al., Journal, Year, doi).">
