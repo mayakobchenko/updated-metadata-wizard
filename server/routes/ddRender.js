@@ -13,7 +13,8 @@ import { getUserAccessToken } from './userSessions.js'
 
 const router = express.Router()
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const SCRIPT = path.join(__dirname, 'python_scripts', 'dd', 'fill_word_template.py')
+// render.py runs the skill's fill_word_template.py unchanged, but writes the running header without quotation marks
+const SCRIPT = path.join(__dirname, 'python_scripts', 'dd', 'render.py')
 const TEMPLATE = path.join(__dirname, 'python_scripts', 'dd', 'word_template.docx')
 const TIMEOUT_MS = 30000
 const MAX_MD_CHARS = 400000
