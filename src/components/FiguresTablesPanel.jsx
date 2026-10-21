@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Button, Input, Select, Typography, Alert, Upload } from 'antd'
+import { Button, Input, Select, Typography, Alert, Upload, Tag } from 'antd'
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons'
 import {
   useFigures, addFigure, updateFigure, removeFigure, labelFor, parseDelimited, PLACEMENTS,
   MAX_ITEMS, MAX_IMAGE_BYTES, MAX_TABLE_ROWS, MAX_TABLE_COLS,
 } from './figuresStore'
+import { processImage } from './imageQuality'
 
 const { Text } = Typography
 const { TextArea } = Input
@@ -25,9 +26,6 @@ const readAsDataUrl = (file) => new Promise((resolve, reject) => {
 const readAsText = (file) => new Promise((resolve, reject) => {
   const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsText(file)
 })
-const imageSize = (dataUrl) => new Promise((resolve, reject) => {
-  const img = new Image(); img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight }); img.onerror = reject; img.src = dataUrl
-})
 
 // Upload figures (PNG/JPG) and tables (CSV/TSV, or a picture of a table) with captions. They are
 // placed in the Word file after the chosen section. Kept in this browser tab only.
@@ -42,11 +40,14 @@ export default function FiguresTablesPanel() {
     const lower = name.toLowerCase()
     try {
       if (/\.(png|jpe?g)$/.test(lower)) {
-        if (file.size > MAX_IMAGE_BYTES) { setError(`"${name}" is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB. Please reduce its size.`); return false }
-        const dataUrl = await readAsDataUrl(file)
-        const { width, height } = await imageSize(dataUrl)
+        if (file.size > MAX_IMAGE_BYTES * 5) { setError(`"${name}" is larger than ${MAX_IMAGE_BYTES * 5 / 1024 / 1024} MB. Please reduce its size.`); return false }
+        const img = await processImage(file)
+        const bytes = Math.round((img.dataUrl.length - img.dataUrl.indexOf(',') - 1) * 0.75)
+        if (bytes > MAX_IMAGE_BYTES) { setError(`"${name}" is still larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB after optimisation. Please save it as a JPG or reduce its size.`); return false }
         addFigure({ id: `f${Date.now()}${Math.random().toString(36).slice(2, 6)}`, kind: 'figure', fileName: name,
-          caption: '', placement: 'summary', image: { dataUrl, width, height, type: /png$/.test(lower) ? 'png' : 'jpg' } })
+          caption: '', alt: '', placement: 'summary',
+          image: { dataUrl: img.dataUrl, width: img.width, height: img.height, type: img.type },
+          quality: img.quality, notes: img.notes })
       } else if (/\.(csv|tsv|txt)$/.test(lower)) {
         const rows = parseDelimited(await readAsText(file))
         if (!rows.length) { setError(`"${name}" contains no rows.`); return false }
@@ -59,8 +60,8 @@ export default function FiguresTablesPanel() {
       } else {
         setError(`"${name}": please upload a PNG or JPG picture (figure), or a CSV/TSV file (table).`)
       }
-    } catch {
-      setError(`Could not read "${name}".`)
+    } catch (e) {
+      setError(e?.message || `Could not read "${name}".`)
     }
     return false   // never upload anywhere: the file stays in the browser
   }
@@ -71,8 +72,10 @@ export default function FiguresTablesPanel() {
       <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
         Add figures (PNG, JPG) or tables (CSV, TSV, or a picture of a table) with a caption. They are
         placed in the Word file after the section you choose. The files stay in your browser and are
-        only used when you press <b>Generate Data Descriptor</b>; they are not part of the wizard JSON,
-        so they are lost if you reload the page.
+        only used when you press <b>Generate Data Descriptor</b> or <b>Submit data descriptor</b>.
+        <b>They are not part of the draft file</b>: if you reload the page or import a draft later,
+        you need to add them again. Pictures are checked for resolution (about 6 inches wide in print),
+        rotated correctly, and very large ones are scaled down.
       </Text>
 
       <Upload accept=".png,.jpg,.jpeg,.csv,.tsv,.txt" showUploadList={false} multiple beforeUpload={handleFile}>
@@ -91,8 +94,17 @@ export default function FiguresTablesPanel() {
               options={PLACEMENTS} style={{ width: 230 }} />
             <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => removeFigure(item.id)} />
           </div>
+          {item.image && item.quality && (
+            <div style={{ marginBottom: 6, fontSize: 12 }}>
+              <Tag color={{ red: 'error', amber: 'warning', green: 'success' }[item.quality.level]}>
+                {item.quality.dpi} dpi · {item.image.width}×{item.image.height} px
+              </Tag>
+              <Text type={item.quality.level === 'red' ? 'danger' : 'secondary'}>{item.quality.message}</Text>
+              {(item.notes || []).map((n, i) => <div key={i}><Text type="secondary">{n}</Text></div>)}
+            </div>
+          )}
           {item.image
-            ? <img src={item.image.dataUrl} alt={item.fileName} style={{ maxWidth: '100%', maxHeight: 180, display: 'block', marginBottom: 6 }} />
+            ? <img src={item.image.dataUrl} alt={item.alt || item.fileName} style={{ maxWidth: '100%', maxHeight: 180, display: 'block', marginBottom: 6 }} />
             : (
               <div style={{ overflowX: 'auto', marginBottom: 6 }}>
                 <table style={{ fontSize: 11, borderCollapse: 'collapse' }}>
@@ -110,6 +122,10 @@ export default function FiguresTablesPanel() {
           <TextArea value={item.caption} onChange={e => updateFigure(item.id, { caption: e.target.value })}
             autoSize={{ minRows: 1, maxRows: 4 }} status={item.caption.trim() ? '' : 'error'}
             placeholder={`Caption for this ${item.kind} (required)`} />
+          {item.image && (
+            <Input size="small" style={{ marginTop: 6 }} value={item.alt || ''} onChange={e => updateFigure(item.id, { alt: e.target.value })}
+              placeholder="Alternative text for screen readers (optional): what does the picture show?" />
+          )}
           {!item.caption.trim() && (
             <div style={{ fontSize: 11 }}>
               <Text type="danger">Please add a caption. </Text>

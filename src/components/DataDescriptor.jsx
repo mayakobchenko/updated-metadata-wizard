@@ -11,6 +11,7 @@ import { EXAMPLES } from './ddExamples'
 import { buildLookups } from './metadataLookups'
 import { describeExperiment, factsText, methodsStarter } from './experimentFacts'
 import FiguresTablesPanel from './FiguresTablesPanel'
+import DdMarkdownImport from './DdMarkdownImport'
 import FormatsTable from './FormatsTable'
 import { getFigures, useFigures } from './figuresStore'
 
@@ -251,11 +252,8 @@ function computeFieldValues(data) {
   return {
     title,   // always from Dataset1, not from dd.title
 
-    // One Summary field. Starting point: the brief summary from Dataset part 1; older saved data that
-    // still has the four former questions is folded into it; otherwise a one-sentence description of the data.
+    // One Summary field, starting from the brief summary in Dataset part 1 (or a one-sentence description).
     summary: pf(dd.summary, (() => {
-      const legacy = [dd.whatAreTheData, dd.scientificContext, dd.motivation, dd.hypothesis].filter(Boolean).join(' ')
-      if (legacy) return legacy
       if (d1.briefSummary) return d1.briefSummary
       const types = dataTypePhrase(d1.optionsData || [])
       const sj = buildSubjectSummary(subj)
@@ -789,6 +787,18 @@ export default function DataDescriptor({ form, onChange, data }) {
           buildPrompt={sectionPrompt}
           onUse={useSectionText}
         />
+
+        <div style={{ margin: '0 0 12px' }}>
+          <DdMarkdownImport
+            getCurrent={(f) => f === 'dataRecordsTree' ? (form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || '') : (form.getFieldValue(['dataDescriptor', f]) || '')}
+            getCurrentFormats={() => formatsRef.current}
+            onApply={(patch, formats) => {
+              Object.entries(patch).forEach(([f, v]) => form.setFieldValue(['dataDescriptor', f], v))
+              if (formats) { formatsRef.current = formats; setFormatRows(formats) }
+              emitAll(authors, affiliations)
+              setGenerated(false)
+            }} />
+        </div>
 
         <SectionHeading number="1" title="Header information" />
 

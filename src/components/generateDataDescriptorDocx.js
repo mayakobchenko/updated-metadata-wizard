@@ -190,13 +190,14 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
       spacer(160),
     ]
   }
-  const figureBlocks = (img, label, caption) => {
+  const figureBlocks = (img, label, caption, alt) => {
     let width = Math.min(CONTENT_WIDTH_PX, img.width || CONTENT_WIDTH_PX)
     let height = Math.round(width * (img.height || 1) / (img.width || 1))
     if (height > MAX_FIGURE_HEIGHT_PX) { height = MAX_FIGURE_HEIGHT_PX; width = Math.round(height * (img.width || 1) / (img.height || 1)) }
     return [
       new Paragraph({ spacing: { before: 160, after: 40 }, keepNext: true, children: [
-        new ImageRun({ type: img.type === 'png' ? 'png' : 'jpg', data: base64ToBytes(img.dataUrl), transformation: { width, height } })] }),
+        new ImageRun({ type: img.type === 'png' ? 'png' : 'jpg', data: base64ToBytes(img.dataUrl), transformation: { width, height },
+          altText: { name: label, title: label, description: (alt || caption || label).slice(0, 250) } })] }),
       captionPara(label, caption),
     ]
   }
@@ -207,7 +208,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
       const same = figures.filter(x => x.kind === f.kind)
       const label = `${f.kind === 'table' ? 'Table' : 'Figure'} ${same.indexOf(f) + 1}`
       out.push(...(f.kind === 'table' && f.rows ? tableBlocks(f.rows, label, f.caption)
-        : f.image ? figureBlocks(f.image, label, f.caption) : []))
+        : f.image ? figureBlocks(f.image, label, f.caption, f.alt) : []))
     })
     return out
   }
@@ -277,13 +278,8 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
     push(...correspondingAuthorsParagraphs())
   }
 
-  // SUMMARY — prefers the dedicated `summary` field (written by hand, or
-  // drafted via the "Generate with AI" button in the wizard). Falls back to
-  // a raw concatenation of the underlying answers for older saved data that
-  // predates the dedicated field.
-  const summaryFallback = [dd.whatAreTheData, dd.scientificContext, dd.motivation, dd.hypothesis]
-    .filter(Boolean).join(' ')
-  const summaryText = dd.summary || summaryFallback
+  // SUMMARY
+  const summaryText = dd.summary
   if (summaryText) {
     push(sectionHeading('Summary'))
     push(...bodyLines(summaryText))

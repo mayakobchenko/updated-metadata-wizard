@@ -553,7 +553,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             : lastSavedAt
               ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
               : 'To continue later, click Download draft and keep the file.'}
-          {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague.
+          {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague. <strong>Figures and tables added to the data descriptor are not part of the draft file</strong>; add them again after importing.
         </span>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <Button size="small" type={dirty ? 'primary' : 'default'} onClick={downloadJson}
