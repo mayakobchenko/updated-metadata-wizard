@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Checkbox } from 'antd'
-import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined } from '@ant-design/icons'
+import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Checkbox, Popover } from 'antd'
+import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
 import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
 import BucketStructurePanel from './BucketStructurePanel'
 import AiDraftAll from './AiDraftAll'
 import WordCountArea, { countWords } from './WordCountArea'
+import { EXAMPLES } from './ddExamples'
 import { saveDraft, loadDraft, clearDraft } from './draftStore'
 import { buildLookups } from './metadataLookups'
 import { describeExperiment, factsText, methodsStarter } from './experimentFacts'
@@ -61,9 +62,19 @@ const SectionHeading = ({ number, title }) => (
 // makes React treat it as a different component type and remount the
 // underlying <input>/<textarea> on every keystroke — causing focus loss
 // after a single character typed.
-const Q = ({ label, name, hint, required, prefilled, rules, children }) => (
+// "?" next to a label: an example answer in a popover, so the page stays uncluttered
+const HelpTip = ({ example, note }) => (
+  <Popover trigger={['hover', 'click']} placement="right" title="Example (illustrative, not real data)"
+    content={<div style={{ maxWidth: 520, whiteSpace: 'pre-wrap', fontSize: 12, fontFamily: example.includes('\n  /') ? 'monospace' : 'inherit' }}>
+      {note && <div style={{ marginBottom: 6, fontFamily: 'inherit', color: '#555' }}>{note}</div>}{example}
+    </div>}>
+    <QuestionCircleOutlined style={{ marginLeft: 6, color: 'var(--ebrains-color-medium)', cursor: 'help' }} />
+  </Popover>
+)
+
+const Q = ({ label, name, hint, required, prefilled, rules, children, example, exampleNote }) => (
   <AntForm.Item
-    label={<span>{label}{prefilled && <PrefilledBadge />}</span>}
+    label={<span>{label}{example && <HelpTip example={example} note={exampleNote} />}{prefilled && <PrefilledBadge />}</span>}
     name={['dataDescriptor', name]}
     rules={[...(required ? [{ required: true, message: `Please fill in "${label}".` }] : []), ...(rules || [])]}
     extra={(hint || prefilled) ? <>{prefilled && <PrefilledHint />}{hint && <span style={EXTRA}>{hint}</span>}</> : undefined}
@@ -78,6 +89,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SUMMARY_MAX_WORDS = 220
 const TITLE_MAX_CHARS = 110
 export { countWords }
+
+// Every software tool needs a version ("FSL 6.0.5"); "version unknown" / "other" is accepted.
+// Returns the entries that have neither a number nor such a statement.
+export function softwareWithoutVersion(text) {
+  let items = String(text || '').split(/[\n;]+/).map(t => t.trim()).filter(Boolean)
+  if (items.length === 1 && items[0].includes(',')) items = items[0].split(',').map(t => t.trim()).filter(Boolean)
+  return items.filter(t => !/\d/.test(t) && !/version|unknown|other|n\/a/i.test(t))
+}
 
 // "experimental, raw and derived data" from the Dataset part 1 check boxes (labels only)
 function dataTypePhrase(options = []) {
@@ -672,6 +691,7 @@ export default function DataDescriptor({ form, onChange, data }) {
   // ── completeness checklist ───────────────────────────────────────────────
   const fv = (f) => (form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()
   const figs = useFigures()
+  const swNoVersion = softwareWithoutVersion(fv('software'))
   const checklist = [
     { label: 'Dataset title (Dataset part 1): at most 110 characters, without colons or parentheses', ok: !!(data.dataset1?.dataTitle || '').trim() && data.dataset1.dataTitle.length <= TITLE_MAX_CHARS && !/[:()]/.test(data.dataset1.dataTitle) },
     { label: 'At least one corresponding author, with a valid email (Authors)', ok: corrAuthorsValid },
@@ -679,12 +699,12 @@ export default function DataDescriptor({ form, onChange, data }) {
     { label: 'What are the data?', field: 'whatAreTheData', ok: !!fv('whatAreTheData') },
     { label: 'Scientific background and context', field: 'scientificContext', ok: !!fv('scientificContext') },
     { label: 'Motivation', field: 'motivation', ok: !!fv('motivation') },
-    { label: 'Hypothesis or research question', field: 'hypothesis', ok: !!fv('hypothesis') },
     { label: `Summary (at most ${SUMMARY_MAX_WORDS} words)`, field: 'summary', ok: !!fv('summary') && countWords(fv('summary')) <= SUMMARY_MAX_WORDS },
     { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
     { label: 'Dataset structure and content', field: 'dataDescription', ok: !!fv('dataDescription') },
     { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
     { label: `Contribution for every author (Authors): ${authorsWithoutContribution.length} missing`, ok: authors.length > 0 && authorsWithoutContribution.length === 0 },
+    { label: `Software: a version for every tool, or “version unknown” (missing for: ${swNoVersion.join(', ')})`, field: 'software', ok: swNoVersion.length === 0 },
     { label: 'Captions for all figures and tables', ok: figs.every(f => f.caption.trim()) },
   ]
   const missing = checklist.filter(c => !c.ok)
@@ -693,9 +713,13 @@ export default function DataDescriptor({ form, onChange, data }) {
     setGenError('')
     const requiredFields = [
       'whatAreTheData', 'scientificContext', 'summary',
-      'motivation', 'hypothesis', 'methods', 'dataDescription', 'usageNotes',
+      'motivation', 'methods', 'dataDescription', 'usageNotes',
     ]
     setShowAuthorErrors(true)
+    if (swNoVersion.length) {
+      setGenError(`Please give a version for each software tool, or write “version unknown”: ${swNoVersion.join(', ')}.`)
+      return
+    }
     if (data.dataset1?.dataTitle && data.dataset1.dataTitle.length > TITLE_MAX_CHARS) {
       setGenError(`The title has ${data.dataset1.dataTitle.length} characters; the maximum is ${TITLE_MAX_CHARS} including spaces. Please shorten it in Dataset part 1.`)
       return
@@ -938,6 +962,16 @@ export default function DataDescriptor({ form, onChange, data }) {
 
         {/* ══ 2. Summary (was "Dataset identity" + "Scientific context") ══ */}
         <SectionHeading number="2" title="Summary" />
+        <div style={{ margin: '-6px 0 14px', fontSize: 12, color: 'rgba(0,0,0,0.6)' }}>
+          The first questions below help you write the Summary. Their answers are not printed as separate
+          sections in the Word file.{' '}
+          <a onClick={() => {
+            const parts = ['whatAreTheData', 'scientificContext', 'motivation', 'hypothesis']
+              .map(f => (form.getFieldValue(['dataDescriptor', f]) || '').trim()).filter(Boolean)
+            const cur = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
+            if (parts.length) useSectionText('summary', [cur, ...parts.filter(p => !cur.includes(p))].filter(Boolean).join(' '))
+          }}>Add these answers to the Summary</a> (then shorten it to 220 words).
+        </div>
 
         <Q label="What are the data?" name="whatAreTheData"
           hint='Start with "This dataset contains…". Describe the type of data, modality, number of subjects/samples, species. (1–3 sentences)'
@@ -947,7 +981,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         </Q>
 
         <Q label="What is the scientific background and context?" name="scientificContext"
-          hint="What is the broader field of research? What was already known? Why is this area important? (2–4 sentences)"
+          hint="An introductory sentence or two that puts the reader in the context of the subject: the broader field, what was already known, why it matters. Also suitable for data that are not part of a research project. (2–4 sentences)"
           required>
           <WordCountArea autoSize={{ minRows: 3, maxRows: 8 }}
             placeholder="Grid cells in the medial entorhinal cortex are thought to provide a metric for spatial navigation…" />
@@ -960,13 +994,13 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder="We created this dataset to enable researchers to investigate theta-sweep dynamics…" />
         </Q>
 
-        <Q label="What was the central hypothesis or research question?" name="hypothesis"
-          hint="What did you set out to test or discover? One or two sentences." required>
+        <Q label="Central hypothesis or research question (optional)" name="hypothesis"
+          hint="What did you set out to test or discover? One or two sentences. Leave empty if the data were not collected for a specific research question.">
           <WordCountArea autoSize={{ minRows: 2, maxRows: 4 }}
             placeholder="We hypothesised that attention-like modulation of theta sweeps would be observable…" />
         </Q>
 
-        <Q label="Summary" name="summary" prefilled={autoPopulated.summary} required
+        <Q label="Summary" name="summary" prefilled={autoPopulated.summary} required example={EXAMPLES.summary}
           hint="Maximum 220 words, no references. Summarise the content, provenance and usage potential of the shared data (subjects, methods and materials, study targets, how the data could be reused). Describe the shared data, not the research results, in a way that any scientist can understand."
           rules={[{
             validator: (_, v) => countWords(v) <= SUMMARY_MAX_WORDS
@@ -986,7 +1020,8 @@ export default function DataDescriptor({ form, onChange, data }) {
             placeholder="This version of the dataset includes…" />
         </Q>
 
-        <Q label="What methods were used to acquire the data?" name="methods"
+        <Q label="What methods were used to acquire the data?" name="methods" example={EXAMPLES.methods}
+          exampleNote="Methods is the section curators comment on most. Describe subjects, acquisition and processing, and give a version for every software tool."
           hint="Describe the experimental setup, equipment, recording parameters, and preprocessing."
           required>
           <WordCountArea autoSize={{ minRows: 4, maxRows: 12 }}
@@ -994,16 +1029,21 @@ export default function DataDescriptor({ form, onChange, data }) {
         </Q>
 
         <Q label="What software and analysis tools were used?" name="software"
-          hint="List key software packages, toolboxes, or custom scripts (with versions if known)."
+          hint="One tool per line, each WITH its version (e.g. FSL 6.0.5). If you do not know the version, write “version unknown”."
+          example={EXAMPLES.software}
           prefilled={autoPopulated.software}>
           <WordCountArea autoSize={{ minRows: 2, maxRows: 5 }}
             placeholder="Kilosort 2.5 (spike sorting), MATLAB R2021b (analysis), Python 3.9 (visualisation)…" />
         </Q>
+        {swNoVersion.length > 0 && (
+          <Alert type="warning" showIcon style={{ margin: '-8px 0 16px' }}
+            message={`No version given for: ${swNoVersion.join(', ')}. Add the version, or write “version unknown”.`} />
+        )}
 
         {/* ══ 4. Data description ════════════════════════════════════════ */}
         <SectionHeading number="4" title="Data description" />
 
-        <Q label="Describe the dataset structure and content" name="dataDescription"
+        <Q label="Describe the dataset structure and content" name="dataDescription" example={EXAMPLES.dataRecords}
           hint="What files are included? What format? Did you follow a metadata standard (e.g. BIDS, NWB)?"
           required prefilled={autoPopulated.dataDescription}>
           <WordCountArea autoSize={{ minRows: 4, maxRows: 10 }}
@@ -1016,7 +1056,8 @@ export default function DataDescriptor({ form, onChange, data }) {
           onResult={applyBucket}
         />
 
-        <Q label="File structure of the data" name="dataRecordsTree"
+        <Q label="File structure of the data" name="dataRecordsTree" example={EXAMPLES.tree}
+          exampleNote="Generated from your bucket when possible. This is how the hierarchy should look: one entry per line, two spaces per level, a short description in square brackets."
           hint={'Reduced generic layout of the repository (see the template): one entry per line starting with "/", two spaces of indentation per folder level, and a one-sentence description of each example file in square brackets. Mention the (meta)data standard followed (e.g. BIDS) in the description above.'}>
           <TextArea autoSize={{ minRows: 6, maxRows: 24 }} wrap="off"
             style={{ fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre' }}
@@ -1047,7 +1088,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         {/* ══ 5. Usage ═══════════════════════════════════════════════════ */}
         <SectionHeading number="5" title="Usage and reuse" />
 
-        <Q label="What can this dataset be used for?" name="usageNotes"
+        <Q label="What can this dataset be used for?" name="usageNotes" example={EXAMPLES.usage}
           hint='Suggestions for use. e.g. "particularly suitable for precise spike-time analyses"'
           required>
           <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
