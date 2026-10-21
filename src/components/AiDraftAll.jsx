@@ -33,6 +33,7 @@ export default function AiDraftAll({ sections, buildPrompt, onUse }) {
   const [drafts, setDrafts] = useState({})   // key -> { text, error }
   const [ms, setMs] = useState(null)         // manuscript: { name, text } or { name, base64 } (PDF)
   const [msError, setMsError] = useState('')
+  const [fatalError, setFatalError] = useState('')   // one message when the key/provider is the problem
 
   const loadManuscript = async (file) => {
     setMsError('')
@@ -52,12 +53,13 @@ export default function AiDraftAll({ sections, buildPrompt, onUse }) {
   }
 
   const run = async () => {
-    setBusy(true); setDrafts({})
+    setBusy(true); setDrafts({}); setFatalError('')
     for (const s of sections) {
       try {
         const text = await askAi(withManuscript(buildPrompt(s.key)), settings, { attachments: ms?.base64 ? [{ name: ms.name, base64: ms.base64 }] : [] })
         setDrafts(d => ({ ...d, [s.key]: { text } }))
       } catch (e) {
+        if (e.fatal) { setFatalError(e.message); break }   // the same problem would repeat for every section
         setDrafts(d => ({ ...d, [s.key]: { error: e.message } }))
       }
     }
@@ -87,6 +89,7 @@ export default function AiDraftAll({ sections, buildPrompt, onUse }) {
           </Text>
         </div>
       )}
+      {fatalError && <Alert type="error" showIcon closable style={{ marginTop: 8 }} message={fatalError} onClose={() => setFatalError('')} />}
       {msError && <Alert type="warning" showIcon style={{ marginTop: 6 }} message={msError} />}
       <Text style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', display: 'block', marginTop: 6 }}>
         The drafts are built from what you have already written. Nothing changes in the form until you press "Use this draft".

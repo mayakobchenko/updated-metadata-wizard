@@ -79,7 +79,7 @@ export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 1
     }
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) throw new Error('The provider rejected the API key.')
+      if (res.status === 401 || res.status === 403) throw Object.assign(new Error('The provider rejected the API key. Please check the key (and the provider and model) under "AI key".'), { fatal: true })
       throw new Error(body?.error?.message || `The provider answered ${res.status}.`)
     }
     const out = settings.provider === 'anthropic'
@@ -89,7 +89,7 @@ export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 1
     return out.trim()
   } catch (e) {
     if (e.name === 'AbortError') throw new Error('The request took too long. Please try again.')
-    if (e instanceof TypeError) throw new Error('Could not reach the provider (network or browser restriction). You can still copy the prompt instead.')
+    if (e instanceof TypeError) throw Object.assign(new Error('Could not reach the provider (network or browser restriction). You can still copy the prompt instead.'), { fatal: true })
     throw e
   } finally {
     clearTimeout(timer)

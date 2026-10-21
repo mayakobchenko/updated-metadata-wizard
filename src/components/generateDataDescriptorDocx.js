@@ -80,11 +80,36 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
             spacing: { after: 0 },
             children: [new TextRun({ text: line, size: 18, font: 'Courier New' })]
           })
-        : new Paragraph({
-            spacing: { after: 160 },
-            children: [new TextRun({ text: line, size: 22, font: 'Calibri' })]
-          })
+        : markdownLine(line)
     )
+  }
+
+  // Light Markdown in free-text fields (pasted or imported from the skill): "### heading" lines become bold
+  // subheadings, "- item" lines become bullets, and inline ^superscript^, **bold**, `code` and <br> are rendered.
+  const inlineRuns = (raw) => {
+    const text = String(raw).replace(/\\\*/g, '*').replace(/\\\s*$/, '')
+    const runs = []
+    const re = /(\*\*[^*\n]+\*\*|`[^`\n]+`|\^[^\s^]{1,16}\^|<br\s*\/?>)/g
+    let last = 0, m
+    const plain = (t) => { if (t) runs.push(new TextRun({ text: t, size: 22, font: 'Calibri' })) }
+    while ((m = re.exec(text))) {
+      plain(text.slice(last, m.index))
+      const tok = m[0]
+      if (tok.startsWith('**')) runs.push(new TextRun({ text: tok.slice(2, -2), bold: true, size: 22, font: 'Calibri' }))
+      else if (tok.startsWith('`')) runs.push(new TextRun({ text: tok.slice(1, -1), size: 20, font: 'Courier New' }))
+      else if (tok.startsWith('^')) runs.push(new TextRun({ text: tok.slice(1, -1).replace(/\\\*/g, '*'), size: 22, font: 'Calibri', superScript: true }))
+      else runs.push(new TextRun({ text: '', break: 1 }))
+      last = m.index + tok.length
+    }
+    plain(text.slice(last))
+    return runs
+  }
+  const markdownLine = (line) => {
+    const h = line.match(/^#{2,4}\s+(.*)$/)
+    if (h) return new Paragraph({ spacing: { before: 120, after: 60 }, keepNext: true, children: [new TextRun({ text: h[1].replace(/\*\*/g, ''), bold: true, size: 22, font: 'Calibri' })] })
+    const b = line.match(/^\s*[-*•]\s+(.*)$/)
+    if (b) return new Paragraph({ spacing: { after: 60 }, indent: { left: 360, hanging: 220 }, children: [new TextRun({ text: '•\u00A0\u00A0', size: 22, font: 'Calibri' }), ...inlineRuns(b[1])] })
+    return new Paragraph({ spacing: { after: 160 }, children: inlineRuns(line) })
   }
 
   const spacer = (after = 100) => new Paragraph({ text: '', spacing: { after } })

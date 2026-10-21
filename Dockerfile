@@ -32,6 +32,11 @@ RUN apk add --no-cache python3 py3-pip
 COPY server/routes/python_scripts/requirements.txt ./python-requirements.txt
 RUN pip3 install --break-system-packages --no-cache-dir -r ./python-requirements.txt
 
+# ── python-docx renders the data descriptor into the Word template. Installed separately and allowed to fail:
+# without it the wizard falls back to the generator in the browser.
+RUN pip3 install --break-system-packages --no-cache-dir python-docx \
+ || echo "WARNING: python-docx not installed; data descriptor Word rendering uses the browser fallback"
+
 # ── copy app files ────────────────────────────────────────────────────────────
 COPY server/ ./server
 COPY --from=prod-deps /app/node_modules ./node_modules

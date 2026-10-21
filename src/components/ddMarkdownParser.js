@@ -58,7 +58,8 @@ export function parseDescriptorMarkdown(text) {
       const tableLines = body.split('\n').filter(l => /^\s*\|/.test(l)).join('\n')
       if (tableLines) { const f = parseFormatsTable(tableLines); if (f.length) formats = f }
       const prose = body.replace(/```[\s\S]*?```/g, '').split('\n').filter(l => !/^\s*\|/.test(l)).join('\n')
-      fields.dataDescription = clean(prose)
+      // the Word file writes this sentence itself above the tree
+      fields.dataDescription = clean(prose.split('\n').filter(l => !/^\s*the data are stored in the following structure[^\n]*$/i.test(l)).join('\n'))
     } else {
       fields[field] = clean(body)
     }
@@ -67,9 +68,9 @@ export function parseDescriptorMarkdown(text) {
   // checks
   if (fields.summary && WORDS(fields.summary) > 220) warnings.push(`The imported summary has ${WORDS(fields.summary)} words; the maximum is 220.`)
   Object.entries(fields).forEach(([f, v]) => {
-    if (/<[A-Za-z][^>]*>|\[[A-Z][^\]]{2,}\]/.test(v) && f !== 'dataRecordsTree' && /<(?!br|sup|sub|\/)[a-z][a-z ]+>/i.test(v)) {
-      warnings.push(`“${FIELD_LABELS[f] || f}” still contains <angle-bracket placeholders>.`)
-    }
+    if (f === 'dataRecordsTree') return
+    const t = v.replace(/`[^`\n]*`/g, '')   // placeholders inside code spans are filename patterns, not unfinished text
+    if (/<(?!br\b|sup\b|sub\b)[A-Za-z][A-Za-z ._-]*>/.test(t)) warnings.push(`“${FIELD_LABELS[f] || f}” still contains <angle-bracket placeholders>.`)
   })
   return { fields, formats, warnings }
 }

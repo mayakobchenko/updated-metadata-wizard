@@ -16,7 +16,7 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 import { normalizeImportedJson } from './importNormalize.js'
-import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
+import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { getFigures } from './figuresStore'
 
 const { Text } = Typography
@@ -381,12 +381,10 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     if (missing.length || !(dd.authors || []).length) {
       throw new Error('The data descriptor is not complete yet. Please fill in the Data Descriptor step (summary, methods, usage notes and authors) first.')
     }
-    return generateDataDescriptorDocx({
-      ...dd,
-      title: fd.dataset1?.dataTitle || dd.title,
+    return renderDataDescriptor({
+      dd: { ...dd, title: fd.dataset1?.dataTitle || dd.title },
       figures: getFigures(),
       fullData: fd,
-      returnBlob: true,
     })
   }
 
@@ -408,10 +406,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
   const downloadDocx = async () => {
     const { blob, filename } = await buildDocx()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = filename
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+    downloadBlob(blob, filename)
   }
 
   const getTicketId = async () => {
