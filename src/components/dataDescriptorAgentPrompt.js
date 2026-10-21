@@ -104,7 +104,7 @@ export function buildAgentPrompt({
     block('Summary (SUMMARY, max 220 words)', values.summary || data.dataset1?.briefSummary),
     block('What is registered in the wizard (use in SUMMARY and MATERIALS AND METHODS > Subjects)', context),
     block('Methods (MATERIALS AND METHODS > Equipment, Experimental procedure, Processing)', values.methods),
-    block('Software and analysis tools (MATERIALS AND METHODS > Processing & analysis)', values.software),
+    block('Software or code for working with the data, with versions (USAGE NOTES)', values.software),
     block('Dataset structure and content (DATA RECORDS)', values.dataDescription),
     block('File structure written so far (DATA RECORDS, part 1)', values.dataRecordsTree),
     block('File format table written so far (DATA RECORDS, part 2)',
@@ -115,8 +115,7 @@ export function buildAgentPrompt({
     block('Usage notes (USAGE NOTES)', values.usageNotes),
     block('Limitations and caveats (USAGE NOTES)', values.limitations),
     block('Funding (Acknowledgements)', values.funding),
-    block('References (REFERENCES)', [values.references, values.results && `Key results I described: ${values.results}`].filter(Boolean).join('\n')),
-    block('Data repository / DOI', values.dataRepository),
+    block('References (REFERENCES)', values.references),
   ].join('\n')
 
   const domainText = domain
@@ -192,7 +191,6 @@ Anatomical information: if applicable, give the entity of the data (e.g. cell ty
     answers: (v, d, ctx) => [
       block('What is registered in the wizard', ctx.subjects),
       block('Methods I have written so far', v.methods),
-      block('Software and analysis tools', v.software),
     ],
     wantsDomain: true,
   },
@@ -203,8 +201,7 @@ Anatomical information: if applicable, give the entity of the data (e.g. cell ty
     answers: (v) => [
       block('Usage notes I have written so far', v.usageNotes),
       block('Limitations and caveats', v.limitations),
-      block('Software and analysis tools', v.software),
-      block('Data repository / DOI', v.dataRepository),
+      block('Software or code for working with the data, with versions', v.software),
       block('Methods (for orientation only)', v.methods),
     ],
     wantsListing: true,

@@ -13,9 +13,10 @@ export default function AiKeyButton() {
   const [provider, setProvider] = useState(settings?.provider || 'anthropic')
   const [model, setModel] = useState(settings?.model || '')
   const [key, setKey] = useState(settings?.key || '')
+  const [baseUrl, setBaseUrl] = useState(settings?.baseUrl || '')
 
   const save = () => {
-    setAiSettings(key.trim() ? { provider, model: model.trim(), key: key.trim() } : null)
+    setAiSettings(key.trim() ? { provider, model: model.trim(), key: key.trim(), baseUrl: baseUrl.trim() } : null)
     setOpen(false)
   }
   const remove = () => { setAiSettings(null); setKey(''); setOpen(false) }
@@ -42,10 +43,21 @@ export default function AiKeyButton() {
         </Text>
         <Select value={provider} onChange={v => { setProvider(v); setModel('') }} style={{ width: '100%', marginBottom: 10 }}
           options={Object.entries(PROVIDERS).map(([value, p]) => ({ value, label: p.label }))} />
+        {PROVIDERS[provider].custom && (
+          <Input value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={{ marginBottom: 10 }}
+            placeholder="Provider address, e.g. https://api.groq.com/openai/v1" />
+        )}
         <Input.Password value={key} onChange={e => setKey(e.target.value)} style={{ marginBottom: 10 }}
           placeholder={`API key (${PROVIDERS[provider].keyHint})`} autoComplete="off" />
         <Input value={model} onChange={e => setModel(e.target.value)}
-          placeholder={`Model (default: ${PROVIDERS[provider].model})`} />
+          placeholder={PROVIDERS[provider].model ? `Model (default: ${PROVIDERS[provider].model})` : 'Model name (required for this provider)'} />
+        {PROVIDERS[provider].compatible && (
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+            Works with any provider that offers an OpenAI-compatible API (for example Mistral, Groq, Together, OpenRouter or a model run by your institution).
+            The provider must allow requests from a web page; if the request is blocked you can still copy the prompt into the provider's own chat.
+            Uploading a manuscript is not available with these providers.
+          </Text>
+        )}
       </Modal>
     </>
   )

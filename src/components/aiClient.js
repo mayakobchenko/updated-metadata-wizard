@@ -6,6 +6,9 @@ import { useSyncExternalStore } from 'react'
 export const PROVIDERS = {
   anthropic: { label: 'Anthropic (Claude)', model: 'claude-sonnet-5-5', keyHint: 'sk-ant-…' },
   openai:    { label: 'OpenAI',             model: 'gpt-4o',            keyHint: 'sk-…' },
+  // Any provider with an OpenAI-compatible "chat/completions" API works through the same code path.
+  mistral:   { label: 'Mistral',            model: 'mistral-large-latest', keyHint: 'your Mistral API key', baseUrl: 'https://api.mistral.ai/v1', compatible: true },
+  compatible:{ label: 'Other (OpenAI-compatible API)', model: '', keyHint: 'your API key', baseUrl: '', compatible: true, custom: true },
 }
 
 const STORAGE_KEY = 'mw_ai_settings'
@@ -42,7 +45,11 @@ export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 1
   if (!settings?.key) throw new Error('No API key set.')
   const provider = PROVIDERS[settings.provider]
   if (!provider) throw new Error('Unknown AI provider.')
-  const model = (settings.model || provider.model).trim()
+  const model = (settings.model || provider.model || '').trim()
+  const baseUrl = ((provider.custom ? settings.baseUrl : provider.baseUrl) || '').trim().replace(/\/+$/, '')
+  if (provider.compatible && !model) throw new Error('Please enter the model name for this provider.')
+  if (provider.compatible && !/^https:\/\//.test(baseUrl)) throw new Error('Please enter the provider address (starting with https://).')
+  if (provider.compatible && attachments.length) throw new Error('Reading an uploaded manuscript works with Anthropic and OpenAI keys. For this provider, remove the manuscript or paste the relevant text into the fields.')
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   const text = prompt + ONE_SHOT
@@ -62,7 +69,7 @@ export async function askAi(prompt, settings, { fetchImpl = fetch, timeoutMs = 1
           : text }] }),
       })
     } else {
-      res = await fetchImpl('https://api.openai.com/v1/chat/completions', {
+      res = await fetchImpl(`${provider.compatible ? baseUrl : 'https://api.openai.com/v1'}/chat/completions`, {
         method: 'POST', signal: controller.signal,
         headers: { 'content-type': 'application/json', Authorization: `Bearer ${settings.key}` },
         body: JSON.stringify({ model, messages: [{ role: 'user', content: attachments.length

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button, Modal, Upload, Input, Radio, Alert, Typography, Tag } from 'antd'
 import { FileMarkdownOutlined } from '@ant-design/icons'
-import { parseDescriptorMarkdown, FIELD_LABELS } from './ddMarkdownImport'
+import { parseDescriptorMarkdown, FIELD_LABELS } from './ddMarkdownParser'
 import { countWords } from './WordCountArea'
 
 const { Text } = Typography

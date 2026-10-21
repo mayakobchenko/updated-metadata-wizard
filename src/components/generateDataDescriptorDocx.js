@@ -290,21 +290,20 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   push(...bodyLines((dd.versionSpec || '').trim() || `This is version ${version} of this dataset.`))
 
   // MATERIALS AND METHODS
-  const hasMethods = dd.methods || dd.software
-  if (hasMethods) {
+  if (dd.methods) {
     push(sectionHeading('Materials and Methods'))
-    if (dd.methods) push(...bodyLines(dd.methods))
-    if (dd.software) {
-      push(subLabel('Software and analysis tools'))
-      push(...bodyLines(dd.software))
-    }
+    push(...bodyLines(dd.methods))
   }
   push(...attachmentsFor('methods'))
 
   // USAGE NOTES
-  if (dd.usageNotes || dd.limitations) {
+  if (dd.usageNotes || dd.limitations || dd.software) {
     push(sectionHeading('Usage Notes'))
     if (dd.usageNotes) push(...bodyLines(dd.usageNotes))
+    if (dd.software) {
+      push(subLabel('Software and code'))
+      push(...bodyLines(dd.software))
+    }
     if (dd.limitations) {
       push(subLabel('Limitations and caveats'))
       push(...bodyLines(dd.limitations))
@@ -315,8 +314,7 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   // DATA RECORDS — follows the template: (1) reduced layout of the repository, one "/entry" per
   // line with a short description in square brackets; (2) a table of all file formats.
   const formatRows = (dd.dataRecordsFormats || []).filter(r => r.format || r.extension || r.software)
-  const hasDataRecords = dd.dataDescription || dd.dataRecordsTree || formatRows.length ||
-    dd.results || dd.dataRepository
+  const hasDataRecords = dd.dataDescription || dd.dataRecordsTree || formatRows.length
   if (hasDataRecords) {
     push(sectionHeading('Data Records'))
     if (dd.dataDescription) push(...bodyLines(dd.dataDescription))
@@ -329,14 +327,6 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
       push(spacer(120))
     }
     if (formatRows.length) push(formatsTable(formatRows), spacer(160))
-    if (dd.results) {
-      push(subLabel('Key results'))
-      push(...bodyLines(dd.results))
-    }
-    if (dd.dataRepository) {
-      push(subLabel('Repository'))
-      push(...bodyLines(dd.dataRepository))
-    }
   }
   push(...attachmentsFor('records'))
 

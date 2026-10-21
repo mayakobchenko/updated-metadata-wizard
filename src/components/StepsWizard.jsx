@@ -377,9 +377,9 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const buildDocx = async () => {
     const fd = formDataRef.current || {}
     const dd = fd.dataDescriptor || {}
-    const missing = ['summary', 'methods', 'dataDescription', 'usageNotes'].filter(f => !(dd[f] || '').toString().trim())
+    const missing = ['summary', 'methods', 'usageNotes'].filter(f => !(dd[f] || '').toString().trim())
     if (missing.length || !(dd.authors || []).length) {
-      throw new Error('The data descriptor is not complete yet. Please fill in the Data Descriptor step (summary, methods, data description, usage notes and authors) first.')
+      throw new Error('The data descriptor is not complete yet. Please fill in the Data Descriptor step (summary, methods, usage notes and authors) first.')
     }
     return generateDataDescriptorDocx({
       ...dd,
