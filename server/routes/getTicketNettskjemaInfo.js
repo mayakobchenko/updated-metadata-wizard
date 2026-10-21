@@ -27,6 +27,7 @@ const router = express.Router()
 router.get('/zammadinfo',   getZammadInfo)
 router.get('/nettskjema',   getNettskjemaInfo)
 router.post('/save-json',   saveJsonToTicket)
+router.post('/save-docx',   saveDocxToTicket)
 
 // ── Nettskjema element IDs ────────────────────────────────────────────────────
 
@@ -499,6 +500,58 @@ async function saveJsonToTicket(req, res) {
 
   } catch (err) {
     logger.error(`Error saving JSON to Zammad: ${err.message}`)
+    return res.status(500).json({ error: err.message })
+  }
+}
+
+// ── POST /api/zammad/save-docx ────────────────────────────────────────────────
+// Attaches the generated Data Descriptor (Word) to the ticket as its OWN article,
+// with the same type/visibility as the metadata JSON article (internal note).
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const MAX_DOCX_BYTES = 6 * 1024 * 1024
+
+async function saveDocxToTicket(req, res) {
+  const { ticketId, docxBase64, datasetTitle } = req.body || {}
+  if (!ticketId)   return res.status(400).json({ error: 'ticketId is required' })
+  if (!docxBase64 || typeof docxBase64 !== 'string') return res.status(400).json({ error: 'docxBase64 is required' })
+  if (!ZAMMAD_TOKEN) {
+    logger.error('MAYA_ZAMMAD_TOKEN is not set in environment')
+    return res.status(500).json({ error: 'Zammad token not configured on server' })
+  }
+  const buf = Buffer.from(docxBase64, 'base64')
+  // a .docx is a zip file: it must start with "PK"
+  if (buf.length < 1000 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
+    return res.status(400).json({ error: 'The file is not a valid Word document' })
+  }
+  if (buf.length > MAX_DOCX_BYTES) return res.status(413).json({ error: 'The Word file is too large' })
+
+  try {
+    const title    = String(datasetTitle || 'dataset')
+    const filename = `data_descriptor_${title.replace(/[^a-z0-9_-]/gi, '_').slice(0, 60)}_${Date.now()}.docx`
+    const article = {
+      ticket_id:    parseInt(ticketId, 10),
+      subject:      `Data descriptor — ${title}`.slice(0, 150),
+      body:         `Data descriptor (Word) attached for dataset: ${title}.\nUploaded at: ${new Date().toISOString()}`,
+      content_type: 'text/plain',
+      type:         'note',      // same as the JSON article: internal note, no email
+      internal:     true,
+      sender:       'Agent',
+      time_unit:    '0',
+      attachments:  [{ filename, data: buf.toString('base64'), 'mime-type': DOCX_MIME }],
+    }
+    const response = await fetch(`${ZAMMAD_BASE}/api/v1/ticket_articles`, {
+      method: 'POST', body: JSON.stringify(article),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ZAMMAD_TOKEN}` },
+    })
+    const responseData = await response.json().catch(() => ({}))
+    if (response.ok) {
+      logger.info(`Data descriptor saved to Zammad ticket ${ticketId}, article id: ${responseData.id}`)
+      return res.status(200).json({ success: true, articleId: responseData.id, ticketId, filename })
+    }
+    logger.error(`Zammad error ${response.status}: ${JSON.stringify(responseData)}`)
+    return res.status(response.status).json({ error: 'Zammad API error', detail: responseData })
+  } catch (err) {
+    logger.error(`Error saving data descriptor to Zammad: ${err.message}`)
     return res.status(500).json({ error: err.message })
   }
 }

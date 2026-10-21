@@ -8,7 +8,6 @@ import BucketStructurePanel from './BucketStructurePanel'
 import AiDraftAll from './AiDraftAll'
 import WordCountArea, { countWords } from './WordCountArea'
 import { EXAMPLES } from './ddExamples'
-import { saveDraft, loadDraft, clearDraft } from './draftStore'
 import { buildLookups } from './metadataLookups'
 import { describeExperiment, factsText, methodsStarter } from './experimentFacts'
 import FiguresTablesPanel from './FiguresTablesPanel'
@@ -252,19 +251,18 @@ function computeFieldValues(data) {
   return {
     title,   // always from Dataset1, not from dd.title
 
-    whatAreTheData: pf(dd.whatAreTheData, (() => {
+    // One Summary field. Starting point: the brief summary from Dataset part 1; older saved data that
+    // still has the four former questions is folded into it; otherwise a one-sentence description of the data.
+    summary: pf(dd.summary, (() => {
+      const legacy = [dd.whatAreTheData, dd.scientificContext, dd.motivation, dd.hypothesis].filter(Boolean).join(' ')
+      if (legacy) return legacy
+      if (d1.briefSummary) return d1.briefSummary
       const types = dataTypePhrase(d1.optionsData || [])
-      const s = buildSubjectSummary(subj)
-      if (types && s) return `This dataset contains ${types} from ${s}.`
-      if (types)      return `This dataset contains ${types}.`
-      return s ? `This dataset contains data from ${s}.` : ''
+      const sj = buildSubjectSummary(subj)
+      if (types && sj) return `This dataset contains ${types} from ${sj}.`
+      if (types)       return `This dataset contains ${types}.`
+      return sj ? `This dataset contains data from ${sj}.` : ''
     })()),
-
-    scientificContext: dd.scientificContext  || '',
-    motivation:        dd.motivation        || '',
-    hypothesis:        dd.hypothesis        || '',
-    // the brief summary from Dataset part 1 is the starting point
-    summary:           pf(dd.summary, d1.briefSummary),
     methods:           dd.methods           || '',
     versionSpec:       dd.versionSpec       || '',
 
@@ -296,8 +294,7 @@ function computeAutoPopulated(data) {
   const dd   = data.dataDescriptor  || {}
   const no   = (k) => !dd[k] || dd[k] === ''
   return {
-    whatAreTheData:      no('whatAreTheData')      && !!(dataTypePhrase(d1.optionsData || []) || buildSubjectSummary(subj)),
-    summary:             no('summary')             && !!d1.briefSummary,
+    summary:             no('summary')             && !!(d1.briefSummary || dataTypePhrase(d1.optionsData || []) || buildSubjectSummary(subj)),
     dataDescription:     no('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
     dataRepository:      no('dataRepository')      && !!(d2.Data2UrlDoiRepo || d2.homePage),
     funding:             no('funding')             && !!buildFundingText(fund),
@@ -666,28 +663,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     }
   }, [facts]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── saved draft (this browser only) ──────────────────────────────────────
-  const draftId = data.datasetVersionId
-  const [restoredAt, setRestoredAt] = useState(null)
-  useEffect(() => {
-    const d = loadDraft(draftId)
-    if (!d) return
-    let changed = false
-    Object.entries(d.values || {}).forEach(([f, v]) => {
-      if (!(form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()) {
-        form.setFieldValue(['dataDescriptor', f], v); changed = true
-      }
-    })
-    if (!formatsRef.current.length && d.formats?.length) {
-      formatsRef.current = d.formats; setFormatRows(d.formats); changed = true
-    }
-    if (changed) { setRestoredAt(d.savedAt); emitAll(authors, affiliations) }
-  }, [draftId]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const t = setTimeout(() => saveDraft(draftId, data.dataDescriptor, formatsRef.current), 800)
-    return () => clearTimeout(t)
-  }, [data.dataDescriptor, formatRows, draftId])
-
   // ── completeness checklist ───────────────────────────────────────────────
   const fv = (f) => (form.getFieldValue(['dataDescriptor', f]) || '').toString().trim()
   const figs = useFigures()
@@ -696,9 +671,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     { label: 'Dataset title (Dataset part 1): at most 110 characters, without colons or parentheses', ok: !!(data.dataset1?.dataTitle || '').trim() && data.dataset1.dataTitle.length <= TITLE_MAX_CHARS && !/[:()]/.test(data.dataset1.dataTitle) },
     { label: 'At least one corresponding author, with a valid email (Authors)', ok: corrAuthorsValid },
     { label: 'Affiliation number for every author (Authors)', ok: authors.every(a => (a.affiliationNumbers || '').trim()) },
-    { label: 'What are the data?', field: 'whatAreTheData', ok: !!fv('whatAreTheData') },
-    { label: 'Scientific background and context', field: 'scientificContext', ok: !!fv('scientificContext') },
-    { label: 'Motivation', field: 'motivation', ok: !!fv('motivation') },
     { label: `Summary (at most ${SUMMARY_MAX_WORDS} words)`, field: 'summary', ok: !!fv('summary') && countWords(fv('summary')) <= SUMMARY_MAX_WORDS },
     { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
     { label: 'Dataset structure and content', field: 'dataDescription', ok: !!fv('dataDescription') },
@@ -712,8 +684,7 @@ export default function DataDescriptor({ form, onChange, data }) {
   const handleGenerate = async () => {
     setGenError('')
     const requiredFields = [
-      'whatAreTheData', 'scientificContext', 'summary',
-      'motivation', 'methods', 'dataDescription', 'usageNotes',
+      'summary', 'methods', 'dataDescription', 'usageNotes',
     ]
     setShowAuthorErrors(true)
     if (swNoVersion.length) {
@@ -808,12 +779,6 @@ export default function DataDescriptor({ form, onChange, data }) {
       >
 
         {/* ══ 1. Header ══════════════════════════════════════════════════ */}
-        {restoredAt && (
-          <Alert type="info" showIcon closable style={{ marginBottom: 12 }} onClose={() => setRestoredAt(null)}
-            message={`Your saved draft from ${new Date(restoredAt).toLocaleString()} was restored in this browser.`}
-            description={<>Drafts are kept only in this browser. <a onClick={() => { clearDraft(draftId); setRestoredAt(null) }}>Delete the saved draft</a></>} />
-        )}
-
         <AiDraftAll
           sections={[
             { key: 'summary',     label: 'Summary',         field: 'summary' },
@@ -960,48 +925,19 @@ export default function DataDescriptor({ form, onChange, data }) {
           </Button>
         </div>
 
-        {/* ══ 2. Summary (was "Dataset identity" + "Scientific context") ══ */}
+        {/* ══ 2. Summary ═════════════════════════════════════════════════ */}
         <SectionHeading number="2" title="Summary" />
-        <div style={{ margin: '-6px 0 14px', fontSize: 12, color: 'rgba(0,0,0,0.6)' }}>
-          The first questions below help you write the Summary. Their answers are not printed as separate
-          sections in the Word file.{' '}
-          <a onClick={() => {
-            const parts = ['whatAreTheData', 'scientificContext', 'motivation', 'hypothesis']
-              .map(f => (form.getFieldValue(['dataDescriptor', f]) || '').trim()).filter(Boolean)
-            const cur = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
-            if (parts.length) useSectionText('summary', [cur, ...parts.filter(p => !cur.includes(p))].filter(Boolean).join(' '))
-          }}>Add these answers to the Summary</a> (then shorten it to 220 words).
-        </div>
-
-        <Q label="What are the data?" name="whatAreTheData"
-          hint='Start with "This dataset contains…". Describe the type of data, modality, number of subjects/samples, species. (1–3 sentences)'
-          required prefilled={autoPopulated.whatAreTheData}>
-          <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="This dataset contains experimental and raw electrophysiological recordings from 10 freely behaving rats…" />
-        </Q>
-
-        <Q label="What is the scientific background and context?" name="scientificContext"
-          hint="An introductory sentence or two that puts the reader in the context of the subject: the broader field, what was already known, why it matters. Also suitable for data that are not part of a research project. (2–4 sentences)"
-          required>
-          <WordCountArea autoSize={{ minRows: 3, maxRows: 8 }}
-            placeholder="Grid cells in the medial entorhinal cortex are thought to provide a metric for spatial navigation…" />
-        </Q>
-
-        <Q label="What was the motivation for creating and sharing this dataset?" name="motivation"
-          hint="Why was this study conducted? What gap does it fill? Why is sharing the data valuable?"
-          required>
-          <WordCountArea autoSize={{ minRows: 3, maxRows: 6 }}
-            placeholder="We created this dataset to enable researchers to investigate theta-sweep dynamics…" />
-        </Q>
-
-        <Q label="Central hypothesis or research question (optional)" name="hypothesis"
-          hint="What did you set out to test or discover? One or two sentences. Leave empty if the data were not collected for a specific research question.">
-          <WordCountArea autoSize={{ minRows: 2, maxRows: 4 }}
-            placeholder="We hypothesised that attention-like modulation of theta sweeps would be observable…" />
-        </Q>
 
         <Q label="Summary" name="summary" prefilled={autoPopulated.summary} required example={EXAMPLES.summary}
-          hint="Maximum 220 words, no references. Summarise the content, provenance and usage potential of the shared data (subjects, methods and materials, study targets, how the data could be reused). Describe the shared data, not the research results, in a way that any scientist can understand."
+          hint={<>
+            Maximum 220 words, no references. Summarise the content, provenance and usage potential of the shared data in a way that any scientist can understand. Describe the shared data, not the research results. As a guide, cover:
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              <li><b>What are the data?</b> Start with “This dataset contains…”: type of data, modality, number of subjects or samples, species.</li>
+              <li><b>Background and context:</b> one or two sentences that put the reader in the context of the subject (also for data that are not part of a research project).</li>
+              <li><b>Why</b> were the data created and shared? If there was a specific hypothesis or research question, you may mention it.</li>
+              <li><b>How</b> were they acquired (methods and materials, study targets) and how can they be <b>reused</b>?</li>
+            </ul>
+          </>}
           rules={[{
             validator: (_, v) => countWords(v) <= SUMMARY_MAX_WORDS
               ? Promise.resolve()

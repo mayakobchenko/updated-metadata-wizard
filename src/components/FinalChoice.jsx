@@ -10,7 +10,32 @@ import {
   DownloadOutlined,
 } from '@ant-design/icons'
 
-export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicketId, downloadJson, formData }) {
+export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocxToZammad, downloadDocx, dataDescriptorEnabled, getTicketId, downloadJson, formData }) {
+
+  // ── second button: send the Word data descriptor to the ticket (own article) ──
+  const [ddStatus, setDdStatus] = useState(null) // null | 'loading' | 'success' | 'error'
+  const [ddError, setDdError]   = useState('')
+  const handleSubmitDd = async () => {
+    setDdStatus('loading'); setDdError('')
+    try {
+      const ticketRes  = await getTicketId()
+      const ticketData = await ticketRes.json()
+      const ticketId   = ticketData?.ticketId ?? null
+      if (!ticketId) throw new Error('No support ticket was found for this submission.')
+      const res = await saveDocxToZammad(ticketId)
+      if (!res?.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || `Server error ${res?.status}`)
+      }
+      setDdStatus('success')
+    } catch (e) {
+      setDdError(e.message || 'Could not send the data descriptor.')
+      setDdStatus('error')
+    }
+  }
+  const handleDownloadDd = async () => {
+    try { await downloadDocx() } catch (e) { setDdError(e.message) }
+  }
 
   const [status, setStatus]             = useState(null)
   const [errorDetail, setErrorDetail]   = useState('')
@@ -136,22 +161,46 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
       icon={<DownloadOutlined />}
       onClick={handleDownloadJson}
     >
-      Download JSON
+      Download draft
     </Button>
   )
 
   return (
     <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
       <Button
         type="primary"
         size="large"
         icon={<SendOutlined />}
         onClick={handleSubmit}
         disabled={status === 'loading'}
-        style={{ minWidth: 180 }}
+        style={{ minWidth: 220 }}
       >
-        Submit
+        Submit metadata
       </Button>
+      {dataDescriptorEnabled && (
+        <>
+          <Button
+            size="large"
+            icon={<SendOutlined />}
+            onClick={handleSubmitDd}
+            loading={ddStatus === 'loading'}
+            style={{ minWidth: 220 }}
+          >
+            Submit data descriptor
+          </Button>
+          {ddStatus === 'success' && (
+            <Alert type="success" showIcon style={{ maxWidth: 320 }}
+              message="Data descriptor sent to your support ticket." />
+          )}
+          {ddStatus === 'error' && (
+            <Alert type="error" showIcon style={{ maxWidth: 320 }}
+              message="The data descriptor was not sent"
+              description={<>{ddError} <a onClick={handleDownloadDd}>Download the Word file</a> and send it to curation-support@ebrains.eu.</>} />
+          )}
+        </>
+      )}
+      </div>
 
       <Modal
         open={modalVisible}
@@ -199,10 +248,10 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             <Alert
               type="warning"
               showIcon
-              message="Please send your JSON manually"
+              message="Please send your draft manually"
               description={
                 <span>
-                  Use the <strong>Download JSON</strong> button to save your form
+                  Use the <strong>Download draft</strong> button to save your form
                   data, then send it to{' '}
                   <a href="mailto:curation-support@ebrains.eu">
                     curation-support@ebrains.eu
@@ -272,9 +321,9 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
               message=""
               description={
                 <span>
-                  Use <strong>Download JSON</strong> to save your current form
+                  Use <strong>Download draft</strong> to save your current form
                   data before reloading. After logging back in, use{' '}
-                  <strong>Import JSON</strong> to restore it instantly.
+                  <strong>Import draft</strong> to restore it instantly.
                 </span>
               }
             />
@@ -295,10 +344,10 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, getTicke
             <Alert
               type="error"
               showIcon
-              message="Please download your JSON and send it manually"
+              message="Please download your draft and send it manually"
               description={
                 <span>
-                  Use the <strong>Download JSON</strong> button to save your form
+                  Use the <strong>Download draft</strong> button to save your form
                   data, then send it to{' '}
                   <a href="mailto:curation-support@ebrains.eu">
                     curation-support@ebrains.eu

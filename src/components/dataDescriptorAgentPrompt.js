@@ -102,8 +102,7 @@ export function buildAgentPrompt({
     `### Authors (AUTHORS / AFFILIATIONS)\n${authorsBlock(authors, affiliations)}\n`,
     block('Corresponding author (CORRESPONDING AUTHOR(S))', values.correspondingAuthor),
     block('Summary (SUMMARY, max 220 words)', values.summary || data.dataset1?.briefSummary),
-    block('What the data are (use in SUMMARY and MATERIALS AND METHODS > Subjects)',
-      [values.whatAreTheData, context].filter(Boolean).join('\n')),
+    block('What is registered in the wizard (use in SUMMARY and MATERIALS AND METHODS > Subjects)', context),
     block('Methods (MATERIALS AND METHODS > Equipment, Experimental procedure, Processing)', values.methods),
     block('Software and analysis tools (MATERIALS AND METHODS > Processing & analysis)', values.software),
     block('Dataset structure and content (DATA RECORDS)', values.dataDescription),
@@ -117,8 +116,6 @@ export function buildAgentPrompt({
     block('Limitations and caveats (USAGE NOTES)', values.limitations),
     block('Funding (Acknowledgements)', values.funding),
     block('References (REFERENCES)', [values.references, values.results && `Key results I described: ${values.results}`].filter(Boolean).join('\n')),
-    block('Scientific background, motivation and hypothesis (not separate sections in the template; use them in SUMMARY / USAGE NOTES where they fit)',
-      [values.scientificContext, values.motivation, values.hypothesis].filter(Boolean).join('\n\n')),
     block('Data repository / DOI', values.dataRepository),
   ].join('\n')
 
@@ -180,10 +177,7 @@ Example structure: Write one sentence about the origin of the dataset. Write one
     answers: (v, d, ctx) => [
       block('Title', d.dataset1?.dataTitle || v.title),
       block('Brief summary entered earlier in the wizard', d.dataset1?.briefSummary),
-      block('What the data are', [v.whatAreTheData, ctx.subjects].filter(Boolean).join('\n')),
-      block('Scientific background', v.scientificContext),
-      block('Motivation for creating and sharing the data', v.motivation),
-      block('Central hypothesis or research question', v.hypothesis),
+      block('What is registered in the wizard', ctx.subjects),
       block('Methods (for orientation only)', v.methods),
       block('My current Summary text', v.summary),
     ],
@@ -196,7 +190,7 @@ Example structure: Write one sentence about the origin of the dataset. Write one
 It is accepted to cite previous methodological descriptions, but the descriptions should be complete enough for others to understand the materials and methods without reading the associated publications.
 Anatomical information: if applicable, give the entity of the data (e.g. cell type, histological section), the anatomical location (brain region name or coordinates), how the location was defined (atlas version, ontology, coordinate system/template space).`,
     answers: (v, d, ctx) => [
-      block('What the data are', [v.whatAreTheData, ctx.subjects].filter(Boolean).join('\n')),
+      block('What is registered in the wizard', ctx.subjects),
       block('Methods I have written so far', v.methods),
       block('Software and analysis tools', v.software),
     ],

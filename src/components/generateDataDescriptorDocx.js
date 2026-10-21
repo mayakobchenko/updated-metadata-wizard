@@ -27,7 +27,8 @@ async function fetchLogoBytes() {
 // institutions by DataDescriptor.jsx — this file must NOT recompute author
 // names from fullData.contribution.authors itself, since those only hold
 // raw KG URLs, not resolved names).
-export async function generateDataDescriptorDocx({ fullData = {}, figures = [], ...dd }) {
+// returnBlob: true → do not download; return { blob, filename } (used to attach the file to the Zammad ticket)
+export async function generateDataDescriptorDocx({ fullData = {}, figures = [], returnBlob = false, ...dd }) {
   const d1   = fullData.dataset1      || {}
   const cust = fullData.custodian     || {}
   const cont = fullData.contactperson || {}
@@ -453,9 +454,10 @@ export async function generateDataDescriptorDocx({ fullData = {}, figures = [], 
   })
 
   const blob = await Packer.toBlob(doc)
+  const safe = title.replace(/[^a-z0-9]/gi, '_').slice(0, 40).toLowerCase()
+  if (returnBlob) return { blob, filename: `${safe}_data_descriptor.docx` }
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
-  const safe = title.replace(/[^a-z0-9]/gi, '_').slice(0, 40).toLowerCase()
   a.href     = url
   a.download = `${safe}_data_descriptor.docx`
   document.body.appendChild(a)

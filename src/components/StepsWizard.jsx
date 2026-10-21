@@ -16,6 +16,8 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 import { normalizeImportedJson } from './importNormalize.js'
+import { generateDataDescriptorDocx } from './generateDataDescriptorDocx'
+import { getFigures } from './figuresStore'
 
 const { Text } = Typography
 
@@ -113,6 +115,32 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const [importPreview, setImportPreview]               = useState(null)
   const [importError, setImportError]                   = useState('')
   const [importFileName, setImportFileName]             = useState('')
+  // Unsaved-changes tracking: the form lives only in memory, so the user must download a draft to keep it.
+  const [lastSavedAt, setLastSavedAt]                   = useState(null)
+  const [dirty, setDirty]                               = useState(false)
+  const userEditedRef                                   = useRef(false)
+
+  useEffect(() => {
+    // only real user input marks the form as changed (not programmatic prefills on load)
+    const mark = () => { userEditedRef.current = true }
+    window.addEventListener('keydown', mark, true)
+    window.addEventListener('change', mark, true)
+    window.addEventListener('click', mark, true)
+    return () => {
+      window.removeEventListener('keydown', mark, true)
+      window.removeEventListener('change', mark, true)
+      window.removeEventListener('click', mark, true)
+    }
+  }, [])
+
+  useEffect(() => {
+    const warn = (e) => {
+      if (!dirty) return
+      e.preventDefault(); e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   useEffect(() => {
     if (externalFormData && Object.keys(externalFormData).length > 0) {
@@ -129,6 +157,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {
+    if (userEditedRef.current) setDirty(true)
     setFormData((prev) => {
       const next = { ...prev, ...data }
       formDataRef.current = next
@@ -343,6 +372,48 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     }
   }
 
+  // Builds the Word data descriptor from the current form data (same generator as the
+  // download button in the Data Descriptor step) and returns it as { blob, filename }.
+  const buildDocx = async () => {
+    const fd = formDataRef.current || {}
+    const dd = fd.dataDescriptor || {}
+    const missing = ['summary', 'methods', 'dataDescription', 'usageNotes'].filter(f => !(dd[f] || '').toString().trim())
+    if (missing.length || !(dd.authors || []).length) {
+      throw new Error('The data descriptor is not complete yet. Please fill in the Data Descriptor step (summary, methods, data description, usage notes and authors) first.')
+    }
+    return generateDataDescriptorDocx({
+      ...dd,
+      title: fd.dataset1?.dataTitle || dd.title,
+      figures: getFigures(),
+      fullData: fd,
+      returnBlob: true,
+    })
+  }
+
+  const saveDocxToZammad = async (ticketId) => {
+    const { blob } = await buildDocx()
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    let bin = ''
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+    return fetch('/api/zammad/save-docx', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticketId,
+        docxBase64: btoa(bin),
+        datasetTitle: formDataRef.current?.dataset1?.dataTitle || 'dataset',
+      }),
+    })
+  }
+
+  const downloadDocx = async () => {
+    const { blob, filename } = await buildDocx()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
   const getTicketId = async () => {
     const ticketNumber = skjemaInfo?.ticketNumber || ''
     if (!ticketNumber) return { json: async () => ({ ticketId: null }) }
@@ -450,6 +521,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     a.href = url; a.download = 'metadata_wizard.json'
     document.body.appendChild(a); a.click()
     document.body.removeChild(a); URL.revokeObjectURL(url)
+    setDirty(false); setLastSavedAt(new Date())
   }
 
   const isLastLogicalStep = currentStepIndex === lastLogicalStepIndex
@@ -465,26 +537,33 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         dataDescriptorEnabled={DATA_DESCRIPTOR_ENABLED}
       />
 
-      {/* ── JSON toolbar ────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '6px 16px 4px', background: '#f0f7ff',
-        border: '1px solid #bae0ff', borderRadius: 6, margin: '8px 16px 4px', gap: 12,
-      }}>
+      {/* ── Draft bar: always visible, nothing is stored in the browser ──── */}
+      <div
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '6px 16px', background: dirty ? '#fffbe6' : '#f0f7ff',
+          border: `1px solid ${dirty ? '#ffe58f' : '#bae0ff'}`, borderRadius: 6, margin: '8px 16px 4px', gap: 12,
+          position: 'sticky', top: 0, zIndex: 20,
+        }}>
         <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
-          💾 Want to save your progress and continue later?{' '}
-          <strong>Download JSON</strong> to save your current form data,
-          then use <strong>Import JSON</strong> next time to restore it instantly.
+          {dirty ? '⚠️ ' : '💾 '}
+          <strong>Your answers are not stored on any server or in this browser.</strong>{' '}
+          {dirty
+            ? 'You have changes that are not saved. Click Download draft before you close this page.'
+            : lastSavedAt
+              ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
+              : 'To continue later, click Download draft and keep the file.'}
+          {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague.
         </span>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <Button size="small" onClick={downloadJson}
-            title="Download your current form data as a JSON file to continue later">
-            Download JSON
+          <Button size="small" type={dirty ? 'primary' : 'default'} onClick={downloadJson}
+            title="Download everything you have entered, including the data descriptor, as a draft file">
+            Download draft
           </Button>
           <Upload accept=".json" showUploadList={false} beforeUpload={handleJsonUpload}>
             <Button size="small" icon={<FileTextOutlined />}
-              title="Import a previously downloaded Metadata Wizard JSON file to pre-fill the form">
-              Import JSON
+              title="Import a draft file you downloaded earlier (or received from a colleague)">
+              Import draft
             </Button>
           </Upload>
         </div>
@@ -550,6 +629,9 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             uploadpythonKG={savePythonKG}
             saveJsonToDrive={saveJsonToDrive}
             saveJsonToZammad={saveJsonToZammad}
+            saveDocxToZammad={saveDocxToZammad}
+            downloadDocx={downloadDocx}
+            dataDescriptorEnabled={DATA_DESCRIPTOR_ENABLED}
             getTicketId={getTicketId}
             downloadJson={downloadJson}
           />
