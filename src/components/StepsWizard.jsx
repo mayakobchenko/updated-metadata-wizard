@@ -118,18 +118,27 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   // Unsaved-changes tracking: the form lives only in memory, so the user must download a draft to keep it.
   const [lastSavedAt, setLastSavedAt]                   = useState(null)
   const [dirty, setDirty]                               = useState(false)
-  const userEditedRef                                   = useRef(false)
+  const lastUserInputRef                                = useRef(0)   // time of the last real edit by the user
 
   useEffect(() => {
-    // only real user input marks the form as changed (not programmatic prefills on load)
-    const mark = () => { userEditedRef.current = true }
+    // Only a real edit by the user marks the form as changed. Values that the wizard fills in by itself
+    // (prefills when a step opens, importing a draft, navigation) arrive without a recent edit and are ignored.
+    const mark = () => { lastUserInputRef.current = Date.now() }
+    const markClick = (e) => {
+      const t = e.target
+      if (!t?.closest) return
+      if (t.closest('.ant-select-item, .ant-checkbox-wrapper, .ant-radio-wrapper, .ant-picker-cell, .ant-switch')) { mark(); return }
+      const btn = t.closest('button')
+      // add/remove/use-draft buttons inside a step change data; navigation, import and download buttons do not
+      if (btn && btn.closest('form') && !btn.closest('.next-back-button')) mark()
+    }
     window.addEventListener('keydown', mark, true)
-    window.addEventListener('change', mark, true)
-    window.addEventListener('click', mark, true)
+    window.addEventListener('input', mark, true)
+    window.addEventListener('click', markClick, true)
     return () => {
       window.removeEventListener('keydown', mark, true)
-      window.removeEventListener('change', mark, true)
-      window.removeEventListener('click', mark, true)
+      window.removeEventListener('input', mark, true)
+      window.removeEventListener('click', markClick, true)
     }
   }, [])
 
@@ -157,7 +166,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {
-    if (userEditedRef.current) setDirty(true)
+    if (Date.now() - lastUserInputRef.current < 2500) setDirty(true)
     setFormData((prev) => {
       const next = { ...prev, ...data }
       formDataRef.current = next
