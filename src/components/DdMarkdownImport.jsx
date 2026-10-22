@@ -9,6 +9,27 @@ const { TextArea } = Input
 
 // Import a Markdown result written by the skill or an AI chat. Every field is compared with what is
 // already in the wizard and the user chooses per field: keep mine / use imported.
+// the file format table, shown as a small table so that mine and imported can be compared row by row
+function FormatsPreview({ rows, empty }) {
+  if (!rows.length) return <pre style={{ fontSize: 12, background: '#fafafa', padding: 6, margin: 0 }}>{empty}</pre>
+  return (
+    <div style={{ overflow: 'auto', maxHeight: 220 }}>
+      <table style={{ fontSize: 11, borderCollapse: 'collapse', width: '100%' }}>
+        <thead>
+          <tr>{['Format', 'Extension', 'Software used / file specification'].map(h => (
+            <th key={h} style={{ border: '1px solid #d9d9d9', padding: '2px 6px', textAlign: 'left', background: '#f5f5f5' }}>{h}</th>))}</tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>{[r.format, r.extension, r.software].map((c, j) => (
+              <td key={j} style={{ border: '1px solid #d9d9d9', padding: '2px 6px', verticalAlign: 'top' }}>{c}</td>))}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function DdMarkdownImport({ getCurrent, getCurrentFormats, onApply }) {
   const [open, setOpen] = useState(false)
   const [pasted, setPasted] = useState('')
@@ -100,6 +121,16 @@ export default function DdMarkdownImport({ getCurrent, getCurrentFormats, onAppl
                     <Radio.Button value="mine" disabled={!(getCurrentFormats() || []).length}>Keep mine</Radio.Button>
                     <Radio.Button value="imported">Use imported</Radio.Button>
                   </Radio.Group>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>Now in the wizard</Text>
+                    <FormatsPreview rows={getCurrentFormats() || []} empty="(empty)" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>Imported</Text>
+                    <FormatsPreview rows={parsed.formats} empty="(empty)" />
+                  </div>
                 </div>
               </div>
             )}
