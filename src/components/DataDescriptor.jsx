@@ -682,8 +682,13 @@ export default function DataDescriptor({ form, onChange, data }) {
       const list = fm.length > 1 ? `${fm.slice(0, -1).join(', ')} and ${fm[fm.length - 1]}` : fm[0]
       const vs = `This version of the dataset includes ${body.totals.files} files${list ? ` (${list})` : ''}.`
       const curVS = (form.getFieldValue(['dataDescriptor', 'versionSpec']) || '').trim()
+      // the automatic wording at the start of the text (also from drafts made before it was remembered)
+      const lead = /^This version of the dataset includes \d+ files?[\s\S]*?\.(?=\s|$)/
       if (!curVS || curVS === autoVersionSpecRef.current) {
         form.setFieldValue(['dataDescriptor', 'versionSpec'], vs)
+        autoVersionSpecRef.current = vs
+      } else if (lead.test(curVS) && !curVS.startsWith(vs)) {
+        form.setFieldValue(['dataDescriptor', 'versionSpec'], curVS.replace(lead, () => vs))   // your own added text is kept
         autoVersionSpecRef.current = vs
       }
     }
