@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Checkbox, Popover } from 'antd'
+import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Checkbox, Popover, Modal, message } from 'antd'
 import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
@@ -488,10 +488,15 @@ export default function DataDescriptor({ form, onChange, data }) {
   // draft so that reading the bucket again, e.g. after importing a draft, does not bring those rows back.
   const removedExtsRef = useRef(Array.isArray(dd.removedFormatExts) ? dd.removedFormatExts : [])
   const bucketExtsRef = useRef(new Set())
+  // which dataset version (bucket) the file tree and the format table were generated from
+  const sourceIdRef = useRef(dd.dataRecordsSourceId || '')
   useEffect(() => {
     if (!removedExtsRef.current.length && Array.isArray(dd.removedFormatExts) && dd.removedFormatExts.length) {
       removedExtsRef.current = dd.removedFormatExts
     }
+    // a draft is authoritative about which dataset version its file structure came from
+    if (dd.dataRecordsSourceId && dd.dataRecordsSourceId !== sourceIdRef.current) sourceIdRef.current = dd.dataRecordsSourceId
+    if (!lastAutoSentence.current && dd.filesSentence) lastAutoSentence.current = dd.filesSentence
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // file-format rows arriving later (JSON import)
@@ -525,6 +530,8 @@ export default function DataDescriptor({ form, onChange, data }) {
         ackContributorsAdded:      dd.ackContributorsAdded,
         removedAffiliationIds:     dd.removedAffiliationIds || [],
         removedFormatExts:         removedExtsRef.current,
+        dataRecordsSourceId:       sourceIdRef.current,
+        filesSentence:             lastAutoSentence.current || dd.filesSentence || '',
         authors:           newAuthors,
         affiliations_list: newAffs,
         ...extra,
@@ -599,13 +606,36 @@ export default function DataDescriptor({ form, onChange, data }) {
   // format rows are merged by extension so typed format/software text is kept.
   const lastAutoTree = useRef('')
   const lastAutoSentence = useRef('')
-  const applyBucket = (body) => {
-    // one sentence about the files goes into the Summary by itself (once per distinct sentence)
+  const applyBucket = async (body, opts = {}) => {
+    const id = String(data.datasetVersionId || '').trim()
+    // The bucket is read again by hand, or the draft belongs to a different dataset version than the file
+    // structure it carries: the listing replaces the old structure instead of being merged into it.
+    const otherVersion = !!sourceIdRef.current && sourceIdRef.current !== id
+    const replace = !!opts.manual || otherVersion
+    const curTree = (form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || '')
+    const treeEdited = !!curTree.trim() && curTree !== lastAutoTree.current
+    if (replace && opts.manual && treeEdited) {
+      const ok = await new Promise((resolve) => Modal.confirm({
+        title: 'Replace the file structure?',
+        content: 'The file structure below has been edited. Reading the bucket again replaces it, and the file format table is updated from the new listing. Your own format and software texts are kept for formats that are still present.',
+        okText: 'Replace', cancelText: 'Keep my text', onOk: () => resolve(true), onCancel: () => resolve(false),
+      }))
+      if (!ok) return
+    }
+    if (replace && otherVersion && treeEdited) message.info('The file structure was refreshed because the draft belongs to a different dataset version.')
+    if (replace) removedExtsRef.current = []
+    sourceIdRef.current = id
+
+    // one sentence about the files goes into the Summary by itself; a changed listing replaces the old sentence
     const sentence = (body.summarySentence || '').trim()
     if (sentence && sentence !== lastAutoSentence.current) {
       const sum = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
+      const oldSentence = lastAutoSentence.current
       if (!sum.includes(sentence)) {
-        form.setFieldValue(['dataDescriptor', 'summary'], sum ? `${sum} ${sentence}` : sentence)
+        const next = oldSentence && sum.includes(oldSentence)
+          ? sum.replace(oldSentence, sentence)
+          : (sum ? `${sum} ${sentence}` : sentence)
+        form.setFieldValue(['dataDescriptor', 'summary'], next)
       }
       lastAutoSentence.current = sentence
     }
@@ -617,8 +647,7 @@ export default function DataDescriptor({ form, onChange, data }) {
         `This version of the dataset includes ${body.totals.files} files${list ? ` (${list})` : ''}.`)
     }
     const { tree, formats } = body
-    const cur = form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || ''
-    if (tree && (!cur.trim() || cur === lastAutoTree.current)) {
+    if (tree && (!curTree.trim() || curTree === lastAutoTree.current || replace)) {
       form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], tree)
       lastAutoTree.current = tree
     }
@@ -629,7 +658,8 @@ export default function DataDescriptor({ form, onChange, data }) {
       const prev = old.get(f.extension)
       return { format: prev?.format || f.format || '', extension: f.extension, software: prev?.software || '', example: f.example }
     })
-    const extra = formatsRef.current.filter(r => !(formats || []).some(f => f.extension === r.extension) && (r.format || r.software))
+    // rows that are not in the listing: kept only if the researcher typed software text into them
+    const extra = formatsRef.current.filter(r => !(formats || []).some(f => f.extension === r.extension) && (r.software || (!replace && r.format)))
     formatsRef.current = [...merged, ...extra]
     setFormatRows(formatsRef.current)
     emitAll(authors, affiliations)

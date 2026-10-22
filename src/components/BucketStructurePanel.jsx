@@ -19,7 +19,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
   const [manual,  setManual]  = useState('')
   const ranFor = useRef('')
 
-  const load = async (useToken) => {
+  const load = async (useToken, byHand = false) => {
     setLoading(true); setError(null)
     try {
       const res = await fetch('/api/bucket/structure', {
@@ -32,7 +32,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
       if (!res.ok || !body.text) { setError(res.ok ? { error: 'The bucket answered with an unexpected result.' } : body); return }
       setMeta(body)
       onListing?.(body.text)
-      onResult?.(body)
+      onResult?.(body, { manual: byHand })
     } catch {
       setError({ error: 'Could not reach the wizard server.' })
     } finally {
@@ -64,7 +64,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
           </Text>
         )}
         {!loading && (
-          <Button size="small" icon={<ReloadOutlined />} onClick={() => load(!!error)}>
+          <Button size="small" icon={<ReloadOutlined />} onClick={() => load(!!error, true)}>
             {meta ? 'Read the bucket again' : 'Try again'}
           </Button>
         )}
