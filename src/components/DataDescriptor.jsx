@@ -487,7 +487,8 @@ export default function DataDescriptor({ form, onChange, data }) {
   // Extensions the researcher deleted (or renamed) from the automatically generated table. They are kept in the
   // draft so that reading the bucket again, e.g. after importing a draft, does not bring those rows back.
   const removedExtsRef = useRef(Array.isArray(dd.removedFormatExts) ? dd.removedFormatExts : [])
-  const bucketExtsRef = useRef(new Set())
+  // file types found in the bucket at the last read (kept in the draft): a format only counts as deleted while it was there
+  const bucketExtsRef = useRef(new Set(Array.isArray(dd.bucketExts) ? dd.bucketExts : []))
   // which dataset version (bucket) the file tree and the format table were generated from
   const sourceIdRef = useRef(dd.dataRecordsSourceId || '')
   useEffect(() => {
@@ -497,6 +498,9 @@ export default function DataDescriptor({ form, onChange, data }) {
     // a draft is authoritative about which dataset version its file structure came from
     if (dd.dataRecordsSourceId && dd.dataRecordsSourceId !== sourceIdRef.current) sourceIdRef.current = dd.dataRecordsSourceId
     if (!lastAutoSentence.current && dd.filesSentence) lastAutoSentence.current = dd.filesSentence
+    if (!lastAutoTree.current && dd.autoTree) lastAutoTree.current = dd.autoTree
+    if (!autoVersionSpecRef.current && dd.autoVersionSpec) autoVersionSpecRef.current = dd.autoVersionSpec
+    if (!bucketExtsRef.current.size && Array.isArray(dd.bucketExts)) bucketExtsRef.current = new Set(dd.bucketExts)
   }, [data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // file-format rows arriving later (JSON import)
@@ -532,6 +536,9 @@ export default function DataDescriptor({ form, onChange, data }) {
         removedFormatExts:         removedExtsRef.current,
         dataRecordsSourceId:       sourceIdRef.current,
         filesSentence:             lastAutoSentence.current || dd.filesSentence || '',
+        autoTree:                  lastAutoTree.current || dd.autoTree || '',
+        autoVersionSpec:           autoVersionSpecRef.current || dd.autoVersionSpec || '',
+        bucketExts:                [...bucketExtsRef.current],
         authors:           newAuthors,
         affiliations_list: newAffs,
         ...extra,
@@ -606,60 +613,96 @@ export default function DataDescriptor({ form, onChange, data }) {
   // format rows are merged by extension so typed format/software text is kept.
   const lastAutoTree = useRef('')
   const lastAutoSentence = useRef('')
+  const autoVersionSpecRef = useRef('')
+  const treeAskOpen = useRef(false)
   const applyBucket = async (body, opts = {}) => {
     const id = String(data.datasetVersionId || '').trim()
-    // The bucket is read again by hand, or the draft belongs to a different dataset version than the file
-    // structure it carries: the listing replaces the old structure instead of being merged into it.
+    const manual = !!opts.manual
+    // the draft carries a file structure from a different dataset version than the one open now
     const otherVersion = !!sourceIdRef.current && sourceIdRef.current !== id
-    const replace = !!opts.manual || otherVersion
-    const curTree = (form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || '')
-    const treeEdited = !!curTree.trim() && curTree !== lastAutoTree.current
-    if (replace && opts.manual && treeEdited) {
-      const ok = await new Promise((resolve) => Modal.confirm({
-        title: 'Replace the file structure?',
-        content: 'The file structure below has been edited. Reading the bucket again replaces it, and the file format table is updated from the new listing. Your own format and software texts are kept for formats that are still present.',
-        okText: 'Replace', cancelText: 'Keep my text', onOk: () => resolve(true), onCancel: () => resolve(false),
-      }))
-      if (!ok) return
-    }
-    if (replace && otherVersion && treeEdited) message.info('The file structure was refreshed because the draft belongs to a different dataset version.')
-    if (replace) removedExtsRef.current = []
     sourceIdRef.current = id
+    const { tree, formats = [] } = body
+    const newExts = new Set(formats.map(f => f.extension))
+    const prevExts = new Set(bucketExtsRef.current)   // file types found at the previous read
 
-    // one sentence about the files goes into the Summary by itself; a changed listing replaces the old sentence
+    // ── file structure ────────────────────────────────────────────────────
+    const curTree = (form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || '')
+    if (tree) {
+      const untouched = !curTree.trim() || curTree === lastAutoTree.current
+      if (untouched || (otherVersion && !manual)) {
+        if (!untouched) message.info('The file structure was refreshed because the draft belongs to a different dataset version.')
+        form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], tree)
+        lastAutoTree.current = tree
+      } else if ((tree !== lastAutoTree.current || manual) && tree !== curTree && !treeAskOpen.current) {
+        // you edited the structure and the bucket has changed (or you asked to read it again): you decide
+        treeAskOpen.current = true
+        const replaceIt = await new Promise((resolve) => Modal.confirm({
+          title: 'The files in your bucket have changed',
+          width: 920,
+          content: (
+            <div>
+              <div style={{ marginBottom: 8 }}>You have edited the file structure. Do you want to replace it with the current listing of the bucket?</div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                {[['Your file structure', curTree], ['Current bucket listing', tree]].map(([h, t]) => (
+                  <div key={h} style={{ flex: 1, minWidth: 0 }}>
+                    <b>{h}</b>
+                    <pre style={{ whiteSpace: 'pre', overflow: 'auto', maxHeight: 320, fontSize: 11, background: '#fafafa', padding: 6, margin: '4px 0 0' }}>{t}</pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ),
+          okText: 'Replace with the bucket listing', cancelText: 'Keep my text',
+          onOk: () => resolve(true), onCancel: () => resolve(false),
+        }))
+        treeAskOpen.current = false
+        if (replaceIt) form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], tree)
+        lastAutoTree.current = tree   // this listing is now known, no further question until the bucket changes again
+      }
+    }
+
+    // ── one sentence about the files in the Summary ──────────────────────
     const sentence = (body.summarySentence || '').trim()
-    if (sentence && sentence !== lastAutoSentence.current) {
+    if (sentence) {
       const sum = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
-      const oldSentence = lastAutoSentence.current
       if (!sum.includes(sentence)) {
-        const next = oldSentence && sum.includes(oldSentence)
-          ? sum.replace(oldSentence, sentence)
-          : (sum ? `${sum} ${sentence}` : sentence)
-        form.setFieldValue(['dataDescriptor', 'summary'], next)
+        const own = /The shared data comprise[\s\S]*?\.(?=\s|$)/     // the automatic sentence, also if it was edited a little
+        let next = null
+        if (own.test(sum)) next = sum.replace(own, () => sentence)
+        else if (!lastAutoSentence.current) next = sum ? `${sum} ${sentence}` : sentence
+        // else: it was added before and the researcher deleted it, so it is not added again
+        if (next !== null) form.setFieldValue(['dataDescriptor', 'summary'], next)
       }
       lastAutoSentence.current = sentence
     }
-    // version specification: what this version of the dataset includes (only into an empty field)
-    if (!(form.getFieldValue(['dataDescriptor', 'versionSpec']) || '').trim() && body.totals?.files) {
-      const fm = (body.formats || []).map(f => f.format || f.extension).filter(Boolean)
+
+    // ── version specification: follows the bucket while it still has the automatic wording ──
+    if (body.totals?.files) {
+      const fm = formats.map(f => f.format || f.extension).filter(Boolean)
       const list = fm.length > 1 ? `${fm.slice(0, -1).join(', ')} and ${fm[fm.length - 1]}` : fm[0]
-      form.setFieldValue(['dataDescriptor', 'versionSpec'],
-        `This version of the dataset includes ${body.totals.files} files${list ? ` (${list})` : ''}.`)
+      const vs = `This version of the dataset includes ${body.totals.files} files${list ? ` (${list})` : ''}.`
+      const curVS = (form.getFieldValue(['dataDescriptor', 'versionSpec']) || '').trim()
+      if (!curVS || curVS === autoVersionSpecRef.current) {
+        form.setFieldValue(['dataDescriptor', 'versionSpec'], vs)
+        autoVersionSpecRef.current = vs
+      }
     }
-    const { tree, formats } = body
-    if (tree && (!curTree.trim() || curTree === lastAutoTree.current || replace)) {
-      form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], tree)
-      lastAutoTree.current = tree
-    }
-    const old = new Map(formatsRef.current.map(r => [r.extension, r]))
-    ;(formats || []).forEach(f => bucketExtsRef.current.add(f.extension))
+
+    // ── file format table ─────────────────────────────────────────────────
+    // A format counts as deleted only while it stayed in the bucket; if its files vanished and come back, so does the row.
+    if (otherVersion) removedExtsRef.current = []
+    else if (prevExts.size) removedExtsRef.current = removedExtsRef.current.filter(e => prevExts.has(e))
     const dropped = new Set(removedExtsRef.current)
-    const merged = (formats || []).filter(f => !dropped.has(f.extension) || old.has(f.extension)).map(f => {
+    const old = new Map(formatsRef.current.map(r => [r.extension, r]))
+    const merged = formats.filter(f => !dropped.has(f.extension) || old.has(f.extension)).map(f => {
       const prev = old.get(f.extension)
       return { format: prev?.format || f.format || '', extension: f.extension, software: prev?.software || '', example: f.example }
     })
-    // rows that are not in the listing: kept only if the researcher typed software text into them
-    const extra = formatsRef.current.filter(r => !(formats || []).some(f => f.extension === r.extension) && (r.software || (!replace && r.format)))
+    // rows whose files are no longer in the bucket stay, marked, so that nothing typed is lost silently
+    const extra = formatsRef.current
+      .filter(r => !newExts.has(r.extension) && (r.format || r.software || r.extension))
+      .map(r => (r.gone || prevExts.has(r.extension) || r.example) ? { ...r, gone: true } : r)
+    bucketExtsRef.current = newExts
     formatsRef.current = [...merged, ...extra]
     setFormatRows(formatsRef.current)
     emitAll(authors, affiliations)
@@ -762,6 +805,7 @@ export default function DataDescriptor({ form, onChange, data }) {
     { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
     { label: 'File structure or file formats (Data description)', field: 'dataRecordsTree', ok: !!fv('dataRecordsTree') || formatRows.length > 0 },
     { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
+    { label: 'File formats whose files are no longer in the bucket are deleted or kept on purpose (File formats)', field: 'dataRecordsFormats', ok: !formatRows.some(r => r.gone) },
     { label: `Contribution for every author (Authors): ${authorsWithoutContribution.length} missing`, ok: authors.length > 0 && authorsWithoutContribution.length === 0 },
     { label: `Software: a version for every tool, or “version unknown” (missing for: ${swNoVersion.join(', ')})`, field: 'software', ok: swNoVersion.length === 0 },
     { label: 'Captions for all figures and tables', ok: figs.every(f => f.caption.trim()) },

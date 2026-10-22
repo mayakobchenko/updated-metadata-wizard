@@ -38,8 +38,16 @@ export default function FormatsTable({ rows, onChange }) {
 function FormatRow({ row, onChange, onRemove }) {
   return (
     <>
-      <Input size="small" value={row.format} onChange={e => onChange({ format: e.target.value })}
-        placeholder="e.g. Tab-Separated Values" />
+      <div>
+        <Input size="small" value={row.format} onChange={e => onChange({ format: e.target.value })}
+          placeholder="e.g. Tab-Separated Values" />
+        {row.gone && (
+          <Text type="warning" style={{ fontSize: 11 }}>
+            No files of this type are in the bucket any more. Delete the row, or{' '}
+            <a onClick={() => onChange({ gone: false })}>keep it</a> (e.g. the files are stored elsewhere).
+          </Text>
+        )}
+      </div>
       <Input size="small" value={row.extension} onChange={e => onChange({ extension: e.target.value })} placeholder="tsv" />
       <Input.TextArea size="small" value={row.software} onChange={e => onChange({ software: e.target.value })}
         autoSize={{ minRows: 1, maxRows: 5 }}
