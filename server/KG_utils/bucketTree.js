@@ -51,9 +51,6 @@ export function extensionOf(fileName) {
   return m && m.index > 0 ? m[1] : (lower.startsWith('.') ? lower.slice(1) : '(none)')
 }
 
-// 'sub-001' and 'sub-002' share the signature 'sub-X'
-const dirSignature = (name) => name.replace(/\d+/g, 'X')
-
 function buildTrie(objects) {
   const root = { dirs: new Map(), files: [], count: 0, bytes: 0 }
   for (const o of objects) {
@@ -77,23 +74,103 @@ function buildTrie(objects) {
 //   /repository-root
 //     /sub-XXX
 //       /sub-XXX_slice-XXXX.tif [brain slice scan of subject XXX]
-// opts: maxFiles = files listed individually per folder before grouping,
-//       examples = example names kept per group, placeholders = add "[ ]" slots for files
+//
+// Big buckets (thousands of files) must stay readable, so the listing is generalised:
+//   - files whose names differ only by numbers become ONE line: the common pattern and how many there are,
+//   - other files of a crowded folder are grouped by extension (and common name start),
+//   - folders with many different names are cut after a few,
+//   - deep levels are summarised, and if the whole tree is still too long, stricter levels are tried.
+// opts: maxFiles = files listed one by one per folder before grouping, examples = names kept per extension group,
+//       maxDirs = folders shown per folder, maxDepth = deepest level that is written out, placeholders = "[ ]" slots
+const MAX_LINES = 150
+const LEVELS = [
+  { maxFiles: 8, examples: 2, maxDirs: 20, maxDepth: 99 },
+  { maxFiles: 5, examples: 1, maxDirs: 12, maxDepth: 6 },
+  { maxFiles: 3, examples: 1, maxDirs: 8, maxDepth: 4 },
+  { maxFiles: 3, examples: 1, maxDirs: 6, maxDepth: 3 },
+  { maxFiles: 2, examples: 1, maxDirs: 5, maxDepth: 2 },
+]
+
+const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true })
+
+// 'img_0001.tif' and 'img_0002.tif' share the signature 'img_#.tif'
+const nameSignature = (name) => name.replace(/\d+/g, '#')
+
+// 'img_0001.tif' … 'img_1234.tif' -> 'img_XXXX.tif' (numbers of varying length: as many X as the longest)
+function patternOf(names) {
+  const parts = names.map(n => n.split(/(\d+)/))
+  return parts[0].map((p, i) => {
+    if (i % 2 === 0) return p
+    return 'X'.repeat(Math.max(...parts.map(x => x[i].length)))
+  }).join('')
+}
+
+function commonStart(names) {
+  let p = names[0]
+  for (const n of names) { while (p && !n.startsWith(p)) p = p.slice(0, -1) }
+  return p
+}
+
+function fileEntriesOf(files, opts) {
+  const sorted = [...files].sort((a, b) => natural(a.name, b.name))
+  const one = (f) => ({ kind: 'file', name: f.name })
+  if (sorted.length <= opts.maxFiles) return sorted.map(one)
+
+  const out = []
+  const bySig = new Map()
+  for (const f of sorted) {
+    const sig = nameSignature(f.name)
+    if (!bySig.has(sig)) bySig.set(sig, [])
+    bySig.get(sig).push(f)
+  }
+  const loose = []
+  for (const list of bySig.values()) {
+    if (list.length >= 3) {
+      const bytes = list.reduce((s, f) => s + f.bytes, 0)
+      out.push({
+        kind: 'series', name: patternOf(list.map(f => f.name)),
+        note: `${list.length} files named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
+      })
+    } else loose.push(...list)
+  }
+  out.sort((a, b) => natural(a.name, b.name))
+
+  if (out.length + loose.length <= opts.maxFiles) return [...out, ...loose.map(one)]
+
+  // the rest: group by extension, keep a few examples, say what the names have in common
+  const byExt = new Map()
+  for (const f of loose) {
+    const e = extensionOf(f.name)
+    if (!byExt.has(e)) byExt.set(e, [])
+    byExt.get(e).push(f)
+  }
+  for (const [ext, list] of byExt) {
+    if (list.length <= opts.examples + 1) { list.forEach(f => out.push(one(f))); continue }
+    list.slice(0, opts.examples).forEach(f => out.push(one(f)))
+    const bytes = list.reduce((s, f) => s + f.bytes, 0)
+    const start = commonStart(list.map(f => f.name))
+    out.push({
+      kind: 'more', name: `… ${list.length - opts.examples} more .${ext} files`,
+      note: `${list.length} .${ext} files in total, ${humanSize(bytes)}${start.length >= 3 ? `; names start with "${start}"` : ''}`,
+    })
+  }
+  return out
+}
+
 function renderNode(node, depth, lines, opts) {
-  const { maxFiles, examples, placeholders } = opts
   const pad = '  '.repeat(depth)
   const entries = []
 
   // sibling folders with the same name pattern (sub-001, sub-002, ...) -> show one
   const groups = new Map()
   for (const [name, child] of node.dirs) {
-    const sig = dirSignature(name)
+    const sig = nameSignature(name)
     if (!groups.has(sig)) groups.set(sig, [])
     groups.get(sig).push([name, child])
   }
   for (const members of groups.values()) {
-    members.sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-    if (members.length >= 3 && members[0][0] !== dirSignature(members[0][0])) {
+    members.sort((a, b) => natural(a[0], b[0]))
+    if (members.length >= 3 && /\d/.test(members[0][0])) {
       const [first] = members
       entries.push({
         kind: 'dir', name: first[0], node: first[1],
@@ -103,48 +180,51 @@ function renderNode(node, depth, lines, opts) {
       for (const [name, child] of members) entries.push({ kind: 'dir', name, node: child })
     }
   }
-  entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+  entries.sort((a, b) => natural(a.name, b.name))
 
-  // files: list them all when few, otherwise group by extension
-  const files = [...node.files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-  const fileEntries = []
-  if (files.length <= maxFiles) {
-    for (const f of files) fileEntries.push({ kind: 'file', name: f.name })
-  } else {
-    const byExt = new Map()
-    for (const f of files) {
-      const e = extensionOf(f.name)
-      if (!byExt.has(e)) byExt.set(e, [])
-      byExt.get(e).push(f)
-    }
-    for (const [ext, list] of byExt) {
-      if (list.length <= examples + 1) list.forEach(f => fileEntries.push({ kind: 'file', name: f.name }))
-      else {
-        list.slice(0, examples).forEach(f => fileEntries.push({ kind: 'file', name: f.name }))
-        const bytes = list.reduce((s, f) => s + f.bytes, 0)
-        fileEntries.push({ kind: 'more', name: `… ${list.length - examples} more .${ext} files`, note: `${list.length} .${ext} files in total, ${humanSize(bytes)}` })
-      }
-    }
+  // very many differently named folders: keep the first ones, summarise the rest
+  let cut = null
+  if (entries.length > opts.maxDirs) {
+    const keep = Math.max(3, Math.floor(opts.maxDirs / 2))
+    const rest = entries.splice(keep)
+    const files = rest.reduce((s, e) => s + e.node.count, 0)
+    const bytes = rest.reduce((s, e) => s + e.node.bytes, 0)
+    cut = { kind: 'dirs-more', name: `… ${rest.length} more folders`,
+      note: `${rest[0].name} … ${rest[rest.length - 1].name}; ${files} files in total, ${humanSize(bytes)}` }
   }
 
-  for (const e of [...entries, ...fileEntries]) {
+  const fileEntries = fileEntriesOf(node.files, opts)
+
+  for (const e of [...entries, ...(cut ? [cut] : []), ...fileEntries]) {
     if (e.kind === 'dir') {
-      lines.push(`${pad}/${e.name}${e.note ? ` [${e.note}]` : ''}`)
-      renderNode(e.node, depth + 1, lines, opts)
-    } else if (e.kind === 'more') {
-      lines.push(`${pad}/${e.name} [${e.note}${placeholders ? '; describe the files' : ''}]`)
+      const deep = depth + 1 > opts.maxDepth && (e.node.dirs.size || e.node.files.length)
+      const note = [e.note, deep ? `${e.node.count} files, ${humanSize(e.node.bytes)}; contents not listed in detail` : ''].filter(Boolean).join('; ')
+      lines.push(`${pad}/${e.name}${note ? ` [${note}]` : ''}`)
+      if (!deep) renderNode(e.node, depth + 1, lines, opts)
+    } else if (e.kind === 'dirs-more') {
+      lines.push(`${pad}/${e.name} [${e.note}${opts.placeholders ? '; describe the folders' : ''}]`)
+    } else if (e.kind === 'series' || e.kind === 'more') {
+      lines.push(`${pad}/${e.name} [${e.note}${opts.placeholders ? '; describe the files' : ''}]`)
     } else {
       const known = KNOWN_FILES[e.name.toLowerCase()]
-      lines.push(`${pad}/${e.name}${known ? ` [${known}]` : (placeholders ? ' [describe file]' : '')}`)
+      lines.push(`${pad}/${e.name}${known ? ` [${known}]` : (opts.placeholders ? ' [describe file]' : '')}`)
     }
   }
 }
 
 export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
-  const opts = { maxFiles: 8, examples: 2, placeholders: true, ...options }
   const root = buildTrie(objects)
-  const lines = [`/${rootLabel}`]
-  renderNode(root, 1, lines, opts)
+  const levels = Object.keys(options).length ? [{ ...LEVELS[0], ...options }] : LEVELS
+  let lines = []
+  for (const level of levels) {
+    lines = [`/${rootLabel}`]
+    renderNode(root, 1, lines, { placeholders: true, ...level })
+    if (lines.length <= MAX_LINES) break
+  }
+  if (lines.length > MAX_LINES) {
+    const total = lines.length
+    lines = [...lines.slice(0, MAX_LINES), `/… [${total - MAX_LINES} more lines left out; the bucket is very large]`]
+  }
   return lines.join('\n')
 }
 
@@ -189,8 +269,11 @@ export function buildSummarySentence(objects, formats, totalSize) {
   return `The shared data comprise ${objects.length} file${objects.length === 1 ? '' : 's'} (${totalSize}) in ${formats.length} file format${formats.length === 1 ? '' : 's'}: ${names.join(', ')}${more}${folderText}.`
 }
 
+// options.partial: the listing stopped early (very large bucket). The counts are then only lower bounds, so no
+// ready-made sentence about the number of files is offered; the researcher writes it.
 export function describeBucket(objects, bucketName, options = {}) {
-  const tree = buildTree(objects, 'repository-root', options)
+  const { partial = false, ...treeOptions } = options
+  const tree = buildTree(objects, 'repository-root', treeOptions)
   const formats = buildFormatTable(objects)
   const totalBytes = objects.reduce((s, o) => s + o.bytes, 0)
   const text =
@@ -199,7 +282,7 @@ export function describeBucket(objects, bucketName, options = {}) {
   const size = humanSize(totalBytes)
   return {
     tree, formats, text,
-    summarySentence: buildSummarySentence(objects, formats, size),
+    summarySentence: partial ? '' : buildSummarySentence(objects, formats, size),
     totals: { files: objects.length, bytes: totalBytes, size },
   }
 }

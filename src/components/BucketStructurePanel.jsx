@@ -126,8 +126,8 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
         )}
         {!loading && meta && !error && (
           <Text style={{ fontSize: 13 }}>
-            The file structure and format table below were drafted from your bucket ({meta.totals.files} files, {meta.totals.size}
-            {meta.truncated ? '; the bucket is larger, only the first files are shown' : ''}). Only names and sizes were read. Please edit them.
+            The file structure and format table below were drafted from your bucket ({meta.truncated ? 'at least ' : ''}{meta.totals.files} files, {meta.totals.size}
+            {meta.truncated ? ' read so far' : ''}). Only names and sizes were read. Please edit them.
           </Text>
         )}
         {!loading && (
@@ -136,6 +136,12 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
           </Button>
         )}
       </div>
+
+      {!loading && !error && meta?.truncated && (
+        <Alert type="warning" showIcon style={{ marginTop: 8 }}
+          message="Your bucket is very large, so only its first files were read."
+          description={`Similar files are already summarised in the structure (for example “img_XXXX.tif [1200 files …]”), but the list is incomplete: later folders, some file formats and the exact number of files may be missing, so no automatic sentence about the number of files was added to the Summary. Please complete the structure and the format table by hand, or paste a listing of your folders in the box below (Windows: tree /F, Mac/Linux: find . -type f).`} />
+      )}
 
       {/* the result was read but did not arrive in the fields: say so, and offer the fix */}
       {!loading && !error && meta && treeMissing && (

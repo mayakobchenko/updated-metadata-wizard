@@ -677,7 +677,7 @@ export default function DataDescriptor({ form, onChange, data }) {
     }
 
     // ── version specification: follows the bucket while it still has the automatic wording ──
-    if (body.totals?.files) {
+    if (body.totals?.files && !body.truncated) {   // a partial listing has no reliable count
       const fm = formats.map(f => f.format || f.extension).filter(Boolean)
       const list = fm.length > 1 ? `${fm.slice(0, -1).join(', ')} and ${fm[fm.length - 1]}` : fm[0]
       const vs = `This version of the dataset includes ${body.totals.files} files${list ? ` (${list})` : ''}.`
