@@ -51,8 +51,16 @@ export function extensionOf(fileName) {
   return m && m.index > 0 ? m[1] : (lower.startsWith('.') ? lower.slice(1) : '(none)')
 }
 
-function buildTrie(objects) {
+function buildTrie(objects, { partialDirs = [], unreadDirs = [] } = {}) {
   const root = { dirs: new Map(), files: [], count: 0, bytes: 0 }
+  const nodeAt = (parts) => {
+    let node = root
+    for (const p of parts) {
+      if (!node.dirs.has(p)) node.dirs.set(p, { dirs: new Map(), files: [], count: 0, bytes: 0 })
+      node = node.dirs.get(p)
+    }
+    return node
+  }
   for (const o of objects) {
     const parts = String(o.name).split('/').filter(Boolean)
     if (!parts.length) continue
@@ -66,6 +74,9 @@ function buildTrie(objects) {
     }
     node.files.push({ name: file, bytes: o.bytes })
   }
+  // folders of a very large bucket that were only sampled, or not opened at all
+  for (const d of partialDirs) nodeAt(String(d).split('/').filter(Boolean)).partial = true
+  for (const d of unreadDirs) nodeAt(String(d).split('/').filter(Boolean)).unread = true
   return root
 }
 
@@ -111,7 +122,8 @@ function commonStart(names) {
   return p
 }
 
-function fileEntriesOf(files, opts) {
+function fileEntriesOf(files, opts, partialFolder) {
+  const atLeast = partialFolder ? 'at least ' : ''
   const sorted = [...files].sort((a, b) => natural(a.name, b.name))
   const one = (f) => ({ kind: 'file', name: f.name })
   if (sorted.length <= opts.maxFiles) return sorted.map(one)
@@ -129,7 +141,7 @@ function fileEntriesOf(files, opts) {
       const bytes = list.reduce((s, f) => s + f.bytes, 0)
       out.push({
         kind: 'series', name: patternOf(list.map(f => f.name)),
-        note: `${list.length} files named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
+        note: `${atLeast}${list.length} files named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
       })
     } else loose.push(...list)
   }
@@ -151,7 +163,7 @@ function fileEntriesOf(files, opts) {
     const start = commonStart(list.map(f => f.name))
     out.push({
       kind: 'more', name: `… ${list.length - opts.examples} more .${ext} files`,
-      note: `${list.length} .${ext} files in total, ${humanSize(bytes)}${start.length >= 3 ? `; names start with "${start}"` : ''}`,
+      note: `${atLeast}${list.length} .${ext} files in total, ${humanSize(bytes)}${start.length >= 3 ? `; names start with "${start}"` : ''}`,
     })
   }
   return out
@@ -190,19 +202,24 @@ function renderNode(node, depth, lines, opts) {
     const files = rest.reduce((s, e) => s + e.node.count, 0)
     const bytes = rest.reduce((s, e) => s + e.node.bytes, 0)
     cut = { kind: 'dirs-more', name: `… ${rest.length} more folders`,
-      note: `${rest[0].name} … ${rest[rest.length - 1].name}; ${files} files in total, ${humanSize(bytes)}` }
+      note: `${rest[0].name} … ${rest[rest.length - 1].name}; ${opts.partial ? 'at least ' : ''}${files} files in total, ${humanSize(bytes)}` }
   }
 
-  const fileEntries = fileEntriesOf(node.files, opts)
+  const fileEntries = fileEntriesOf(node.files, opts, node.partial)
+  if (node.partial) fileEntries.push({ kind: 'rest', name: '… further files' })
 
   for (const e of [...entries, ...(cut ? [cut] : []), ...fileEntries]) {
     if (e.kind === 'dir') {
       const deep = depth + 1 > opts.maxDepth && (e.node.dirs.size || e.node.files.length)
-      const note = [e.note, deep ? `${e.node.count} files, ${humanSize(e.node.bytes)}; contents not listed in detail` : ''].filter(Boolean).join('; ')
+      const unread = e.node.unread && !e.node.dirs.size && !e.node.files.length
+      const note = [e.note, unread ? 'contents not read (very large bucket); describe the folder'
+        : deep ? `${opts.partial || e.node.partial ? 'at least ' : ''}${e.node.count} files, ${humanSize(e.node.bytes)}; contents not listed in detail` : ''].filter(Boolean).join('; ')
       lines.push(`${pad}/${e.name}${note ? ` [${note}]` : ''}`)
       if (!deep) renderNode(e.node, depth + 1, lines, opts)
     } else if (e.kind === 'dirs-more') {
       lines.push(`${pad}/${e.name} [${e.note}${opts.placeholders ? '; describe the folders' : ''}]`)
+    } else if (e.kind === 'rest') {
+      lines.push(`${pad}/${e.name} [this folder has more files than were read (very large bucket); describe the files]`)
     } else if (e.kind === 'series' || e.kind === 'more') {
       lines.push(`${pad}/${e.name} [${e.note}${opts.placeholders ? '; describe the files' : ''}]`)
     } else {
@@ -213,12 +230,13 @@ function renderNode(node, depth, lines, opts) {
 }
 
 export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
-  const root = buildTrie(objects)
-  const levels = Object.keys(options).length ? [{ ...LEVELS[0], ...options }] : LEVELS
+  const { partialDirs, unreadDirs, partial, ...levelOptions } = options
+  const root = buildTrie(objects, { partialDirs, unreadDirs })
+  const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
     lines = [`/${rootLabel}`]
-    renderNode(root, 1, lines, { placeholders: true, ...level })
+    renderNode(root, 1, lines, { placeholders: true, partial, ...level })
     if (lines.length <= MAX_LINES) break
   }
   if (lines.length > MAX_LINES) {
@@ -272,8 +290,8 @@ export function buildSummarySentence(objects, formats, totalSize) {
 // options.partial: the listing stopped early (very large bucket). The counts are then only lower bounds, so no
 // ready-made sentence about the number of files is offered; the researcher writes it.
 export function describeBucket(objects, bucketName, options = {}) {
-  const { partial = false, ...treeOptions } = options
-  const tree = buildTree(objects, 'repository-root', treeOptions)
+  const { partial = false, partialDirs = [], unreadDirs = [], ...treeOptions } = options
+  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs })
   const formats = buildFormatTable(objects)
   const totalBytes = objects.reduce((s, o) => s + o.bytes, 0)
   const text =

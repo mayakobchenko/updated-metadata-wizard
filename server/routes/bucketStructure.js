@@ -10,12 +10,11 @@ import { describeBucket } from '../KG_utils/bucketTree.js'
 const router = express.Router()
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const BASE = 'https://data-proxy.ebrains.eu/api/v1'
-const PAGE_SIZES = [1000, 100]  // fall back to 100 (known to work) if the API rejects 1000
 // Very large buckets (tens of thousands of files) cannot be listed within the time a web request may take, and a
 // tree of that many names is not useful anyway. Listing stops at the first limit that is reached and the answer
 // is marked as partial (the researcher is told).
 const MAX_FILES = Number(process.env.BUCKET_MAX_FILES) || 50000
-const TIME_BUDGET_MS = Number(process.env.BUCKET_TIME_BUDGET_MS) || 35000
+const TIME_BUDGET_MS = Number(process.env.BUCKET_TIME_BUDGET_MS) || 30000
 
 class ProxyError extends Error {
   constructor(status, message) { super(message); this.status = status }
@@ -44,41 +43,93 @@ async function proxyGet(url, token, deadline) {
   throw lastErr
 }
 
-// Pages with marker = last object name until an empty page comes back.
-// `datasets/<uuid>` is tried first (the endpoint the curators verified); if it
-// does not exist for this id, the `buckets/d-<uuid>` endpoint is used.
+// Folder-by-folder listing (delimiter "/"). The data-proxy spends about 40 ms per FILE object but folders are
+// cheap, and requests run in parallel, so the bucket is walked breadth-first with several folders read at once.
+//   - first pass: the first page of every folder (folders found on the way are queued),
+//   - second pass: further pages of folders with many entries, as long as time and file limits allow.
+// A bucket that is read completely gives exact results. Otherwise the answer is marked partial and says which
+// folders were only sampled (`partialDirs`) or not opened at all (`unreadDirs`).
+const CONCURRENCY = 6
+const FIRST_PAGE = 100
+const NEXT_PAGE = 200
+
+async function walkBucket(endpoint, token, deadline) {
+  const objects = []
+  const partialDirs = new Set()
+  const unreadDirs = new Set()
+  let useDelimiter = true
+  let stop = ''          // why the walk stopped early: 'count' | 'time' | 'error'
+  let failure = null
+  const first = [{ prefix: '', marker: '' }]
+  const more = []
+  let active = 0
+  let readAny = false
+
+  const page = async (task, limit) => {
+    const qs = new URLSearchParams({ limit: String(limit) })
+    if (useDelimiter) qs.set('delimiter', '/')
+    if (task.prefix) qs.set('prefix', task.prefix)
+    if (task.marker) qs.set('marker', task.marker)
+    try {
+      return await proxyGet(`${endpoint}?${qs}`, token, deadline)
+    } catch (e) {
+      if ([400, 422].includes(e.status) && useDelimiter && !readAny) { useDelimiter = false; return page(task, limit) }
+      throw e
+    }
+  }
+
+  const work = async () => {
+    for (;;) {
+      if (stop || failure) return
+      if (objects.length >= MAX_FILES) { stop = 'count'; return }
+      if (Date.now() >= deadline) { stop = 'time'; return }
+      const task = first.shift() || more.shift()
+      if (!task) {
+        if (!active) return
+        await sleep(40); continue
+      }
+      active++
+      try {
+        const limit = task.marker ? NEXT_PAGE : FIRST_PAGE
+        const body = await page(task, limit)
+        const entries = body.objects || []
+        readAny = true
+        for (const o of entries) {
+          if (o.subdir) first.push({ prefix: String(o.subdir), marker: '' })
+          else if (o.name && !String(o.name).endsWith('/')) objects.push({ name: o.name, bytes: Number(o.bytes) || 0 })
+        }
+        if (entries.length >= limit) {
+          const last = entries[entries.length - 1]
+          const marker = String(last.subdir || last.name || '')
+          if (marker && marker !== task.marker) more.push({ prefix: task.prefix, marker })
+          else partialDirs.add(task.prefix)
+        }
+      } catch (e) {
+        if (readAny && (e.status === 0 || TRANSIENT.includes(e.status))) { stop = stop || 'error'; unreadDirs.add(task.prefix) }
+        else failure = e
+      } finally { active-- }
+    }
+  }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, work))
+  if (failure) throw failure
+  // whatever is still queued was not read (or only in part)
+  for (const t of first) unreadDirs.add(t.prefix)
+  for (const t of more) partialDirs.add(t.prefix)
+  if (!stop && (first.length || more.length)) stop = 'time'
+  const dirs = (set) => [...set].map(p => p.replace(/\/$/, ''))
+  return { objects, truncated: stop, partialDirs: dirs(partialDirs), unreadDirs: dirs(unreadDirs) }
+}
+
+// The bucket of a dataset is d-<uuid>; `datasets/<uuid>` only exists for released datasets (and needs several
+// seconds to say 404 for the others), so the bucket address is tried first.
 async function listAll(uuid, token) {
   const deadline = Date.now() + TIME_BUDGET_MS
-  const endpoints = [`${BASE}/datasets/${uuid}`, `${BASE}/buckets/d-${uuid}`]
+  const endpoints = [`${BASE}/buckets/d-${uuid}`, `${BASE}/datasets/${uuid}`]
   let lastErr
   for (const endpoint of endpoints) {
     try {
-      const objects = []
-      let pageSize = PAGE_SIZES[0]
-      let marker = ''
-      let truncated = ''   // '' = complete, otherwise why the listing stopped: 'count' | 'time' | 'error'
-      for (let page = 0; ; page++) {
-        if (objects.length >= MAX_FILES) { truncated = 'count'; break }
-        if (Date.now() >= deadline) { truncated = 'time'; break }
-        const qs = new URLSearchParams({ limit: String(pageSize) })
-        if (marker) qs.set('marker', marker)
-        let body
-        try {
-          body = await proxyGet(`${endpoint}?${qs}`, token, deadline)
-        } catch (e) {
-          if ([400, 422].includes(e.status) && pageSize !== PAGE_SIZES[1]) { pageSize = PAGE_SIZES[1]; page--; continue }
-          // something was read already: a partial answer is better than none
-          if (objects.length && (e.status === 0 || TRANSIENT.includes(e.status))) { truncated = 'error'; break }
-          throw e
-        }
-        const items = (body.objects || []).filter(o => o.name && !o.subdir)
-        if (!items.length) break
-        for (const o of items) objects.push({ name: o.name, bytes: Number(o.bytes) || 0 })
-        const next = (body.objects || [])[(body.objects || []).length - 1].name
-        if (next === marker) break
-        marker = next
-      }
-      return { objects, truncated }
+      return await walkBucket(endpoint, token, deadline)
     } catch (e) {
       lastErr = e
       if (![404, 405].includes(e.status)) throw e   // auth/server problems: do not retry elsewhere
@@ -100,11 +151,11 @@ router.post('/structure', async (req, res) => {
     return res.status(401).json({ code: 'NO_TOKEN', error: 'Your login session has no usable EBRAINS token. Please log in again, or paste a token below.' })
   }
   try {
-    const { objects, truncated } = await listAll(uuid, token)
-    if (!objects.length) {
+    const { objects, truncated, partialDirs, unreadDirs } = await listAll(uuid, token)
+    if (!objects.length && !partialDirs.length && !unreadDirs.length) {
       return res.status(404).json({ code: 'EMPTY', error: `The bucket d-${uuid} is empty or has no files yet.` })
     }
-    const result = describeBucket(objects, `d-${uuid}`, { partial: !!truncated })
+    const result = describeBucket(objects, `d-${uuid}`, { partial: !!truncated, partialDirs, unreadDirs })
     logger.info(`bucket structure: d-${uuid} ${objects.length} files${truncated ? ` (partial: ${truncated})` : ''}`)
     res.json({ bucket: `d-${uuid}`, truncated: !!truncated, truncatedReason: truncated || null, ...result })
   } catch (e) {
