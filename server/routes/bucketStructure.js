@@ -17,10 +17,26 @@ class ProxyError extends Error {
   constructor(status, message) { super(message); this.status = status }
 }
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+const TRANSIENT = [429, 500, 502, 503, 504]
+
+// Short outages of the data-proxy (or a slow answer) are common right after a login or an upload, and a
+// researcher would not know to try again, so transient failures are retried here before an error is reported.
 async function proxyGet(url, token) {
-  const res = await fetch(url, { headers: { accept: 'application/json', Authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new ProxyError(res.status, `data-proxy answered ${res.status} ${res.statusText}`)
-  return res.json()
+  let lastErr
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { accept: 'application/json', Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(45000) })
+      if (res.ok) return await res.json()
+      lastErr = new ProxyError(res.status, `data-proxy answered ${res.status} ${res.statusText}`)
+      if (!TRANSIENT.includes(res.status)) throw lastErr
+    } catch (e) {
+      if (e instanceof ProxyError && !TRANSIENT.includes(e.status)) throw e
+      lastErr = e instanceof ProxyError ? e : new ProxyError(0, `data-proxy not reachable: ${e.message}`)
+    }
+    if (attempt < 2) { logger.warn(`bucket structure: retrying (${lastErr.message})`); await sleep(1000 * (attempt + 1) * 2) }
+  }
+  throw lastErr
 }
 
 // Pages with marker = last object name until an empty page comes back.

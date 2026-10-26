@@ -1135,6 +1135,15 @@ export default function DataDescriptor({ form, onChange, data }) {
           datasetVersionId={data.datasetVersionId}
           onListing={setFolderListing}
           onResult={applyBucket}
+          treeText={form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || ''}
+          summaryText={form.getFieldValue(['dataDescriptor', 'summary']) || ''}
+          onFillTree={(t) => { form.setFieldValue(['dataDescriptor', 'dataRecordsTree'], t); lastAutoTree.current = t; emitAll(authors, affiliations) }}
+          onAddSentence={(sent) => {
+            const sum = (form.getFieldValue(['dataDescriptor', 'summary']) || '').trim()
+            form.setFieldValue(['dataDescriptor', 'summary'], sum ? `${sum} ${sent}` : sent)
+            lastAutoSentence.current = sent
+            emitAll(authors, affiliations)
+          }}
         />
 
         <Q label="File structure of the data" name="dataRecordsTree" example={EXAMPLES.tree}
