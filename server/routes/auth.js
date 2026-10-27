@@ -2,7 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import crypto from 'crypto'
 import tokenFunctions from './tokenManager.js'
-import { createUserSession } from './userSessions.js'
+import { createUserSession, getUserAccessToken } from './userSessions.js'
 dotenv.config()
 
 const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
@@ -116,6 +116,14 @@ async function fetchUserFromKG(accessToken, signal) {
 router.get('/loginurl',  getLoginUrl)
 router.get('/logouturl', getLogOutUrl)
 router.get('/token',     getToken)
+// The page calls this every few minutes while it is open: it renews the user's token, which keeps the EBRAINS login
+// alive during long editing sessions. { active: false } means the login is really gone (expired, or the server restarted).
+router.get('/keepalive', async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  let token = null
+  try { token = await getUserAccessToken(req, { force: true }) } catch { /* treated as not logged in */ }
+  res.json({ active: !!token })
+})
 router.get('/hello',     (req, res) => res.json({ message: 'Hello from auth route' }))
 
 // ── GET /loginurl ─────────────────────────────────────────────────────────────

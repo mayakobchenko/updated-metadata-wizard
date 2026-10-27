@@ -16,6 +16,7 @@ import PopoverSave from './FinalChoice.jsx'
 import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
+import useLoginKeepalive from './useLoginKeepalive.js'
 import { normalizeImportedJson } from './importNormalize.js'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { getFigures } from './figuresStore'
@@ -47,6 +48,7 @@ const readJsonFile = (file) =>
 const deepMerge = (base, incoming) => incoming
 
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
+  const loginLost = useLoginKeepalive()
   const skjemaInfo = useAuthContext()
 
   const normalizeOptionsData = (val) => {
@@ -545,6 +547,11 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
   return (
     <ConfigProvider>
+      {loginLost && (
+        <Alert type="warning" showIcon style={{ marginBottom: 8 }}
+          message="Your EBRAINS login has ended"
+          description="Everything you entered is still in this page. To read a bucket again you need to log in once more: open the wizard in a new browser tab and log in there, then come back to this tab. Please do not reload this tab before you have downloaded a draft." />
+      )}
       <ProgressBar
         step={currentStepIndex}
         status={statuses}

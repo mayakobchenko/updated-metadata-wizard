@@ -37,12 +37,20 @@ export function createUserSession(req, res, { access_token, expires_in, refresh_
 }
 
 // Returns a valid access token for the logged-in user, or null.
-export async function getUserAccessToken(req) {
+// force: renew the token now even if it is still valid. Using the refresh token is what keeps the EBRAINS login
+// alive (it expires after about 30 minutes WITHOUT use), so the keep-alive of the page asks for this.
+export async function getUserAccessToken(req, { force = false } = {}) {
   const sid = readCookie(req, COOKIE)
   const s = sid && sessions.get(sid)
   if (!s || s.sessionExp < Date.now()) return null
-  if (Date.now() < s.exp - 15000) return s.access_token
+  if (!force && Date.now() < s.exp - 15000) return s.access_token
   if (!s.refresh_token || Date.now() >= s.refreshExp) { sessions.delete(sid); return null }
+  if (s.renewing) return s.renewing   // two requests at once must not both use the same refresh token
+  s.renewing = renew(sid, s).finally(() => { s.renewing = null })
+  return s.renewing
+}
+
+async function renew(sid, s) {
   try {
     const r = await fetch(TOKEN_ENDPOINT, {
       method: 'POST',
