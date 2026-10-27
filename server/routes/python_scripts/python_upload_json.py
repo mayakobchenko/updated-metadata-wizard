@@ -750,7 +750,9 @@ def find_or_create_doi(raw_doi):
 
 dsv_title = safe_trim(data.get("dataset1", {}).get("dataTitle",    ""))
 dsv_short_title = safe_trim(data.get("dataset1", {}).get("shortTitle",   ""))
-brief_summary = safe_trim(data.get("dataset1", {}).get("briefSummary", ""))
+# the description of the dataset in the KG is the Summary written in the Data Descriptor; the text from the
+# intake form (briefSummary, no longer shown in the wizard) is only the fallback
+brief_summary = safe_trim(data.get("dataDescriptor", {}).get("summary", "")) or safe_trim(data.get("dataset1", {}).get("briefSummary", ""))
 license_id = safe_trim(data.get("dataset1", {}).get("license",      ""))
 embargo = data.get("dataset1", {}).get("embargo", False)
 embargo_date = data.get("dataset1", {}).get("embargoDate") if embargo else None

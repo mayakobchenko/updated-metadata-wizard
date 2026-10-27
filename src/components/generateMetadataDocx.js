@@ -10,6 +10,7 @@ export async function generateMetadataDocx(formData) {
   const lookups = await buildLookups()
 
   const d1    = formData.dataset1        || {}
+  const summary = (formData.dataDescriptor?.summary || d1.briefSummary || '').trim()
   const d2    = formData.dataset2        || {}
   const cust  = formData.custodian       || {}
   const cont  = formData.contactperson   || {}
@@ -127,7 +128,7 @@ export async function generateMetadataDocx(formData) {
   push(table([
     row('Full title',     d1.dataTitle),
     row('Short name',     d1.shortTitle),
-    row('Description',    d1.briefSummary),
+    row('Description',    summary),
     row('License',        resolve(d1.license, lookups.licenseMap)),
     row('Data types',     resolve(d1.optionsData, lookups.dataTypeMap)),
     row('Data standards', standardsLabel(d1)),

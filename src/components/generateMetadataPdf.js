@@ -115,6 +115,7 @@ function subheading(text) {
   drawPageHeader()
 
   const d1    = formData.dataset1        || {}
+  const summary = (formData.dataDescriptor?.summary || d1.briefSummary || '').trim()
   const d2    = formData.dataset2        || {}
   const cust  = formData.custodian       || {}
   const cont  = formData.contactperson   || {}
@@ -128,7 +129,7 @@ function subheading(text) {
   sectionTitle('1. Dataset Information')
   field('Full title',     d1.dataTitle)
   field('Short name',     d1.shortTitle)
-  field('Description',    d1.briefSummary)
+  field('Description',    summary)
   field('License',        resolve(d1.license, lookups.licenseMap))
   field('Data types',     resolve(d1.optionsData, lookups.dataTypeMap))
   field('Data standards', standardsLabel(d1))

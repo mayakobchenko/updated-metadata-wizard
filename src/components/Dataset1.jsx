@@ -151,17 +151,10 @@ export default function Dataset1({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
 
-        <AntForm.Item
-          label="Brief Summary"
-          name={['dataset1', 'briefSummary']}
-          extra="This is the data description that you provided earlier."
-        >
-          <TextArea
-            autoSize={{ minRows: 3, maxRows: 10 }}
-            style={{ resize: 'none' }}
-            placeholder="Please enter a brief summary..."
-            readOnly
-          />
+        {/* The summary is written in the Data Descriptor. The intake text stays in the form (hidden) as the starting
+            point for that Summary and as a fallback; it is not shown twice. */}
+        <AntForm.Item name={['dataset1', 'briefSummary']} hidden>
+          <Input />
         </AntForm.Item>
 
         <AntForm.Item

@@ -143,7 +143,6 @@ export default function Introduction({ form, onChange, data }) {
         <AntForm.Item
           label="Data custodian's affiliation"
           name={['custodian', 'institution']} 
-          extra="The custodian is the first author of the data descriptor; this is the first affiliation listed there."
           rules={[{ required: true, message: "Please enter the data custodian's affiliation!" }]}>
           <Input placeholder="Department, Institution, City, Country" />
         </AntForm.Item>

@@ -5,6 +5,7 @@ export async function generateMetadataTxt(formData) {
   const lookups = await buildLookups()
 
   const d1    = formData.dataset1        || {}
+  const summary = (formData.dataDescriptor?.summary || d1.briefSummary || '').trim()
   const d2    = formData.dataset2        || {}
   const cust  = formData.custodian       || {}
   const cont  = formData.contactperson   || {}
@@ -41,11 +42,11 @@ export async function generateMetadataTxt(formData) {
   if (pubs.length) field('Related publications:', pubs.join('; '))
   const channels = (d2.supportChannels || []).map(c => c.newChannel).filter(Boolean)
   if (channels.length) field('Support channels:', channels.join(', '))
-  if (d1.briefSummary) {
+  if (summary) {
     lines.push('')
     lines.push('  Description:')
     // wrap at 66 chars
-    const words = d1.briefSummary.replace(/\n/g, ' ').split(' ')
+    const words = summary.replace(/\n/g, ' ').split(' ')
     let line = '    '
     words.forEach(w => {
       if ((line + w).length > 68) { lines.push(line.trimEnd()); line = '    ' + w + ' ' }
