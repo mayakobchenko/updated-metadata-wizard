@@ -1,4 +1,5 @@
 import { buildLookups, resolve } from './metadataLookups'
+import { standardsLabel } from './standards'
 
 export async function generateMetadataTxt(formData) {
   const lookups = await buildLookups()
@@ -30,7 +31,7 @@ export async function generateMetadataTxt(formData) {
   field('Short name:',         d1.shortTitle)
   field('License:',            resolve(d1.license, lookups.licenseMap))
   field('Data types:',         resolve(d1.optionsData, lookups.dataTypeMap))
-  field('Data standards:',     Array.isArray(d1.dataStandart) ? d1.dataStandart.join(', ') : d1.dataStandart)
+  field('Data standards:',     standardsLabel(d1))
   field('Embargo:',            d1.embargo
     ? `Yes${d1.embargoDate ? ` (until ${new Date(d1.embargoDate).toLocaleDateString('en-GB')})` : ''}`
     : 'No')

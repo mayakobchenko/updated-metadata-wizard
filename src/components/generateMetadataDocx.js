@@ -1,3 +1,4 @@
+import { standardsLabel } from './standards'
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   AlignmentType, BorderStyle, Table, TableRow, TableCell,
@@ -129,7 +130,7 @@ export async function generateMetadataDocx(formData) {
     row('Description',    d1.briefSummary),
     row('License',        resolve(d1.license, lookups.licenseMap)),
     row('Data types',     resolve(d1.optionsData, lookups.dataTypeMap)),
-    row('Data standards', Array.isArray(d1.dataStandart) ? d1.dataStandart.join(', ') : d1.dataStandart),
+    row('Data standards', standardsLabel(d1)),
     row('Embargo',        d1.embargo
       ? `Yes${d1.embargoDate ? ` (until ${new Date(d1.embargoDate).toLocaleDateString('en-GB')})` : ''}`
       : 'No'),

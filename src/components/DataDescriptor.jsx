@@ -14,6 +14,7 @@ import FiguresTablesPanel from './FiguresTablesPanel'
 import DdMarkdownImport from './DdMarkdownImport'
 import FormatsTable from './FormatsTable'
 import { buildAuthorTable } from './authorModel'
+import { standardsSentence, legacyStandardsSentence } from './standards'
 import { getFigures, useFigures } from './figuresStore'
 
 const { TextArea } = Input
@@ -187,6 +188,13 @@ function resolveAuthorName(entry, personMap) {
     : `${entry.firstName || ''} ${entry.lastName || ''}`.trim()
 }
 
+// "Introduction to the data records" is the automatic sentence while it is empty, was written by an earlier
+// version of the wizard, or equals the last automatic sentence (kept in the draft)
+function isAutoStandardsText(dd, d1) {
+  const saved = (dd.dataDescription || '').trim()
+  return !saved || saved === (dd.autoDataDescription || '').trim() || saved === legacyStandardsSentence(d1)
+}
+
 // ── compute scalar prefill values ─────────────────────────────────────────
 function computeFieldValues(data) {
   const d1   = data.dataset1        || {}
@@ -219,10 +227,8 @@ function computeFieldValues(data) {
 
     software: dd.software || '',
 
-    dataDescription: pf(dd.dataDescription, (() => {
-      const stds = (d1.dataStandart || []).filter(s => s !== "No, I didn't use a standard")
-      return stds.length ? `Data follows the ${stds.join(', ')} standard.` : ''
-    })()),
+    // follows Dataset part 1 (incl. the "other standard(s)" text) as long as it is empty or still the automatic sentence
+    dataDescription: isAutoStandardsText(dd, d1) ? standardsSentence(d1) : dd.dataDescription,
 
     dataRecordsTree:     dd.dataRecordsTree     || '',
     authorContributions: dd.authorContributions || '',
@@ -244,7 +250,7 @@ function computeAutoPopulated(data) {
   const no   = (k) => !dd[k] || dd[k] === ''
   return {
     summary:             no('summary')             && !!(d1.briefSummary || dataTypePhrase(d1.optionsData || []) || buildSubjectSummary(subj)),
-    dataDescription:     no('dataDescription')     && !!(d1.dataStandart?.filter(s => s !== "No, I didn't use a standard").length),
+    dataDescription:     isAutoStandardsText(dd, d1) && !!standardsSentence(d1),
     funding:             no('funding')             && !!buildFundingText(fund),
   }
 }
@@ -443,6 +449,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
         autoTree:                  lastAutoTree.current || dd.autoTree || '',
         autoVersionSpec:           autoVersionSpecRef.current || dd.autoVersionSpec || '',
         bucketExts:                [...bucketExtsRef.current],
+        autoDataDescription: standardsSentence(data.dataset1 || {}),
         authors:           newAuthors,
         affiliations_list: newAffs,
         ...extra,

@@ -1,5 +1,6 @@
 // ── generateMetadataPdf.js ────────────────────────────────────────────────────
 import { jsPDF } from 'jspdf'
+import { standardsLabel } from './standards'
 import { buildLookups, resolve } from './metadataLookups'
 
 // EBRAINS green palette
@@ -130,7 +131,7 @@ function subheading(text) {
   field('Description',    d1.briefSummary)
   field('License',        resolve(d1.license, lookups.licenseMap))
   field('Data types',     resolve(d1.optionsData, lookups.dataTypeMap))
-  field('Data standards', Array.isArray(d1.dataStandart) ? d1.dataStandart.join(', ') : d1.dataStandart)
+  field('Data standards', standardsLabel(d1))
   field('Embargo',        d1.embargo
     ? `Yes${d1.embargoDate ? ` (until ${new Date(d1.embargoDate).toLocaleDateString('en-GB')})` : ''}`
     : 'No')
