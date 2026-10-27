@@ -19,7 +19,16 @@ export const DATA_STANDARD_LABELS = [
   'neuroML', 'odML', 'openMINDS', 'other(s)',
 ]
 
+export const NO_STANDARD = "No, I didn't use a standard"
 const OTHER = 'other(s)'
+
+// "No standard" and an actual standard exclude each other. `prev` is the selection before the click,
+// `next` the selection after it: whichever side the researcher just ticked wins.
+export function resolveStandards(prev = [], next = []) {
+  if (!next.includes(NO_STANDARD)) return next
+  if (!prev.includes(NO_STANDARD)) return [NO_STANDARD]          // "No standard" was just ticked
+  return next.filter(v => v !== NO_STANDARD)                      // another standard was ticked while it was set
+}
 const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : [])
 const lc = (s) => String(s).trim().toLowerCase()
 
@@ -53,6 +62,8 @@ export function normalizeImportedJson(parsed, dataTypes = []) {
     otherText = [otherText, ...unknown].filter(Boolean).join(', ')
   }
   if (otherText && !standards.includes(OTHER)) standards.push(OTHER)
+  // an actual standard wins over "No standard" (a draft that has both)
+  if (standards.length > 1 && standards.includes(NO_STANDARD)) standards.splice(standards.indexOf(NO_STANDARD), 1)
 
   return {
     ...parsed,

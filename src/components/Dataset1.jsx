@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
+import { resolveStandards, NO_STANDARD } from './importNormalize'
 import dayjs from 'dayjs'
 
 const { TextArea } = Input
@@ -52,6 +53,8 @@ export default function Dataset1({ form, onChange, data }) {
     form.setFieldsValue({
       dataset1: {
         ...data.dataset1,
+        dataStandart: (data.dataset1?.dataStandart || []).length > 1
+          ? (data.dataset1.dataStandart).filter(v => v !== NO_STANDARD) : data.dataset1?.dataStandart,
         copyrightYear: toSafeDayjs(data.dataset1?.copyrightYear),
       }
     })
@@ -304,6 +307,8 @@ export default function Dataset1({ form, onChange, data }) {
           label="Data organization standard(s)"
           rules={[{ required: false }]}
           extra="Did your data organization follow any community standards such as BIDS or NWB?"
+          // "No, I didn't use a standard" and an actual standard exclude each other
+          getValueFromEvent={(next) => resolveStandards(form.getFieldValue(['dataset1', 'dataStandart']) || [], next)}
         >
           <Checkbox.Group
             options={dataStandartOptions}
