@@ -157,7 +157,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
               <div>
                 {problems.length > 0 && <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>{problems.map((c, i) => <li key={i}>{c.text}</li>)}</ul>}
                 {infos.map((c, i) => <div key={i} style={{ fontSize: 12, opacity: 0.8 }}>{c.text}</div>)}
-                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick BIDS in Dataset part 1 if the data do not follow it.</div>}
+                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick BIDS in Dataset part 1 if the data do not follow it. An example of a BIDS folder structure: <a href="https://bids.neuroimaging.io/getting_started/folders_and_files/folders.html" target="_blank" rel="noopener noreferrer">BIDS folders and files</a>.</div>}
               </div>
             } />
         )

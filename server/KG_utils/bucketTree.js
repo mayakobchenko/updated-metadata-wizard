@@ -293,7 +293,14 @@ export function buildTree(objects, rootLabel = 'repository-root', options = {}) 
   const { partialDirs, unreadDirs, knownDirs, skimmedDirs, partial, bids, ...levelOptions } = options
   const root = buildTrie(objects, { partialDirs, unreadDirs, knownDirs, skimmedDirs })
   // the data descriptor and the licence belong to the publication, not to the data: they are not listed
-  root.files = root.files.filter(f => !PUBLICATION_FILES.test(f.name))
+  // (also when everything sits in one wrapper folder, as in a downloaded GitHub repository)
+  let top = root
+  for (let i = 0; i < 1; i++) {
+    root.files = root.files.filter(f => !PUBLICATION_FILES.test(f.name))
+    if (top.dirs.size === 1 && !top.files.filter(f => !PUBLICATION_FILES.test(f.name)).length) top = [...top.dirs.values()][0]
+    else break
+    top.files = top.files.filter(f => !PUBLICATION_FILES.test(f.name))
+  }
   const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
