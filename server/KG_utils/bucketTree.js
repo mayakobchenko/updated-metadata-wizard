@@ -287,9 +287,13 @@ function renderNode(node, depth, lines, opts, parent = '') {
   }
 }
 
+const PUBLICATION_FILES = /^(data[-_ ]?descriptor([-_. ].*)?|licen[cs]e([-_ .](cc|by|mit|apache|gpl|bsd|sa|nc|nd|\d)[\w.-]*)?(\.\w+)?)$/i
+
 export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
   const { partialDirs, unreadDirs, knownDirs, skimmedDirs, partial, bids, ...levelOptions } = options
   const root = buildTrie(objects, { partialDirs, unreadDirs, knownDirs, skimmedDirs })
+  // the data descriptor and the licence belong to the publication, not to the data: they are not listed
+  root.files = root.files.filter(f => !PUBLICATION_FILES.test(f.name))
   const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
