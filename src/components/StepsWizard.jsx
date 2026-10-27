@@ -628,7 +628,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
       {/* ── Current step ─────────────────────────────────────────────────── */}
       <CurrentStep form={form} onChange={handleInputChange} data={formData}
-        showErrors={showAuthorIssues} onGoToContributors={() => setCurrentStepIndex(4)} />
+        showErrors={showAuthorIssues} onGoToContributors={() => setCurrentStepIndex(4)} onGoToStep={(i) => setCurrentStepIndex(i)} />
 
       {/* ── Navigation buttons ───────────────────────────────────────────── */}
       <div className="buttons-save-next-back">

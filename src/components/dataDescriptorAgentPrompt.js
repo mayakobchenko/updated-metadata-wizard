@@ -7,7 +7,13 @@
 // Pure function: the skill texts are passed in, so this file has no imports and
 // can be tested outside the browser.
 
+import { standardsLabel } from './standards'
+
 const MAX_FOLDER_LISTING_CHARS = 12000
+
+// what the researcher entered earlier in the wizard that every section can use
+const standardsBlock = (d) => block('Data organisation standard(s) (Dataset part 1; mention it in DATA RECORDS and describe the file structure with its naming conventions)', standardsLabel(d?.dataset1))
+const keywordsBlock = (d) => block('Keywords given in the Experiments step (topics the text can cover; do not invent other keywords)', d?.experiments?.keywords)
 
 // Which of the skill's domain files fits this dataset? Priority:
 //   1. the researcher's explicit choice in the AI panel (values.aiDomain),
@@ -111,6 +117,8 @@ export function buildAgentPrompt({
       (values.dataRecordsFormats || []).map(r => `${r.format || '?'} | ${r.extension} | ${r.software || ''}`).join('\n')),
     block('Facts from the Experiments and Subjects steps of the wizard (controlled KG terms; reliable)', values.experimentFacts),
     block('Author contributions (Author contributions section)', values.authorContributions),
+    standardsBlock(data),
+    keywordsBlock(data),
     block('Type of data shared (from the wizard, Dataset part 1)', (data.dataset1?.optionsData || []).filter(v => typeof v === 'string' && !v.startsWith('http')).join(', ')),
     block('Usage notes (USAGE NOTES)', values.usageNotes),
     block('Limitations and caveats (USAGE NOTES)', values.limitations),
@@ -176,6 +184,7 @@ Example structure: Write one sentence about the origin of the dataset. Write one
     answers: (v, d, ctx) => [
       block('Title', d.dataset1?.dataTitle || v.title),
       block('Brief summary entered earlier in the wizard', d.dataset1?.briefSummary),
+      keywordsBlock(d),
       block('What is registered in the wizard', ctx.subjects),
       block('Methods (for orientation only)', v.methods),
       block('My current Summary text', v.summary),
@@ -212,7 +221,8 @@ Anatomical information: if applicable, give the entity of the data (e.g. cell ty
     template: `DATA RECORDS. Describe how the data are stored, as well as their file types and content.
 1. Provide a reduced generic layout of the file repository structure displaying the storage convention: one entry per line starting with "/", indented two spaces per folder level. Add a one sentence summary describing the content of each (example) file in square brackets. If a (meta)data standard was followed (e.g. BIDS), include this information.
 2. List all file formats and include which software created the respective files (table: Format / Extension / Software used / file specification). If files were created manually, explain their internal structure.`,
-    answers: (v) => [
+    answers: (v, d) => [
+      standardsBlock(d),
       block('Data records text I have written so far', v.dataDescription),
       block('File structure so far', v.dataRecordsTree),
       block('File format table so far', (v.dataRecordsFormats || []).map(r => `${r.format || '?'} | ${r.extension} | ${r.software || ''}`).join('\n')),

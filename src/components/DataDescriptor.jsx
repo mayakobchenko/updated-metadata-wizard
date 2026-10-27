@@ -257,7 +257,7 @@ function computeAutoPopulated(data) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DataDescriptor({ form, onChange, data, onGoToContributors }) {
+export default function DataDescriptor({ form, onChange, data, onGoToContributors, onGoToStep }) {
   const dd = data.dataDescriptor || {}
 
   // ── person map: KG URL → full name, loaded once ───────────────────────
@@ -806,7 +806,10 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
               </Tag>
             </span>
           }
-          extra={<span style={EXTRA}>This title is set in Dataset part 1 and cannot be changed here.</span>}
+          extra={<span style={EXTRA}>
+            This title is set in Dataset part 1 and cannot be changed here. To edit the title, please go back to “Dataset part 1”.
+            {onGoToStep && <Button size="small" style={{ marginLeft: 10 }} onClick={() => onGoToStep(1)}>Edit in Dataset part 1</Button>}
+          </span>}
         >
           <div>
           <div style={{ textAlign: 'right', fontSize: 12, lineHeight: '18px', marginBottom: 2,
