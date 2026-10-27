@@ -1133,6 +1133,7 @@ export default function DataDescriptor({ form, onChange, data }) {
 
         <BucketStructurePanel
           datasetVersionId={data.datasetVersionId}
+          standards={(data.dataset1?.dataStandart || []).filter(x => x !== "No, I didn't use a standard")}
           onListing={setFolderListing}
           onResult={applyBucket}
           treeText={form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || ''}

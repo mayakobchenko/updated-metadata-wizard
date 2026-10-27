@@ -33,7 +33,7 @@ function explain(error) {
 // Temporary problems are retried automatically; whatever is still missing afterwards is shown, with a button to fix it.
 // `treeText` and `summaryText` are the current texts of the file structure and Summary fields, so the panel can
 // see whether the result actually arrived there; `onFillTree` / `onAddSentence` put it there on request.
-export default function BucketStructurePanel({ datasetVersionId, onResult, onListing, treeText = '', summaryText = '', onFillTree, onAddSentence }) {
+export default function BucketStructurePanel({ datasetVersionId, onResult, onListing, treeText = '', summaryText = '', onFillTree, onAddSentence, standards = [] }) {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
   const [meta,    setMeta]    = useState(null)
@@ -54,7 +54,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
       const res = await fetch('/api/bucket/structure', {
         method: 'POST', credentials: 'same-origin', signal: ctrl.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ datasetVersionId: String(datasetVersionId).trim(), token: useToken ? token.trim() || undefined : undefined }),
+        body: JSON.stringify({ datasetVersionId: String(datasetVersionId).trim(), token: useToken ? token.trim() || undefined : undefined, standards }),
       })
       const body = await res.json().catch(() => null)
       if (res.ok && body?.text) return { ok: true, body }
@@ -142,6 +142,26 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
           message="Your bucket is very large, so it was read only in part."
           description="The folders and the first files of each folder were read. Similar files are already summarised in the structure (for example “img_XXXX.tif [at least 700 files …]”), but the list is incomplete: some files, file formats and the exact number of files may be missing, so no automatic sentence about the number of files was added to the Summary. Please complete the structure and the format table by hand, or paste a listing of your folders in the box below (Windows: tree /F, Mac/Linux: find . -type f)." />
       )}
+
+      {/* standard-specific findings (BIDS): what the bucket lacks compared with the standard ticked in Dataset part 1 */}
+      {!loading && !error && meta?.checks?.length > 0 && (() => {
+        const problems = meta.checks.filter(c => c.level !== 'info')
+        const infos = meta.checks.filter(c => c.level === 'info')
+        const hasError = problems.some(c => c.level === 'error')
+        return (
+          <Alert type={hasError ? 'error' : problems.length ? 'warning' : 'success'} showIcon style={{ marginTop: 8 }}
+            message={problems.length
+              ? `You ticked BIDS in Dataset part 1. The bucket does not fully look like a BIDS dataset (${problems.length} point${problems.length === 1 ? '' : 's'}).`
+              : 'You ticked BIDS in Dataset part 1. The folder and file names look like a BIDS dataset.'}
+            description={
+              <div>
+                {problems.length > 0 && <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>{problems.map((c, i) => <li key={i}>{c.text}</li>)}</ul>}
+                {infos.map((c, i) => <div key={i} style={{ fontSize: 12, opacity: 0.8 }}>{c.text}</div>)}
+                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick BIDS in Dataset part 1 if the data do not follow it.</div>}
+              </div>
+            } />
+        )
+      })()}
 
       {/* the result was read but did not arrive in the fields: say so, and offer the fix */}
       {!loading && !error && meta && treeMissing && (

@@ -144,6 +144,8 @@ router.post('/structure', async (req, res) => {
     return res.status(400).json({ code: 'BAD_ID', error: 'Please enter a valid dataset version UUID (the bucket is named d-<uuid>).' })
   }
   const uuid = raw.toLowerCase()
+  // data organisation standards ticked in Dataset part 1 (e.g. BIDS): only used to describe the structure
+  const standards = Array.isArray(req.body?.standards) ? req.body.standards.filter(x => typeof x === 'string').slice(0, 20) : []
   // a token pasted by the user wins; otherwise the token of the logged-in user
   const pasted = typeof req.body?.token === 'string' ? req.body.token.trim().replace(/^Bearer\s+/i, '') : ''
   const token = pasted || await getUserAccessToken(req)
@@ -155,7 +157,7 @@ router.post('/structure', async (req, res) => {
     if (!objects.length && !partialDirs.length && !unreadDirs.length) {
       return res.status(404).json({ code: 'EMPTY', error: `The bucket d-${uuid} is empty or has no files yet.` })
     }
-    const result = describeBucket(objects, `d-${uuid}`, { partial: !!truncated, partialDirs, unreadDirs })
+    const result = describeBucket(objects, `d-${uuid}`, { partial: !!truncated, partialDirs, unreadDirs, standards })
     logger.info(`bucket structure: d-${uuid} ${objects.length} files${truncated ? ` (partial: ${truncated})` : ''}`)
     res.json({ bucket: `d-${uuid}`, truncated: !!truncated, truncatedReason: truncated || null, ...result })
   } catch (e) {

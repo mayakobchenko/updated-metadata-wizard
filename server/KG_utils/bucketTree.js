@@ -4,6 +4,8 @@
 //   2. a table of file formats (extension, number of files, size, ...).
 // Pure functions, no network access: easy to test, and NAMES ONLY are used.
 
+import { describeBidsFile, bidsDirNote, bidsChecks } from './bidsRules.js'
+
 const COMPOUND_EXT = ['nii.gz', 'func.gii', 'label.gii', 'surf.gii', 'shape.gii', 'ome.tif',
   'ome.tiff', 'tar.gz', 'dscalar.nii', 'dlabel.nii', 'ome.zarr']
 
@@ -141,6 +143,7 @@ function fileEntriesOf(files, opts, partialFolder) {
       const bytes = list.reduce((s, f) => s + f.bytes, 0)
       out.push({
         kind: 'series', name: patternOf(list.map(f => f.name)),
+        desc: opts.bids ? describeBidsFile(list[0].name) : '',
         note: `${atLeast}${list.length} files named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
       })
     } else loose.push(...list)
@@ -169,7 +172,7 @@ function fileEntriesOf(files, opts, partialFolder) {
   return out
 }
 
-function renderNode(node, depth, lines, opts) {
+function renderNode(node, depth, lines, opts, parent = '') {
   const pad = '  '.repeat(depth)
   const entries = []
 
@@ -212,31 +215,32 @@ function renderNode(node, depth, lines, opts) {
     if (e.kind === 'dir') {
       const deep = depth + 1 > opts.maxDepth && (e.node.dirs.size || e.node.files.length)
       const unread = e.node.unread && !e.node.dirs.size && !e.node.files.length
-      const note = [e.note, unread ? 'contents not read (very large bucket); describe the folder'
+      const note = [e.note, opts.bids ? bidsDirNote(e.name, parent) : '', unread ? 'contents not read (very large bucket); describe the folder'
         : deep ? `${opts.partial || e.node.partial ? 'at least ' : ''}${e.node.count} files, ${humanSize(e.node.bytes)}; contents not listed in detail` : ''].filter(Boolean).join('; ')
       lines.push(`${pad}/${e.name}${note ? ` [${note}]` : ''}`)
-      if (!deep) renderNode(e.node, depth + 1, lines, opts)
+      if (!deep) renderNode(e.node, depth + 1, lines, opts, e.name)
     } else if (e.kind === 'dirs-more') {
       lines.push(`${pad}/${e.name} [${e.note}${opts.placeholders ? '; describe the folders' : ''}]`)
     } else if (e.kind === 'rest') {
       lines.push(`${pad}/${e.name} [this folder has more files than were read (very large bucket); describe the files]`)
     } else if (e.kind === 'series' || e.kind === 'more') {
-      lines.push(`${pad}/${e.name} [${e.note}${opts.placeholders ? '; describe the files' : ''}]`)
+      const tail = e.desc || (opts.placeholders ? 'describe the files' : '')
+      lines.push(`${pad}/${e.name} [${e.note}${tail ? `; ${tail}` : ''}]`)
     } else {
-      const known = KNOWN_FILES[e.name.toLowerCase()]
+      const known = KNOWN_FILES[e.name.toLowerCase()] || (opts.bids ? describeBidsFile(e.name) : '')
       lines.push(`${pad}/${e.name}${known ? ` [${known}]` : (opts.placeholders ? ' [describe file]' : '')}`)
     }
   }
 }
 
 export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
-  const { partialDirs, unreadDirs, partial, ...levelOptions } = options
+  const { partialDirs, unreadDirs, partial, bids, ...levelOptions } = options
   const root = buildTrie(objects, { partialDirs, unreadDirs })
   const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
-    lines = [`/${rootLabel}`]
-    renderNode(root, 1, lines, { placeholders: true, partial, ...level })
+    lines = [`/${rootLabel}${bids ? ' [BIDS dataset (Brain Imaging Data Structure)]' : ''}`]
+    renderNode(root, 1, lines, { placeholders: true, partial, bids, ...level })
     if (lines.length <= MAX_LINES) break
   }
   if (lines.length > MAX_LINES) {
@@ -290,8 +294,9 @@ export function buildSummarySentence(objects, formats, totalSize) {
 // options.partial: the listing stopped early (very large bucket). The counts are then only lower bounds, so no
 // ready-made sentence about the number of files is offered; the researcher writes it.
 export function describeBucket(objects, bucketName, options = {}) {
-  const { partial = false, partialDirs = [], unreadDirs = [], ...treeOptions } = options
-  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs })
+  const { partial = false, partialDirs = [], unreadDirs = [], standards = [], ...treeOptions } = options
+  const bids = standards.some(x => String(x).toLowerCase() === 'bids')
+  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs, bids })
   const formats = buildFormatTable(objects)
   const totalBytes = objects.reduce((s, o) => s + o.bytes, 0)
   const text =
@@ -300,6 +305,7 @@ export function describeBucket(objects, bucketName, options = {}) {
   const size = humanSize(totalBytes)
   return {
     tree, formats, text,
+    checks: bids ? bidsChecks(objects, partial) : [],
     summarySentence: partial ? '' : buildSummarySentence(objects, formats, size),
     totals: { files: objects.length, bytes: totalBytes, size },
   }
