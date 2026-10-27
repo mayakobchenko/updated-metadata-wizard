@@ -895,7 +895,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
             <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
               <li><b>Origin:</b> one sentence about the origin of the dataset.</li>
               <li><b>What are the data?</b> One or two sentences giving an overview, starting with “This dataset contains…”: content, type of data, modality, number of subjects and sessions, species, original purpose.</li>
-              <li><b>Background and context:</b> one or two sentences that put the reader in the context of the subject (also for data that are not part of a research project).</li>
+              <li><b>Background and context:</b> one or two sentences that provide the reader with the context of the research topic (also for data that are not part of a research project).</li>
               <li><b>Why</b> were the data created and shared? If there was a specific hypothesis or research question, you may mention it.</li>
               <li><b>Methods and materials:</b> one or two sentences on how the data were acquired.</li>
               <li><b>Reusability:</b> one sentence on how the data can be reused.</li>
