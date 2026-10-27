@@ -149,7 +149,7 @@ export async function generateMetadataDocx(formData) {
       row('Name',        `${cust.firstName || ''} ${cust.familyName || ''}`.trim()),
       row('Email',       cust.email),
       row('ORCID',       cust.orcid),
-      row('Institution', cust.institution),
+      row('Affiliation', cust.institution),
     ]))
     push(spacer())
   }
@@ -159,6 +159,8 @@ export async function generateMetadataDocx(formData) {
     push(table([
       row('Name',  `${cont.firstName || ''} ${cont.familyName || ''}`.trim()),
       row('Email', cont.email),
+      row('Affiliation', cont.affiliation),
+      row('ORCID', cont.orcid),
     ]))
     push(spacer())
   }
@@ -179,7 +181,7 @@ export async function generateMetadataDocx(formData) {
       const name = a.selectedAuthor
         ? (resolve(a.selectedAuthor, lookups.contributorMap) || a.selectedAuthor)
         : `${a.firstName || ''} ${a.lastName || ''}`.trim()
-      return row(`Author ${i + 1}`, name + (a.orcid ? ` (ORCID: ${a.orcid})` : ''))
+      return row(`Author ${i + 1}`, name + (a.orcid ? ` (ORCID: ${a.orcid})` : '') + (a.email ? `, ${a.email}` : '') + ((a.affiliationIds || []).map(id => (id === 'custodian-aff' ? cust.institution : (contr.affiliations || []).find(x => x.id === id)?.text)).filter(Boolean).map(t => `, ${t}`).join('')))
     })))
     push(spacer())
   }

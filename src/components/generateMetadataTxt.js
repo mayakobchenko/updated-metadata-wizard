@@ -61,12 +61,14 @@ export async function generateMetadataTxt(formData) {
     field('Name:',        `${cust.firstName || ''} ${cust.familyName || ''}`.trim())
     field('Email:',       cust.email)
     field('ORCID:',       cust.orcid)
-    field('Institution:', cust.institution)
+    field('Affiliation:', cust.institution)
   }
   if (cont.firstName || cont.familyName) {
     sub('Contact Person')
     field('Name:',  `${cont.firstName || ''} ${cont.familyName || ''}`.trim())
     field('Email:', cont.email)
+    field('Affiliation:', cont.affiliation)
+    field('ORCID:', cont.orcid)
   }
   if (gl.name) {
     sub('Group Leader')
@@ -81,7 +83,8 @@ export async function generateMetadataTxt(formData) {
       const name = a.selectedAuthor
         ? (resolve(a.selectedAuthor, lookups.contributorMap) || a.selectedAuthor)
         : `${a.firstName || ''} ${a.lastName || ''}`.trim()
-      field(`Author ${i + 1}:`, name + (a.orcid ? ` (${a.orcid})` : ''))
+      const affs = (a.affiliationIds || []).map(id => (id === 'custodian-aff' ? cust.institution : (contr.affiliations || []).find(x => x.id === id)?.text)).filter(Boolean)
+      field(`Author ${i + 1}:`, name + (a.orcid ? ` (${a.orcid})` : '') + (a.email ? `, ${a.email}` : '') + (affs.length ? `, ${affs.join(' / ')}` : ''))
     })
   }
 

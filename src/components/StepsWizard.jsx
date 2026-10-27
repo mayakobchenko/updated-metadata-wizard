@@ -5,6 +5,7 @@ import { Form as AntForm, Button, Modal, Upload, Alert, Typography } from 'antd'
 import { FileTextOutlined } from '@ant-design/icons'
 import ProgressBar from './ProgressBar.jsx'
 import Contributors from './Contributors.jsx'
+import { authorProblems } from './authorModel'
 import Subjects from './Subjects.jsx'
 import Introduction from './Introduction.jsx'
 import Dataset1 from './Dataset1.jsx'
@@ -111,6 +112,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const [form]                                          = AntForm.useForm()
   const [currentStepIndex, setCurrentStepIndex]         = useState(0)
   const [isModalVisible, setIsModalVisible]             = useState(false)
+  const [authorIssues, setAuthorIssues]                  = useState([])    // what is missing in the Contributors step
+  const [showAuthorIssues, setShowAuthorIssues]           = useState(false)
   const [importModalVisible, setImportModalVisible]     = useState(false)
   const [importPreview, setImportPreview]               = useState(null)
   const [importError, setImportError]                   = useState('')
@@ -320,7 +323,16 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     }
 
     form.validateFields()
-      .then(advance)
+      .then(() => {
+        // Contributors: every author needs an email and an affiliation
+        if (steps[currentStepIndex].component === Contributors) {
+          const issues = authorProblems(formDataRef.current || formData)
+          setAuthorIssues(issues)
+          setShowAuthorIssues(issues.length > 0)
+          if (issues.length) return
+        }
+        advance()
+      })
       .catch(() => setIsModalVisible(true))
   }
 
@@ -615,7 +627,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       </Modal>
 
       {/* ── Current step ─────────────────────────────────────────────────── */}
-      <CurrentStep form={form} onChange={handleInputChange} data={formData} />
+      <CurrentStep form={form} onChange={handleInputChange} data={formData}
+        showErrors={showAuthorIssues} onGoToContributors={() => setCurrentStepIndex(4)} />
 
       {/* ── Navigation buttons ───────────────────────────────────────────── */}
       <div className="buttons-save-next-back">
@@ -643,6 +656,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       </div>
 
       {/* ── Validation warning modal ─────────────────────────────────────── */}
+      <Modal title="Please complete the authors" open={authorIssues.length > 0 && showAuthorIssues}
+        onOk={() => setAuthorIssues([])} onCancel={() => setAuthorIssues([])} okText="OK" cancelButtonProps={{ style: { display: 'none' } }}>
+        <p>Every author needs an email address and at least one affiliation:</p>
+        <ul style={{ paddingLeft: 18 }}>{authorIssues.map((t, i) => <li key={i}>{t}</li>)}</ul>
+      </Modal>
+
       <Modal title="Warning" open={isModalVisible}
         onOk={handleOk} onCancel={handleCancel} okText="OK" cancelText="Cancel">
         <p>Please fill in the required fields before proceeding.</p>

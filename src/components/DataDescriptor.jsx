@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Checkbox, Popover, Modal, message } from 'antd'
-import { FileTextOutlined, InfoCircleOutlined, PlusOutlined, DeleteOutlined, CopyOutlined, DownloadOutlined, RobotOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { Form as AntForm, Input, Select, Button, Typography, Tag, Alert, Popover, Modal, message } from 'antd'
+import { FileTextOutlined, InfoCircleOutlined, CopyOutlined, DownloadOutlined, RobotOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescriptorAgentPrompt'
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
@@ -13,6 +13,7 @@ import { describeExperiment, factsText, methodsStarter } from './experimentFacts
 import FiguresTablesPanel from './FiguresTablesPanel'
 import DdMarkdownImport from './DdMarkdownImport'
 import FormatsTable from './FormatsTable'
+import { buildAuthorTable } from './authorModel'
 import { getFigures, useFigures } from './figuresStore'
 
 const { TextArea } = Input
@@ -186,54 +187,6 @@ function resolveAuthorName(entry, personMap) {
     : `${entry.firstName || ''} ${entry.lastName || ''}`.trim()
 }
 
-// ── build author rows including custodian ─────────────────────────────────
-function buildAutoAuthors(data, personMap) {
-  const cust         = data.custodian || {}
-  const custName     = `${cust.firstName || ''} ${cust.familyName || ''}`.trim()
-  const contribList  = data.contribution?.authors || []
-
-  const rows = []
-
-  // always add custodian first (affiliation 1)
-  if (custName) {
-    rows.push({
-      id:                 'cust-0',
-      name:               custName,
-      affiliationNumbers: '1',
-      email:              (cust.email || '').trim(),
-      corresponding:      true,       // the data custodian is the corresponding author by default
-      equal:              false,
-    })
-  }
-
-  // add contributors, skip if same as custodian
-  contribList.forEach((a, i) => {
-    const name = resolveAuthorName(a, personMap)
-    if (!name) return
-    // skip duplicate of custodian
-    if (custName && name.toLowerCase() === custName.toLowerCase()) return
-    const cp = data.contactperson || {}
-    const cpName = `${cp.firstName || ''} ${cp.familyName || ''}`.trim().toLowerCase()
-    rows.push({
-      id:                 a.id || `contrib-${i}`,
-      name,
-      affiliationNumbers: '',
-      email:              cpName && cpName === name.toLowerCase() ? (cp.email || '').trim() : '',
-      corresponding:      false,
-      equal:              false,
-    })
-  })
-
-  return rows
-}
-
-// ── build affiliation rows from custodian institution ─────────────────────
-function buildAutoAffiliations(data) {
-  const inst = data.custodian?.institution || ''
-  if (!inst) return []
-  return [{ id: 'aff-0', number: '1', text: inst }]
-}
-
 // ── compute scalar prefill values ─────────────────────────────────────────
 function computeFieldValues(data) {
   const d1   = data.dataset1        || {}
@@ -298,7 +251,7 @@ function computeAutoPopulated(data) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function DataDescriptor({ form, onChange, data }) {
+export default function DataDescriptor({ form, onChange, data, onGoToContributors }) {
   const dd = data.dataDescriptor || {}
 
   // ── person map: KG URL → full name, loaded once ───────────────────────
@@ -342,7 +295,6 @@ export default function DataDescriptor({ form, onChange, data }) {
   const [authors,      setAuthors]      = useState(dd.authors           || [])
   const [affiliations, setAffiliations] = useState(dd.affiliations_list || [])
 
-  const [showAuthorErrors, setShowAuthorErrors] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generated,  setGenerated]  = useState(false)
   const [genError,   setGenError]   = useState('')
@@ -397,56 +349,8 @@ export default function DataDescriptor({ form, onChange, data }) {
     const fieldVals = computeFieldValues(data)
     form.setFieldsValue({ dataDescriptor: fieldVals })
 
-    // 2. authors — a STRICT mirror of Contributors + Custodian. There is no
-    // manual add/remove for authors anymore, so the membership of this list
-    // is fully owned by the Contributors step: anyone added there appears
-    // here automatically, anyone removed there disappears here automatically.
-    // Per-author customizations that DO stay in this step (currently just
-    // affiliationNumbers) are preserved for whoever remains, matched by id.
-    const autoAuthors = buildAutoAuthors(data, personMap)
-    const autoAuthorIds = new Set(autoAuthors.map(a => a.id))
-
-    const existingAuthors = (dd.authors || [])
-      .filter(a => autoAuthorIds.has(a.id)) // drop anyone no longer in Contributors/Custodian
-      .map(a => ({
-        ...a,
-        // re-resolve if the stored name still looks like a KG reference
-        // rather than a real name — either the full URL, or (as with a
-        // newly-added contributor whose person record hadn't loaded into
-        // personMap yet) a bare UUID left over from resolveAuthorName's
-        // last-resort fallback. A bare UUID has no "/" and is exactly 36
-        // characters, so a simple "no slash, short string" check wrongly
-        // treats it as an already-resolved name and never retries — hence
-        // the explicit UUID pattern check below.
-        name: isUnresolvedReference(a.name) ? (personMap.get(a.name) || a.name) : a.name,
-      }))
-    const existingAuthorIds = new Set(existingAuthors.map(a => a.id))
-    const newAuthors = autoAuthors.filter(a => !existingAuthorIds.has(a.id))
-    let nextAuthors = [...existingAuthors, ...newAuthors]
-    // saved data from before the author table: derive the corresponding authors from the old list
-    if (nextAuthors.length && nextAuthors.every(a => a.corresponding === undefined)) {
-      const old = Array.isArray(dd.correspondingAuthors) && dd.correspondingAuthors.length
-        ? dd.correspondingAuthors : parseCorrespondingAuthors(dd.correspondingAuthor)
-      const known = (a) => old.find(o => (o.name || '').toLowerCase() === (a.name || '').toLowerCase())
-      nextAuthors = nextAuthors.map((a, idx) => {
-        const o = known(a)
-        return { ...a, corresponding: !!o || (!old.length && idx === 0), email: (o && o.email) || a.email || '' }
-      })
-    }
-
-    // 3. affiliations — unlike authors, these aren't sourced from a single
-    // authoritative list elsewhere in the wizard (only the custodian's
-    // institution is auto-derived; any co-author institutions are added by
-    // hand in this step), so they keep the add/remove UI and the merge +
-    // removedAffiliationIds tracking from before.
-    const autoAffiliations = buildAutoAffiliations(data)
-    const removedAffiliationIds = new Set(dd.removedAffiliationIds || [])
-    const existingAffiliations  = dd.affiliations_list || []
-    const existingAffiliationIds = new Set(existingAffiliations.map(a => a.id))
-    const newAffiliations = autoAffiliations.filter(
-      a => !existingAffiliationIds.has(a.id) && !removedAffiliationIds.has(a.id)
-    )
-    const nextAffiliations = [...existingAffiliations, ...newAffiliations]
+    // 2. authors and affiliations: derived from the first page (custodian) and the Contributors step, which owns them
+    const { authors: nextAuthors, affiliations: nextAffiliations } = buildAuthorTable(data, (e) => resolveAuthorName(e, personMap))
 
     setAuthors(nextAuthors)
     setAffiliations(nextAffiliations)
@@ -552,36 +456,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     setGenError('')
   }
 
-  // Authors have no add/remove UI — membership is a strict mirror of
-  // Contributors + Custodian, reconciled in the sync effect above. The only
-  // thing still editable per-author here is the affiliation number linking
-  // them to an entry in the Affiliations list below.
-  // ── affiliation handlers ────────────────────────────────────────────────
-  // Same rule as authors: a manual edit stops the auto-sync from Custodian.
-  const addAffiliation = () => {
-    const next = [...affiliations, {
-      id:     Date.now(),
-      number: String(affiliations.length + 1),
-      text:   '',
-    }]
-    setAffiliations(next); emitAll(authors, next, undefined, { affiliationsAutoGenerated: false })
-  }
-  const removeAffiliation = (i) => {
-    const removedId = affiliations[i]?.id
-    const next = affiliations
-      .filter((_, idx) => idx !== i)
-      .map((a, idx) => ({ ...a, number: String(idx + 1) }))
-    setAffiliations(next)
-    emitAll(authors, next, undefined, {
-      affiliationsAutoGenerated: false,
-      removedAffiliationIds: [...(dd.removedAffiliationIds || []), removedId],
-    })
-  }
-  const updateAffiliation = (i, value) => {
-    const next = affiliations.map((a, idx) => idx === i ? { ...a, text: value } : a)
-    setAffiliations(next); emitAll(authors, next, undefined, { affiliationsAutoGenerated: false })
-  }
-
   // ── corresponding authors come from the author table ────────────────────
   const corrAuthors = deriveCorresponding(authors)
   const corrProblem = (c) => {
@@ -591,10 +465,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     return ''
   }
   const corrAuthorsValid = corrAuthors.length > 0 && corrAuthors.every(c => !corrProblem(c))
-  const updateAuthor = (i, patch) => {
-    const next = authors.map((a, idx) => idx === i ? { ...a, ...patch } : a)
-    setAuthors(next); emitAll(next, affiliations)
-  }
 
   // ── file structure / format table ────────────────────────────────────────
   const changeFormats = (next) => {
@@ -719,24 +589,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     const id = entry.selectedOtherContr || ''
     return personMap.get(id) || personMap.get(String(id).split('/').pop()) || ''
   }
-  // Contribution roles chosen in the Contributors step (other contributors) pre-fill the matching
-  // author once; after that the researcher owns the list.
-  useEffect(() => {
-    if (!contribTypes.size || !authors.length) return
-    const byName = new Map()
-    ;(data.contribution?.contributor?.othercontr || []).forEach(c => {
-      const n = personNameFor(c).toLowerCase()
-      const names = (c.contributionTypes || []).map(t => contribTypes.get(t)).filter(Boolean)
-      if (n && names.length) byName.set(n, names)
-    })
-    let changed = false
-    const next = authors.map(a => {
-      if (a.contributions !== undefined) return a
-      changed = true
-      return { ...a, contributions: byName.get((a.name || '').toLowerCase()) || [] }
-    })
-    if (changed) { setAuthors(next); emitAll(next, affiliations) }
-  }, [authors, contribTypes, personMap, data.contribution]) // eslint-disable-line react-hooks/exhaustive-deps
   // Contributors who are not authors (Contributors step, "other contributors") are thanked once in the
   // Acknowledgements, as the template asks for non-author contributors. The researcher can edit the text.
   const ackDoneRef = useRef(false)
@@ -764,7 +616,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     }
     emitAll(authors, affiliations, undefined, { ackContributorsAdded: true })
   }, [authors, contribTypes, personMap, data.contribution]) // eslint-disable-line react-hooks/exhaustive-deps
-  const contributionOptions = [...new Set([...contribTypes.values()])].sort((x, y) => x.localeCompare(y)).map(v => ({ value: v, label: v }))
   const authorsWithoutContribution = authors.filter(a => a.name && !(a.contributions || []).length)
 
   // text of the current answers for the per-section AI prompts
@@ -804,14 +655,15 @@ export default function DataDescriptor({ form, onChange, data }) {
   const swNoVersion = softwareWithoutVersion(fv('software'))
   const checklist = [
     { label: 'Dataset title (Dataset part 1): at most 110 characters, without colons or parentheses', ok: !!(data.dataset1?.dataTitle || '').trim() && data.dataset1.dataTitle.length <= TITLE_MAX_CHARS && !/[:()]/.test(data.dataset1.dataTitle) },
-    { label: 'At least one corresponding author, with a valid email (Authors)', ok: corrAuthorsValid },
-    { label: 'Affiliation number for every author (Authors)', ok: authors.every(a => (a.affiliationNumbers || '').trim()) },
+    { label: 'At least one corresponding author, with a valid email (Contributors)', ok: corrAuthorsValid },
+    { label: 'Affiliation for every author (Contributors)', ok: authors.every(a => (a.affiliationNumbers || '').trim()) },
+    { label: 'Email address for every author (Contributors)', ok: authors.every(a => EMAIL_RE.test((a.email || '').trim())) },
     { label: `Summary (at most ${SUMMARY_MAX_WORDS} words)`, field: 'summary', ok: !!fv('summary') && countWords(fv('summary')) <= SUMMARY_MAX_WORDS },
     { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
     { label: 'File structure or file formats (Data description)', field: 'dataRecordsTree', ok: !!fv('dataRecordsTree') || formatRows.length > 0 },
     { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
     { label: 'File formats whose files are no longer in the bucket are deleted or kept on purpose (File formats)', field: 'dataRecordsFormats', ok: !formatRows.some(r => r.gone) },
-    { label: `Contribution for every author (Authors): ${authorsWithoutContribution.length} missing`, ok: authors.length > 0 && authorsWithoutContribution.length === 0 },
+    { label: `Contribution for every author (Contributors): ${authorsWithoutContribution.length} missing`, ok: authors.length > 0 && authorsWithoutContribution.length === 0 },
     { label: `Software: a version for every tool, or “version unknown” (missing for: ${swNoVersion.join(', ')})`, field: 'software', ok: swNoVersion.length === 0 },
     { label: 'Captions for all figures and tables', ok: figs.every(f => f.caption.trim()) },
   ]
@@ -822,7 +674,6 @@ export default function DataDescriptor({ form, onChange, data }) {
     const requiredFields = [
       'summary', 'methods', 'usageNotes',
     ]
-    setShowAuthorErrors(true)
     if (swNoVersion.length) {
       setGenError(`Please give a version for each software tool, or write “version unknown”: ${swNoVersion.join(', ')}.`)
       return
@@ -832,11 +683,11 @@ export default function DataDescriptor({ form, onChange, data }) {
       return
     }
     if (!corrAuthorsValid) {
-      setGenError('Please mark at least one corresponding author and give a valid email address for every corresponding author.')
+      setGenError('Please mark at least one corresponding author (in the Contributors step) and give a valid email address for every author.')
       return
     }
     if (authorsWithoutContribution.length) {
-      setGenError('Please give a contribution for every author.')
+      setGenError('Please give a contribution for every author in the Contributors step.')
       return
     }
     try {
@@ -875,8 +726,6 @@ export default function DataDescriptor({ form, onChange, data }) {
   const title    = data.dataset1?.dataTitle || ''
   const titleTooLong = title.length > TITLE_MAX_CHARS
   const titleBadChars = /[:()]/.test(title)
-  const hasAutoAffiliations = dd.affiliationsAutoGenerated !== false &&
-    !!data.custodian?.institution
 
   return (
     <div>
@@ -977,12 +826,13 @@ export default function DataDescriptor({ form, onChange, data }) {
           </div>
         </AntForm.Item>
 
-        {/* ── Authors: affiliations, contributions, corresponding, equal contribution ── */}
+        {/* ── Authors: read-only overview; they are entered in the Contributors step ── */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ marginBottom: 4 }}>
+          <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 500, fontSize: 14 }}>
-              <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>Authors
+              <span style={{ color: '#ff4d4f', marginRight: 4 }}>*</span>Authors and affiliations
             </span>
+            {onGoToContributors && <Button size="small" onClick={onGoToContributors}>Edit in Contributors</Button>}
           </div>
           <div style={{
             background: '#f0faf4', border: '1px solid #b7ebce',
@@ -991,86 +841,39 @@ export default function DataDescriptor({ form, onChange, data }) {
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
             <InfoCircleOutlined style={{ flexShrink: 0 }} />
-            The list of authors comes from the Contributors step (add or remove people there). Here you
-            give each author's affiliation number(s) and contribution(s), and mark who is a corresponding
-            author (an email is required) and who contributed equally.
+            Authors, their affiliations, emails, contributions, corresponding and equal-contribution marks are entered in the
+            Contributors step (the data custodian and the contact person on the first page). This is how they will appear in the data descriptor.
           </div>
 
-          {authors.map((author, i) => (
-            <div key={author.id} style={{ border: '1px solid #e1e8ef', borderRadius: 6, padding: '8px 12px', marginTop: 8, background: '#fff' }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ flex: '1 1 200px', fontSize: 14, fontWeight: 500 }}>{author.name}</span>
-                <span style={{ fontSize: 11, color: '#888' }}>Affiliation no(s)</span>
-                <Input size="small" value={author.affiliationNumbers}
-                  onChange={e => updateAuthor(i, { affiliationNumbers: e.target.value })}
-                  placeholder="e.g. 1,2" style={{ width: 90 }} />
+          {authors.map((author) => {
+            const issues = []
+            if (!(author.affiliationNumbers || '').trim()) issues.push('affiliation')
+            if (!EMAIL_RE.test((author.email || '').trim())) issues.push('email')
+            if (!(author.contributions || []).length) issues.push('contribution')
+            return (
+              <div key={author.id} style={{ border: `1px solid ${issues.length ? '#ffa39e' : '#e1e8ef'}`, borderRadius: 6, padding: '6px 12px', marginTop: 6, background: '#fff', fontSize: 13 }}>
+                <b>{author.name}</b>
+                {author.affiliationNumbers ? <sup style={{ marginLeft: 2 }}>{author.affiliationNumbers}{author.corresponding ? ',*' : ''}</sup> : null}
+                {author.equal ? <span style={{ color: '#888' }}> · contributed equally</span> : null}
+                <div style={{ color: '#666', fontSize: 12 }}>
+                  {[author.email, (author.contributions || []).join('; ')].filter(Boolean).join(' · ')}
+                </div>
+                {issues.length > 0 && <div style={{ color: '#cf1322', fontSize: 12 }}>Missing: {issues.join(', ')}. Please add it in the Contributors step.</div>}
               </div>
-              <div style={{ marginTop: 6 }}>
-                <span style={{ fontSize: 11, color: '#888' }}>Contribution(s)</span>
-                <Select mode="tags" size="small" style={{ width: '100%' }}
-                  value={author.contributions || []}
-                  onChange={vals => updateAuthor(i, { contributions: vals })}
-                  options={contributionOptions}
-                  tokenSeparators={[';']}
-                  placeholder="Select the type(s) of contribution (you can also type your own)"
-                  status={showAuthorErrors && !(author.contributions || []).length ? 'error' : ''} />
-              </div>
-              <div style={{ marginTop: 6, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Checkbox checked={!!author.corresponding} onChange={e => updateAuthor(i, { corresponding: e.target.checked })}>
-                  Corresponding author
-                </Checkbox>
-                {author.corresponding && (
-                  <Input size="small" value={author.email || ''} onChange={e => updateAuthor(i, { email: e.target.value })}
-                    placeholder="email@address" style={{ width: 260 }}
-                    status={!author.email || !EMAIL_RE.test((author.email || '').trim()) ? 'error' : ''} />
-                )}
-                <Checkbox checked={!!author.equal} onChange={e => updateAuthor(i, { equal: e.target.checked })}>
-                  Contributed equally (first authors)
-                </Checkbox>
-              </div>
-            </div>
-          ))}
+            )
+          })}
           {authors.length === 0 && (
             <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-              No authors yet — add contributors or a custodian earlier in the wizard.
+              No authors yet — add the data custodian on the first page and the authors in the Contributors step.
             </div>
           )}
-        </div>
-
-        {/* ── Affiliations ─────────────────────────────────────────────── */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ marginBottom: 4 }}>
-            <span style={{ fontWeight: 500, fontSize: 14 }}>
-              Affiliations
-              {hasAutoAffiliations && <PrefilledBadge />}
-            </span>
-          </div>
-          {hasAutoAffiliations && <PrefilledHint />}
-          <span style={EXTRA}>
-            Numbered list of institutions. Authors reference these numbers in the field above.
-          </span>
-
-          {affiliations.map((aff, i) => (
-            <div key={aff.id} style={{
-              display: 'flex', gap: 8, alignItems: 'center', marginTop: 8,
-            }}>
-              <span style={{
-                fontWeight: 700, color: 'var(--ebrains-color-medium)',
-                fontSize: 13, width: 20, flexShrink: 0, textAlign: 'center',
-              }}>{aff.number}.</span>
-              <Input size="small" value={aff.text}
-                onChange={e => updateAffiliation(i, e.target.value)}
-                placeholder="Department, Institution, City, Country"
-                style={{ flex: 1 }} />
-              <Button size="small" type="text" danger icon={<DeleteOutlined />}
-                onClick={() => removeAffiliation(i)} />
+          {affiliations.length > 0 && (
+            <div style={{ marginTop: 10, fontSize: 13 }}>
+              {affiliations.map((aff) => (
+                <div key={aff.id}><b style={{ color: 'var(--ebrains-color-medium)' }}>{aff.number}.</b> {aff.text}</div>
+              ))}
             </div>
-          ))}
-
-          <Button type="dashed" size="small" icon={<PlusOutlined />}
-            onClick={addAffiliation} style={{ marginTop: 8, width: '30%' }}>
-            Add affiliation
-          </Button>
+          )}
         </div>
 
         {/* ══ 2. Summary ═════════════════════════════════════════════════ */}

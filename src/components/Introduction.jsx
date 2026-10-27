@@ -8,7 +8,9 @@ export default function Introduction({ form, onChange, data }) {
     contactperson: {
       firstName: data.contactperson?.firstName || '',
       familyName: data.contactperson?.familyName || '',
-      email: data.contactperson?.email || ''},
+      email: data.contactperson?.email || '',
+      affiliation: data.contactperson?.affiliation || '',
+      orcid: data.contactperson?.orcid || ''},
     custodian: {
       firstName: data.custodian?.firstName || '',
       familyName: data.custodian?.familyName || '',
@@ -97,6 +99,18 @@ export default function Introduction({ form, onChange, data }) {
             { validator: checkEmail }]}>
           <Input />
         </AntForm.Item>
+        <AntForm.Item
+          label="Contact person's affiliation"
+          name={['contactperson', 'affiliation']}
+          rules={[{ required: true, message: "Please enter the contact person's affiliation!" }]}>
+          <Input placeholder="Department, Institution, City, Country" />
+        </AntForm.Item>
+        <AntForm.Item
+          label="Contact person's ORCID"
+          name={['contactperson', 'orcid']}
+          rules={[{ validator: checkOrcid }]}>
+          <Input placeholder="https://orcid.org/xxxx-xxxx-xxxx-xxxx" />
+        </AntForm.Item>
         <div>
           <p className="step-title">Data custodian</p>
         </div>
@@ -127,10 +141,11 @@ export default function Introduction({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
         <AntForm.Item
-          label="Data custodian's institution name"
+          label="Data custodian's affiliation"
           name={['custodian', 'institution']} 
-          rules={[{ required: false}]}>
-          <Input />
+          extra="The custodian is the first author of the data descriptor; this is the first affiliation listed there."
+          rules={[{ required: true, message: "Please enter the data custodian's affiliation!" }]}>
+          <Input placeholder="Department, Institution, City, Country" />
         </AntForm.Item>
         <AntForm.Item
           label="Data custodian's ORCID"

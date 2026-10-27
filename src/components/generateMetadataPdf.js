@@ -149,13 +149,15 @@ function subheading(text) {
     field('Name',        `${cust.firstName || ''} ${cust.familyName || ''}`.trim())
     field('Email',       cust.email)
     field('ORCID',       cust.orcid)
-    field('Institution', cust.institution)
+    field('Affiliation', cust.institution)
   }
 
   if (cont.firstName || cont.familyName) {
     subheading('Contact Person')
     field('Name',  `${cont.firstName || ''} ${cont.familyName || ''}`.trim())
     field('Email', cont.email)
+    field('Affiliation', cont.affiliation)
+    field('ORCID', cont.orcid)
   }
 
   if (gl.name) {
@@ -171,7 +173,7 @@ function subheading(text) {
       const name = a.selectedAuthor
         ? (resolve(a.selectedAuthor, lookups.contributorMap) || a.selectedAuthor)
         : `${a.firstName || ''} ${a.lastName || ''}`.trim()
-      if (name) field(`Author ${i + 1}`, name + (a.orcid ? `  (ORCID: ${a.orcid})` : ''))
+      if (name) field(`Author ${i + 1}`, name + (a.orcid ? `  (ORCID: ${a.orcid})` : '') + (a.email ? `, ${a.email}` : '') + ((a.affiliationIds || []).map(id => (id === 'custodian-aff' ? cust.institution : (contr.affiliations || []).find(x => x.id === id)?.text)).filter(Boolean).map(t => `, ${t}`).join('')))
     })
   }
 
