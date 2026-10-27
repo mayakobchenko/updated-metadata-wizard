@@ -138,7 +138,8 @@ export function bidsChecks(objects, partial = false) {
 
   const otherDirs = topDirs.filter(d => !d.startsWith('sub-') && !TOP_FOLDERS.has(d))
   if (otherDirs.length) out.push({ level: 'warn', text: `Top-level folders that are not part of BIDS: ${list(otherDirs)}. Raw data belong in sub-<label>/, other material in /sourcedata, /derivatives or /code (or list them in .bidsignore).` })
-  const otherFiles = rootFiles.filter(f => !TOP_FILES.test(f))
+  // the data descriptor, licence and preview image are added by the EBRAINS curation, so they are not mentioned
+  const otherFiles = rootFiles.filter(f => !TOP_FILES.test(f) && !/^(data[-_ ]?descriptor|licen[cs]e|preview[-_ ]?image)/i.test(f))
   if (otherFiles.length) out.push({ level: 'info', text: `Top-level files that BIDS does not define: ${list(otherFiles)}. This is allowed if they are listed in .bidsignore.` })
 
   out.push({ level: 'info', text: 'This check looks at folder and file names only. For a complete check run the BIDS validator (https://bids-validator.readthedocs.io).' })
