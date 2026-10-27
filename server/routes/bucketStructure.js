@@ -9,7 +9,7 @@ import { describeBucket } from '../KG_utils/bucketTree.js'
 
 const router = express.Router()
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const BASE = 'https://data-proxy.ebrains.eu/api/v1'
+const BASE = process.env.DATA_PROXY_BASE || 'https://data-proxy.ebrains.eu/api/v1'
 // Very large buckets (tens of thousands of files) cannot be listed within the time a web request may take, and a
 // tree of that many names is not useful anyway. Listing stops at the first limit that is reached and the answer
 // is marked as partial (the researcher is told).
@@ -45,25 +45,65 @@ async function proxyGet(url, token, deadline) {
 
 // Folder-by-folder listing (delimiter "/"). The data-proxy spends about 40 ms per FILE object but folders are
 // cheap, and requests run in parallel, so the bucket is walked breadth-first with several folders read at once.
-//   - first pass: the first page of every folder (folders found on the way are queued),
-//   - second pass: further pages of folders with many entries, as long as time and file limits allow.
-// A bucket that is read completely gives exact results. Otherwise the answer is marked partial and says which
-// folders were only sampled (`partialDirs`) or not opened at all (`unreadDirs`).
+// Order of work (always the same for the same bucket: by depth, then by folder name):
+//   1. the first page of every folder (folders found on the way are queued),
+//   2. SAMPLING: when a folder holds MANY similar folders (sub-01 … sub-40, P9 … P35), only the first few are
+//      opened completely. The others are listed one level (to count and name what they contain), and the folders
+//      inside them are read later, after everything else of the same kind has been read,
+//   3. further pages of folders with many entries.
+// A bucket that is read completely gives exact results, whatever the order. If time or file limits stop the walk,
+// the answer is marked partial and says which folders were only sampled (`partialDirs`), skimmed (`skimmedDirs`)
+// or not opened at all (`unreadDirs`); `knownDirs` are all folders seen in a listing.
 const CONCURRENCY = 6
 const FIRST_PAGE = 100
 const NEXT_PAGE = 200
+const SAMPLE_MIN_GROUP = 6   // this many similar folders in one folder -> sampling
+const SAMPLE_DEEP = 3        // ... of which this many are opened completely
 
-async function walkBucket(endpoint, token, deadline) {
+const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true })
+const depthOf = (prefix) => prefix.split('/').filter(Boolean).length
+const byDepthThenName = (a, b) => (a.depth - b.depth) || natural(a.prefix, b.prefix) || natural(a.marker, b.marker)
+const baseName = (prefix) => prefix.replace(/\/$/, '').split('/').pop()
+const signatureOf = (name) => name.replace(/\d+/g, '#')
+
+// which of the sub-folders found in one listing are opened completely and which only skimmed
+function chooseSampled(prefixes) {
+  const groups = new Map()
+  for (const p of prefixes) {
+    const n = baseName(p)
+    if (!/\d/.test(n)) continue
+    const sig = signatureOf(n)
+    if (!groups.has(sig)) groups.set(sig, [])
+    groups.get(sig).push(p)
+  }
+  const skim = new Set()
+  for (const list of groups.values()) {
+    if (list.length < SAMPLE_MIN_GROUP) continue
+    list.sort((x, y) => natural(baseName(x), baseName(y))).slice(SAMPLE_DEEP).forEach(p => skim.add(p))
+  }
+  return skim
+}
+
+export async function walkBucket(endpoint, token, deadline) {
   const objects = []
   const partialDirs = new Set()
   const unreadDirs = new Set()
+  const knownDirs = new Set()
+  const skimTasks = new Set()
   let useDelimiter = true
   let stop = ''          // why the walk stopped early: 'count' | 'time' | 'error'
   let failure = null
-  const first = [{ prefix: '', marker: '' }]
-  const more = []
+  const first = [{ prefix: '', marker: '', depth: 0 }]
+  const later = []       // folders inside skimmed folders: read when the rest is done
+  const more = []        // further pages
+  let dirty = false
   let active = 0
   let readAny = false
+
+  const next = () => {
+    if (dirty) { first.sort(byDepthThenName); later.sort(byDepthThenName); more.sort(byDepthThenName); dirty = false }
+    return first.shift() || later.shift() || more.shift()
+  }
 
   const page = async (task, limit) => {
     const qs = new URLSearchParams({ limit: String(limit) })
@@ -83,7 +123,7 @@ async function walkBucket(endpoint, token, deadline) {
       if (stop || failure) return
       if (objects.length >= MAX_FILES) { stop = 'count'; return }
       if (Date.now() >= deadline) { stop = 'time'; return }
-      const task = first.shift() || more.shift()
+      const task = next()
       if (!task) {
         if (!active) return
         await sleep(40); continue
@@ -94,14 +134,23 @@ async function walkBucket(endpoint, token, deadline) {
         const body = await page(task, limit)
         const entries = body.objects || []
         readAny = true
+        const subdirs = entries.filter(o => o.subdir).map(o => String(o.subdir))
+        const skim = task.marker ? new Set() : chooseSampled(subdirs)
         for (const o of entries) {
-          if (o.subdir) first.push({ prefix: String(o.subdir), marker: '' })
-          else if (o.name && !String(o.name).endsWith('/')) objects.push({ name: o.name, bytes: Number(o.bytes) || 0 })
+          if (o.name && !o.subdir && !String(o.name).endsWith('/')) objects.push({ name: o.name, bytes: Number(o.bytes) || 0 })
         }
+        for (const d of subdirs) {
+          knownDirs.add(d)
+          const child = { prefix: d, marker: '', depth: depthOf(d), skim: skim.has(d) }
+          // inside a skimmed folder everything is read late; a skimmed folder itself is listed once, now
+          ;((task.skim || task.late) ? later : first).push(task.skim || task.late ? { ...child, late: true } : child)
+        }
+        if (task.skim && !task.marker) skimTasks.add(task.prefix)
+        if (subdirs.length) dirty = true
         if (entries.length >= limit) {
           const last = entries[entries.length - 1]
           const marker = String(last.subdir || last.name || '')
-          if (marker && marker !== task.marker) more.push({ prefix: task.prefix, marker })
+          if (marker && marker !== task.marker) { more.push({ prefix: task.prefix, marker, depth: task.depth, late: task.late }); dirty = true }
           else partialDirs.add(task.prefix)
         }
       } catch (e) {
@@ -114,11 +163,12 @@ async function walkBucket(endpoint, token, deadline) {
   await Promise.all(Array.from({ length: CONCURRENCY }, work))
   if (failure) throw failure
   // whatever is still queued was not read (or only in part)
-  for (const t of first) unreadDirs.add(t.prefix)
+  for (const t of [...first, ...later]) unreadDirs.add(t.prefix)
   for (const t of more) partialDirs.add(t.prefix)
-  if (!stop && (first.length || more.length)) stop = 'time'
+  if (!stop && (first.length || later.length || more.length)) stop = 'time'
+  const skimmed = [...skimTasks].filter(sp => [...unreadDirs].some(u => u.startsWith(sp) && u !== sp))
   const dirs = (set) => [...set].map(p => p.replace(/\/$/, ''))
-  return { objects, truncated: stop, partialDirs: dirs(partialDirs), unreadDirs: dirs(unreadDirs) }
+  return { objects, truncated: stop, partialDirs: dirs(partialDirs), unreadDirs: dirs(unreadDirs), knownDirs: dirs(knownDirs), skimmedDirs: dirs(skimmed) }
 }
 
 // The bucket of a dataset is d-<uuid>; `datasets/<uuid>` only exists for released datasets (and needs several
@@ -153,11 +203,11 @@ router.post('/structure', async (req, res) => {
     return res.status(401).json({ code: 'NO_TOKEN', error: 'Your login session has no usable EBRAINS token. Please log in again, or paste a token below.' })
   }
   try {
-    const { objects, truncated, partialDirs, unreadDirs } = await listAll(uuid, token)
+    const { objects, truncated, partialDirs, unreadDirs, knownDirs, skimmedDirs } = await listAll(uuid, token)
     if (!objects.length && !partialDirs.length && !unreadDirs.length) {
       return res.status(404).json({ code: 'EMPTY', error: `The bucket d-${uuid} is empty or has no files yet.` })
     }
-    const result = describeBucket(objects, `d-${uuid}`, { partial: !!truncated, partialDirs, unreadDirs, standards })
+    const result = describeBucket(objects, `d-${uuid}`, { partial: !!truncated, partialDirs, unreadDirs, knownDirs, skimmedDirs, standards })
     logger.info(`bucket structure: d-${uuid} ${objects.length} files${truncated ? ` (partial: ${truncated})` : ''}`)
     res.json({ bucket: `d-${uuid}`, truncated: !!truncated, truncatedReason: truncated || null, ...result })
   } catch (e) {

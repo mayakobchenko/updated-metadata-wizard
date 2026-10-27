@@ -53,7 +53,7 @@ export function extensionOf(fileName) {
   return m && m.index > 0 ? m[1] : (lower.startsWith('.') ? lower.slice(1) : '(none)')
 }
 
-function buildTrie(objects, { partialDirs = [], unreadDirs = [] } = {}) {
+function buildTrie(objects, { partialDirs = [], unreadDirs = [], knownDirs = [], skimmedDirs = [] } = {}) {
   const root = { dirs: new Map(), files: [], count: 0, bytes: 0 }
   const nodeAt = (parts) => {
     let node = root
@@ -79,6 +79,10 @@ function buildTrie(objects, { partialDirs = [], unreadDirs = [] } = {}) {
   // folders of a very large bucket that were only sampled, or not opened at all
   for (const d of partialDirs) nodeAt(String(d).split('/').filter(Boolean)).partial = true
   for (const d of unreadDirs) nodeAt(String(d).split('/').filter(Boolean)).unread = true
+  // folders that were seen in a listing but hold no file we know of (empty, or not opened)
+  for (const d of knownDirs) nodeAt(String(d).split('/').filter(Boolean))
+  // folders whose own listing was read but whose sub-folders were not all opened (sampling of similar folders)
+  for (const d of skimmedDirs) nodeAt(String(d).split('/').filter(Boolean)).skimmed = true
   return root
 }
 
@@ -109,12 +113,27 @@ const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true })
 // 'img_0001.tif' and 'img_0002.tif' share the signature 'img_#.tif'
 const nameSignature = (name) => name.replace(/\d+/g, '#')
 
-// 'img_0001.tif' … 'img_1234.tif' -> 'img_XXXX.tif' (numbers of varying length: as many X as the longest)
-function patternOf(names) {
-  const parts = names.map(n => n.split(/(\d+)/))
+// Numbers that follow each other ('_022_028_034') count as ONE number group for files, so that
+// 'x_022_028_034.czi', 'x_142.czi' and 'x_256_262_268_274.czi' are recognised as the same kind of file.
+const RUN = /\d+(?:[_-]\d+)*/g
+const fileSignature = (name) => name.replace(RUN, '#')
+
+// 'img_0001.tif' … 'img_1234.tif' -> 'img_XXXX.tif' (numbers of varying length: as many X as the longest).
+// A group of numbers whose length varies: 'x_022_028_034' / 'x_142' -> 'x_XXX[_XXX…]'
+function patternOf(names, signature = nameSignature) {
+  const split = (n) => n.split(signature === fileSignature ? /(\d+(?:[_-]\d+)*)/ : /(\d+)/)
+  const parts = names.map(split)
   return parts[0].map((p, i) => {
     if (i % 2 === 0) return p
-    return 'X'.repeat(Math.max(...parts.map(x => x[i].length)))
+    if (parts.every(x => x[i] === parts[0][i])) return p   // the same in every name: keep it (T1w, ses-01, ...)
+    const groups = parts.map(x => x[i].split(/[_-]/))
+    const width = Math.max(...groups.map(g => Math.max(...g.map(d => d.length))))
+    const most = Math.max(...groups.map(g => g.length)), least = Math.min(...groups.map(g => g.length))
+    const sep = (parts[0][i].match(/[_-]/) || ['_'])[0]
+    const x = 'X'.repeat(width)
+    if (most === 1) return x
+    if (most === least) return Array(most).fill(x).join(sep)
+    return `${x}[${sep}${x}…]`
   }).join('')
 }
 
@@ -124,8 +143,8 @@ function commonStart(names) {
   return p
 }
 
-function fileEntriesOf(files, opts, partialFolder) {
-  const atLeast = partialFolder ? 'at least ' : ''
+function fileEntriesOf(files, opts, partialFolder, folders = 1) {
+  const atLeast = partialFolder || opts.partial ? 'at least ' : ''
   const sorted = [...files].sort((a, b) => natural(a.name, b.name))
   const one = (f) => ({ kind: 'file', name: f.name })
   if (sorted.length <= opts.maxFiles) return sorted.map(one)
@@ -133,7 +152,7 @@ function fileEntriesOf(files, opts, partialFolder) {
   const out = []
   const bySig = new Map()
   for (const f of sorted) {
-    const sig = nameSignature(f.name)
+    const sig = fileSignature(f.name)
     if (!bySig.has(sig)) bySig.set(sig, [])
     bySig.get(sig).push(f)
   }
@@ -142,9 +161,9 @@ function fileEntriesOf(files, opts, partialFolder) {
     if (list.length >= 3) {
       const bytes = list.reduce((s, f) => s + f.bytes, 0)
       out.push({
-        kind: 'series', name: patternOf(list.map(f => f.name)),
+        kind: 'series', name: patternOf(list.map(f => f.name), fileSignature),
         desc: opts.bids ? describeBidsFile(list[0].name) : '',
-        note: `${atLeast}${list.length} files named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
+        note: `${atLeast}${list.length} files${folders > 1 && !opts.partial && list.length % folders === 0 ? (list.length === folders ? ', one per folder,' : `, ${list.length / folders} per folder,`) : ''} named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
       })
     } else loose.push(...list)
   }
@@ -172,6 +191,37 @@ function fileEntriesOf(files, opts, partialFolder) {
   return out
 }
 
+// Similar folders (sub-01, sub-02, ... / P9, P15, P35) are shown as ONE folder. Its content is what ALL of them
+// have together, so folders that exist in only some of them are not lost.
+function mergeNodes(nodes) {
+  if (nodes.length === 1) return nodes[0]
+  const merged = { dirs: new Map(), files: [], count: 0, bytes: 0, members: [] }
+  const byName = new Map()
+  const fileByName = new Map()   // the same file name in several similar folders is ONE entry (e.g. README in every sub-folder)
+  for (const n of nodes) {
+    for (const f of n.files) {
+      if (fileByName.has(f.name)) fileByName.get(f.name).bytes += f.bytes
+      else { const copy = { ...f }; fileByName.set(f.name, copy); merged.files.push(copy) }
+    }
+    merged.count += n.count; merged.bytes += n.bytes
+    if (n.partial) merged.partial = true
+    if (n.unread) merged.unread = true
+    if (n.skimmed) merged.skimmed = true
+    merged.members.push(...(n.members || [n]))
+    for (const [name, child] of n.dirs) {
+      if (!byName.has(name)) byName.set(name, [])
+      byName.get(name).push(child)
+    }
+  }
+  for (const [name, list] of byName) merged.dirs.set(name, mergeNodes(list))
+  return merged
+}
+
+// how many sub-folders with the same name pattern each of the folders (or the one folder) has: [3, 4, 4]
+function groupCounts(node, sig) {
+  return (node.members || [node]).map(m => [...m.dirs.keys()].filter(n => nameSignature(n) === sig).length)
+}
+
 function renderNode(node, depth, lines, opts, parent = '') {
   const pad = '  '.repeat(depth)
   const entries = []
@@ -186,10 +236,14 @@ function renderNode(node, depth, lines, opts, parent = '') {
   for (const members of groups.values()) {
     members.sort((a, b) => natural(a[0], b[0]))
     if (members.length >= 3 && /\d/.test(members[0][0])) {
-      const [first] = members
+      const names = members.map(m => m[0])
+      const counts = groupCounts(node, nameSignature(names[0])).filter(c => c > 0)
+      const lo = Math.min(...counts), hi = Math.max(...counts)
+      const many = counts.length > 1 && lo !== hi ? `${lo}–${hi}` : `${counts.length > 1 ? lo : names.length}`
+      const some = members.some(m => m[1].skimmed || m[1].unread)
       entries.push({
-        kind: 'dir', name: first[0], node: first[1],
-        note: `${members.length} similar folders: ${first[0]} … ${members[members.length - 1][0]}`,
+        kind: 'dir', name: patternOf(names), node: mergeNodes(members.map(m => m[1])),
+        note: `${many} similar folders${counts.length > 1 && node.members && parent ? ` in each ${parent}` : ''}: ${names[0]} … ${names[names.length - 1]}${some ? '; not all of them were read in detail (very large bucket)' : ''}`,
       })
     } else {
       for (const [name, child] of members) entries.push({ kind: 'dir', name, node: child })
@@ -208,7 +262,7 @@ function renderNode(node, depth, lines, opts, parent = '') {
       note: `${rest[0].name} … ${rest[rest.length - 1].name}; ${opts.partial ? 'at least ' : ''}${files} files in total, ${humanSize(bytes)}` }
   }
 
-  const fileEntries = fileEntriesOf(node.files, opts, node.partial)
+  const fileEntries = fileEntriesOf(node.files, opts, node.partial, node.members ? node.members.length : 1)
   if (node.partial) fileEntries.push({ kind: 'rest', name: '… further files' })
 
   for (const e of [...entries, ...(cut ? [cut] : []), ...fileEntries]) {
@@ -234,8 +288,8 @@ function renderNode(node, depth, lines, opts, parent = '') {
 }
 
 export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
-  const { partialDirs, unreadDirs, partial, bids, ...levelOptions } = options
-  const root = buildTrie(objects, { partialDirs, unreadDirs })
+  const { partialDirs, unreadDirs, knownDirs, skimmedDirs, partial, bids, ...levelOptions } = options
+  const root = buildTrie(objects, { partialDirs, unreadDirs, knownDirs, skimmedDirs })
   const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
@@ -294,9 +348,9 @@ export function buildSummarySentence(objects, formats, totalSize) {
 // options.partial: the listing stopped early (very large bucket). The counts are then only lower bounds, so no
 // ready-made sentence about the number of files is offered; the researcher writes it.
 export function describeBucket(objects, bucketName, options = {}) {
-  const { partial = false, partialDirs = [], unreadDirs = [], standards = [], ...treeOptions } = options
+  const { partial = false, partialDirs = [], unreadDirs = [], knownDirs = [], skimmedDirs = [], standards = [], ...treeOptions } = options
   const bids = standards.some(x => String(x).toLowerCase() === 'bids')
-  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs, bids })
+  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs, knownDirs, skimmedDirs, bids })
   const formats = buildFormatTable(objects)
   const totalBytes = objects.reduce((s, o) => s + o.bytes, 0)
   const text =
