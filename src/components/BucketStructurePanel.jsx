@@ -9,6 +9,12 @@ const RETRY_DELAYS = [2000, 5000, 10000]   // automatic retries after a temporar
 const REQUEST_TIMEOUT_MS = 90000
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
+// web addresses inside a message become clickable links (a trailing full stop or bracket is not part of the address)
+function withLinks(text) {
+  return String(text).split(/(https?:\/\/[^\s)]+[^\s).,;])/g).map((part, i) =>
+    i % 2 ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a> : part)
+}
+
 // What the researcher is told, in plain words, for each kind of problem.
 function explain(error) {
   switch (error?.code) {
@@ -155,8 +161,8 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
               : 'You ticked BIDS in Dataset part 1. The folder and file names look like a BIDS dataset.'}
             description={
               <div>
-                {problems.length > 0 && <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>{problems.map((c, i) => <li key={i}>{c.text}</li>)}</ul>}
-                {infos.map((c, i) => <div key={i} style={{ fontSize: 12, opacity: 0.8 }}>{c.text}</div>)}
+                {problems.length > 0 && <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>{problems.map((c, i) => <li key={i}>{withLinks(c.text)}</li>)}</ul>}
+                {infos.map((c, i) => <div key={i} style={{ fontSize: 12, opacity: 0.8 }}>{withLinks(c.text)}</div>)}
                 {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick BIDS in Dataset part 1 if the data do not follow it. An example of a BIDS folder structure: <a href="https://bids.neuroimaging.io/getting_started/folders_and_files/folders.html" target="_blank" rel="noopener noreferrer">BIDS folders and files</a>.</div>}
               </div>
             } />
