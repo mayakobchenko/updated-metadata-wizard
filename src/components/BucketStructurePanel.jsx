@@ -149,25 +149,31 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
           description="The folders and the first files of each folder were read. Similar files are already summarised in the structure (for example “img_XXXX.tif [at least 700 files …]”), but the list is incomplete: some files, file formats and the exact number of files may be missing, so no automatic sentence about the number of files was added to the Summary. Please complete the structure and the format table by hand, or paste a listing of your folders in the box below (Windows: tree /F, Mac/Linux: find . -type f)." />
       )}
 
-      {/* standard-specific findings (BIDS): what the bucket lacks compared with the standard ticked in Dataset part 1 */}
-      {!loading && !error && meta?.checks?.length > 0 && (() => {
-        const problems = meta.checks.filter(c => c.level !== 'info')
-        const infos = meta.checks.filter(c => c.level === 'info')
+      {/* standard-specific findings (BIDS, NWB): what the bucket lacks compared with the standard ticked in Dataset part 1 */}
+      {!loading && !error && ['BIDS', 'NWB'].map(std => {
+        const checks = (meta?.checks || []).filter(c => (c.standard || 'BIDS') === std)
+        if (!checks.length) return null
+        const problems = checks.filter(c => c.level !== 'info')
+        const infos = checks.filter(c => c.level === 'info')
         const hasError = problems.some(c => c.level === 'error')
+        const a = std === 'NWB' ? 'an' : 'a'
+        const example = std === 'BIDS'
+          ? <> An example of a BIDS folder structure: <a href="https://bids.neuroimaging.io/getting_started/folders_and_files/folders.html" target="_blank" rel="noopener noreferrer">BIDS folders and files</a>.</>
+          : <> About the NWB format: <a href="https://nwb-overview.readthedocs.io" target="_blank" rel="noopener noreferrer">NWB overview</a>.</>
         return (
-          <Alert type={hasError ? 'error' : problems.length ? 'warning' : 'success'} showIcon style={{ marginTop: 8 }}
+          <Alert key={std} type={hasError ? 'error' : problems.length ? 'warning' : 'success'} showIcon style={{ marginTop: 8 }}
             message={problems.length
-              ? `You ticked BIDS in Dataset part 1. The bucket does not fully look like a BIDS dataset (${problems.length} point${problems.length === 1 ? '' : 's'}).`
-              : 'You ticked BIDS in Dataset part 1. The folder and file names look like a BIDS dataset.'}
+              ? `You ticked ${std} in Dataset part 1. The bucket does not fully look like ${a} ${std} dataset (${problems.length} point${problems.length === 1 ? '' : 's'}).`
+              : `You ticked ${std} in Dataset part 1. The folder and file names look like ${a} ${std} dataset.`}
             description={
               <div>
                 {problems.length > 0 && <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>{problems.map((c, i) => <li key={i}>{withLinks(c.text)}</li>)}</ul>}
                 {infos.map((c, i) => <div key={i} style={{ fontSize: 12, opacity: 0.8 }}>{withLinks(c.text)}</div>)}
-                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick BIDS in Dataset part 1 if the data do not follow it. An example of a BIDS folder structure: <a href="https://bids.neuroimaging.io/getting_started/folders_and_files/folders.html" target="_blank" rel="noopener noreferrer">BIDS folders and files</a>.</div>}
+                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick {std} in Dataset part 1 if the data do not follow it.{example}</div>}
               </div>
             } />
         )
-      })()}
+      })}
 
       {/* the result was read but did not arrive in the fields: say so, and offer the fix */}
       {!loading && !error && meta && treeMissing && (

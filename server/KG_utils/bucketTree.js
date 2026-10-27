@@ -5,6 +5,11 @@
 // Pure functions, no network access: easy to test, and NAMES ONLY are used.
 
 import { describeBidsFile, bidsDirNote, bidsChecks } from './bidsRules.js'
+import { describeNwbFile, nwbDirNote, nwbChecks } from './nwbRules.js'
+
+// description of a file / folder from the data standards ticked in Dataset part 1
+const fileByStandard = (name, opts) => (opts.bids ? describeBidsFile(name) : '') || (opts.nwb ? describeNwbFile(name) : '')
+const dirByStandard = (name, parent, opts) => (opts.bids ? bidsDirNote(name, parent) : '') || (opts.nwb ? nwbDirNote(name) : '')
 
 const COMPOUND_EXT = ['nii.gz', 'func.gii', 'label.gii', 'surf.gii', 'shape.gii', 'ome.tif',
   'ome.tiff', 'tar.gz', 'dscalar.nii', 'dlabel.nii', 'ome.zarr']
@@ -162,7 +167,7 @@ function fileEntriesOf(files, opts, partialFolder, folders = 1) {
       const bytes = list.reduce((s, f) => s + f.bytes, 0)
       out.push({
         kind: 'series', name: patternOf(list.map(f => f.name), fileSignature),
-        desc: opts.bids ? describeBidsFile(list[0].name) : '',
+        desc: fileByStandard(list[0].name, opts),
         note: `${atLeast}${list.length} files${folders > 1 && !opts.partial && list.length % folders === 0 ? (list.length === folders ? ', one per folder,' : `, ${list.length / folders} per folder,`) : ''} named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
       })
     } else loose.push(...list)
@@ -269,7 +274,7 @@ function renderNode(node, depth, lines, opts, parent = '') {
     if (e.kind === 'dir') {
       const deep = depth + 1 > opts.maxDepth && (e.node.dirs.size || e.node.files.length)
       const unread = e.node.unread && !e.node.dirs.size && !e.node.files.length
-      const note = [e.note, opts.bids ? bidsDirNote(e.name, parent) : '', unread ? 'contents not read (very large bucket); describe the folder'
+      const note = [e.note, dirByStandard(e.name, parent, opts), unread ? 'contents not read (very large bucket); describe the folder'
         : deep ? `${opts.partial || e.node.partial ? 'at least ' : ''}${e.node.count} files, ${humanSize(e.node.bytes)}; contents not listed in detail` : ''].filter(Boolean).join('; ')
       lines.push(`${pad}/${e.name}${note ? ` [${note}]` : ''}`)
       if (!deep) renderNode(e.node, depth + 1, lines, opts, e.name)
@@ -281,7 +286,7 @@ function renderNode(node, depth, lines, opts, parent = '') {
       const tail = e.desc || (opts.placeholders ? 'describe the files' : '')
       lines.push(`${pad}/${e.name} [${e.note}${tail ? `; ${tail}` : ''}]`)
     } else {
-      const known = KNOWN_FILES[e.name.toLowerCase()] || (opts.bids ? describeBidsFile(e.name) : '')
+      const known = KNOWN_FILES[e.name.toLowerCase()] || fileByStandard(e.name, opts)
       lines.push(`${pad}/${e.name}${known ? ` [${known}]` : (opts.placeholders ? ' [describe file]' : '')}`)
     }
   }
@@ -290,7 +295,7 @@ function renderNode(node, depth, lines, opts, parent = '') {
 const PUBLICATION_FILES = /^(data[-_ ]?descriptor([-_. ].*)?|licen[cs]e([-_ .](cc|by|mit|apache|gpl|bsd|sa|nc|nd|\d)[\w.-]*)?(\.\w+)?)$/i
 
 export function buildTree(objects, rootLabel = 'repository-root', options = {}) {
-  const { partialDirs, unreadDirs, knownDirs, skimmedDirs, partial, bids, ...levelOptions } = options
+  const { partialDirs, unreadDirs, knownDirs, skimmedDirs, partial, bids, nwb, ...levelOptions } = options
   const root = buildTrie(objects, { partialDirs, unreadDirs, knownDirs, skimmedDirs })
   // the data descriptor and the licence belong to the publication, not to the data: they are not listed
   // (also when everything sits in one wrapper folder, as in a downloaded GitHub repository)
@@ -304,8 +309,9 @@ export function buildTree(objects, rootLabel = 'repository-root', options = {}) 
   const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
-    lines = [`/${rootLabel}${bids ? ' [BIDS dataset (Brain Imaging Data Structure)]' : ''}`]
-    renderNode(root, 1, lines, { placeholders: true, partial, bids, ...level })
+    const kinds = [bids && 'BIDS dataset (Brain Imaging Data Structure)', nwb && 'NWB dataset (Neurodata Without Borders)'].filter(Boolean)
+    lines = [`/${rootLabel}${kinds.length ? ` [${kinds.join(' / ')}]` : ''}`]
+    renderNode(root, 1, lines, { placeholders: true, partial, bids, nwb, ...level })
     if (lines.length <= MAX_LINES) break
   }
   if (lines.length > MAX_LINES) {
@@ -361,7 +367,8 @@ export function buildSummarySentence(objects, formats, totalSize) {
 export function describeBucket(objects, bucketName, options = {}) {
   const { partial = false, partialDirs = [], unreadDirs = [], knownDirs = [], skimmedDirs = [], standards = [], ...treeOptions } = options
   const bids = standards.some(x => String(x).toLowerCase() === 'bids')
-  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs, knownDirs, skimmedDirs, bids })
+  const nwb = standards.some(x => String(x).toLowerCase() === 'nwb')
+  const tree = buildTree(objects, 'repository-root', { ...treeOptions, partial, partialDirs, unreadDirs, knownDirs, skimmedDirs, bids, nwb })
   const formats = buildFormatTable(objects)
   const totalBytes = objects.reduce((s, o) => s + o.bytes, 0)
   const text =
@@ -370,7 +377,10 @@ export function describeBucket(objects, bucketName, options = {}) {
   const size = humanSize(totalBytes)
   return {
     tree, formats, text,
-    checks: bids ? bidsChecks(objects, partial) : [],
+    checks: [
+      ...(bids ? bidsChecks(objects, partial).map(c => ({ ...c, standard: 'BIDS' })) : []),
+      ...(nwb ? nwbChecks(objects, partial).map(c => ({ ...c, standard: 'NWB' })) : []),
+    ],
     summarySentence: partial ? '' : buildSummarySentence(objects, formats, size),
     totals: { files: objects.length, bytes: totalBytes, size },
   }
