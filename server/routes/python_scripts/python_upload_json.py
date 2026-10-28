@@ -94,6 +94,42 @@ if not dsv_id:
 
 print(f"DEBUG dsv_id: {dsv_id}", file=sys.stderr)
 
+# ── who is uploading, and can they reach this dataset version? ────────────────
+# The token is the submitting person's own. Say whose it is in the log, and stop BEFORE writing anything if
+# that account cannot read the DatasetVersion in its space (the KG answers 403/404/500 in that case).
+
+
+def _token_user(token):
+    try:
+        import base64
+        part = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
+        return claims.get("preferred_username") or claims.get("email") or claims.get("sub") or "unknown"
+    except Exception:
+        return "unknown"
+
+
+uploader = _token_user(personal_token)
+print(f"DEBUG uploading as: {uploader}", file=sys.stderr)
+try:
+    _pre = rq.get(f"{KG_API}{dsv_id}/neighbors?stage=IN_PROGRESS",
+                  headers={"Authorization": f"Bearer {personal_token}", "accept": "application/json"}, timeout=30)
+except Exception as e:
+    print(json.dumps({"error": f"The Knowledge Graph could not be reached ({e}). Nothing was written. Please try again later."}))
+    sys.exit(1)
+print(f"DEBUG preflight GET dataset version → {_pre.status_code}", file=sys.stderr)
+if _pre.status_code == 401:
+    print(json.dumps({"error": "The Knowledge Graph did not accept the login of the submitting user. Nothing was written. Please log in again."}))
+    sys.exit(1)
+if _pre.status_code in (403, 404, 500):
+    print(json.dumps({
+        "error": (f"No access to this dataset version in the Knowledge Graph: the account {uploader} cannot read "
+                  f"{dsv_id} in its space collab-d-{dsv_id} (KG answered {_pre.status_code}). Nothing was written. "
+                  "Either this account has no write access to the dataset's space, or the dataset version is not registered there. "
+                  "Please check the access (the person submitting must be allowed to edit this dataset) and submit again."),
+        "detail": _pre.text[:300]}))
+    sys.exit(1)
+
 # ── load persons list ─────────────────────────────────────────────────────────
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))

@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { writeFile } from 'fs/promises'
-import tokenFunctions from './tokenManager.js'
+import { getUserAccessToken } from './userSessions.js'
 
 dotenv.config()
 const __filename = fileURLToPath(import.meta.url)
@@ -21,9 +21,11 @@ async function runDriveUpload(req, res) {
         await writeFile(jsonFilePath, JSON.stringify(jsonData, null, 2))
         //get the dataset verison id/collab id for space
         
-        const kg_token = await tokenFunctions.getWorkingToken()
-            
-        res.json({ message: 'The metadata jsonn file was successfully uploaded to the drive', token: kg_token })
+        // the person's own login is required; their token is never sent to the browser
+        const kg_token = await getUserAccessToken(req)
+        if (!kg_token) return res.status(401).json({ error: 'Your EBRAINS login has ended. Please log in again.', code: 'SESSION_EXPIRED' })
+
+        res.json({ message: 'The metadata json file was successfully uploaded to the drive' })
         
     } catch (writeError) {
         console.error(`JSON file write error: ${writeError}`)

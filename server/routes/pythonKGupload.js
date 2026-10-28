@@ -5,7 +5,7 @@ import path              from 'path'
 import { fileURLToPath } from 'url'
 import { writeFile, unlink } from 'fs/promises'
 import { randomUUID }    from 'crypto'
-import tokenFunctions, { SessionExpiredError } from './tokenManager.js'
+import { getUserAccessToken } from './userSessions.js'
 import logger            from '../logger.js'
 import { addTicketNote, emailSupport } from './zammadNotify.js'
 
@@ -158,36 +158,28 @@ async function runPythonScript(req, res) {
     return res.status(500).json({ error: 'Failed to write JSON file' })
   }
 
-  // ── 2. get KG token ─────────────────────────────────────────────────────────
-  // Kept synchronous (not part of the background job) so an expired session
-  // is reported back to the frontend immediately, not after a poll delay.
-  let kg_token
+  // ── 2. get the KG token of the person who is submitting ──────────────────────
+  // Every user writes with THEIR OWN token (kept server-side behind their session cookie), so the upload
+  // can only touch what that person has access to and is recorded under their name. There is no shared
+  // server token: another person logging in at the same time cannot change whose rights are used here.
+  // Kept synchronous (not part of the background job) so an expired session is reported back to the
+  // frontend immediately, not after a poll delay.
+  let kg_token = null
   try {
-    kg_token = await tokenFunctions.getWorkingToken()
+    kg_token = await getUserAccessToken(req)
   } catch (err) {
-    const isExpired = err instanceof SessionExpiredError
-
-    logger.warn(`[submission] Token error — expired=${isExpired} — ${err.message}`)
-    jobs.delete(jobId)
-    releaseDatasetLock()
-
-    if (isExpired) {
-      return res.status(401).json({
-        error:        err.message,
-        code:         'SESSION_EXPIRED',   // ← frontend checks this
-        datasetTitle,
-        datasetVersionId,
-      })
-    }
-    return res.status(500).json({ error: `Token error: ${err.message}` })
+    logger.warn(`[submission] Token error — ${err.message}`)
   }
 
   if (!kg_token) {
+    logger.warn(`[submission] no valid login session for this request (dsv ${datasetVersionId}) — not started`)
     jobs.delete(jobId)
     releaseDatasetLock()
     return res.status(401).json({
-      error: 'Could not obtain a valid token. Please reload the page.',
-      code:  'SESSION_EXPIRED',
+      error:        'Your EBRAINS login has ended. Please log in again (in a new browser tab if you want to keep this page), then submit again.',
+      code:         'SESSION_EXPIRED',   // ← frontend checks this
+      datasetTitle,
+      datasetVersionId,
     })
   }
 
