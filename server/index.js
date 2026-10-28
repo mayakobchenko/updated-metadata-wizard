@@ -11,6 +11,7 @@ import zammadInfo from './routes/getTicketNettskjemaInfo.js'
 import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
+import collabDraft from './routes/collabDraft.js'
 import mistralRoutes from './routes/mistral.js'
 import bucketRoutes from './routes/bucketStructure.js'
 import ddRender from './routes/ddRender.js'
@@ -54,6 +55,7 @@ app.use('/api/subjects/', KGinfoSubjects)
 app.use('/api/zammad/', zammadInfo)
 app.use('/api/python/', runpython)
 app.use('/api/drive/', driveupload)
+app.use('/api/drive/', collabDraft)
 app.use('/api/mistral/', mistralRoutes)
 app.use('/api/bucket/', bucketRoutes)
 app.use('/api/dd/', ddRender)

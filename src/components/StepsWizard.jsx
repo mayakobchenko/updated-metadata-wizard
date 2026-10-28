@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthContext } from './context/NewContextProvider.jsx'
 import ConfigProvider from './ConfigProvider.jsx'
-import { Form as AntForm, Button, Modal, Upload, Alert, Typography } from 'antd'
+import { Form as AntForm, Button, Modal, Upload, Alert, Typography, Switch, message } from 'antd'
 import { FileTextOutlined } from '@ant-design/icons'
 import ProgressBar from './ProgressBar.jsx'
 import Contributors from './Contributors.jsx'
@@ -17,6 +17,7 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 import useLoginKeepalive from './useLoginKeepalive.js'
+import useCollabDraft from './useCollabDraft.js'
 import { normalizeImportedJson } from './importNormalize.js'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { getFigures } from './figuresStore'
@@ -124,6 +125,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const [lastSavedAt, setLastSavedAt]                   = useState(null)
   const [dirty, setDirty]                               = useState(false)
   const lastUserInputRef                                = useRef(0)   // time of the last real edit by the user
+  const [editTick, setEditTick]                         = useState(0) // counts real edits (triggers the Collab autosave)
 
   useEffect(() => {
     // Only a real edit by the user marks the form as changed. Values that the wizard fills in by itself
@@ -171,7 +173,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   }, [skjemaInfo])
 
   const handleInputChange = (data) => {
-    if (Date.now() - lastUserInputRef.current < 2500) setDirty(true)
+    if (Date.now() - lastUserInputRef.current < 2500) { setDirty(true); setEditTick((n) => n + 1) }
     setFormData((prev) => {
       const next = { ...prev, ...data }
       formDataRef.current = next
@@ -531,6 +533,33 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     })
   }
 
+  const collab = useCollabDraft({
+    datasetVersionId: formData?.datasetVersionId || skjemaInfo?.datasetVersionId,
+    getPayload: () => mapDataset1OptionsToIds(formDataRef.current),
+    editTick,
+    onSaved: () => setDirty(false),
+  })
+
+  const toggleCollab = (on) => {
+    if (!on) { collab.disable(); return }
+    Modal.confirm({
+      title: 'Save your draft in the Collab drive?',
+      content: 'While this is on, the wizard saves your answers about 20 seconds after each change as the file metadata_wizard_draft.json in the Collab drive of this dataset (d-' + (formData?.datasetVersionId || skjemaInfo?.datasetVersionId) + '). Everyone who is a member of that Collab can read the file. Figures added to the data descriptor are not included.',
+      okText: 'Turn on', cancelText: 'Cancel',
+      onOk: () => collab.enable(),
+    })
+  }
+
+  const loadFromCollab = async () => {
+    try {
+      const parsed = await collab.load()
+      setImportFileName('metadata_wizard_draft.json (Collab drive)')
+      setImportError('')
+      setImportPreview(parsed)
+      setImportModalVisible(true)
+    } catch (e) { message.error(e.message) }
+  }
+
   const downloadJson = async () => {
     const payload = await mapDataset1OptionsToIds(formDataRef.current)
     const blob    = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -570,15 +599,37 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         }}>
         <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
           {dirty ? '⚠️ ' : '💾 '}
-          <strong>Your answers are not stored on any server or in this browser.</strong>{' '}
-          {dirty
-            ? 'You have changes that are not saved. Click Download draft before you close this page.'
-            : lastSavedAt
-              ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
-              : 'To continue later, click Download draft and keep the file.'}
+          {collab.enabled
+            ? <><strong>Your answers are saved in the Collab drive of this dataset.</strong>{' '}
+                {collab.status === 'saving' ? 'Saving…'
+                  : collab.status === 'error' ? `Not saved: ${collab.error}`
+                  : dirty ? 'Changes will be saved in a few seconds.'
+                  : collab.savedAt ? `Saved at ${collab.savedAt.toLocaleTimeString()}.` : ''}{' '}
+                Everyone in that Collab can read the file.</>
+            : <><strong>Your answers are not stored on any server or in this browser</strong> unless you turn on the Collab drive copy.{' '}
+                {dirty
+                  ? 'You have changes that are not saved. Click Download draft before you close this page.'
+                  : lastSavedAt
+                    ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
+                    : 'To continue later, click Download draft and keep the file.'}</>}
+          {collab.status === 'error' && !collab.enabled && collab.error ? <span style={{ color: '#cf1322' }}> {collab.error}</span> : null}
           {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague. <strong>Figures and tables added to the data descriptor are not part of the draft file</strong>; add them again after importing.
         </span>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+          {collab.available && (
+            <>
+              <span style={{ fontSize: 12, color: '#555' }} title="Keep a copy of the draft in the Collab drive of this dataset">
+                <Switch size="small" checked={collab.enabled} loading={collab.status === 'saving' && !collab.savedAt}
+                  onChange={toggleCollab} /> Collab copy
+              </span>
+              {collab.remote?.exists && (
+                <Button size="small" onClick={loadFromCollab}
+                  title={collab.remote.mtime ? `Saved ${new Date(collab.remote.mtime).toLocaleString()}` : 'Open the draft saved in the Collab drive'}>
+                  Load from Collab
+                </Button>
+              )}
+            </>
+          )}
           <Button size="small" type={dirty ? 'primary' : 'default'} onClick={downloadJson}
             title="Download everything you have entered, including the data descriptor, as a draft file">
             Download draft

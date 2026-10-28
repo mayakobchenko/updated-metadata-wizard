@@ -142,7 +142,8 @@ async function getLoginUrl(req, res) {
     const params = new URLSearchParams({
       response_type: 'code',
       client_id:     clientId,
-      scope:         'openid',
+      // collab.drive: lets the wizard keep the user's draft in the Collab drive (the OIDC client must be allowed to ask for it)
+      scope:         process.env.WIZARD_OIDC_SCOPE || 'openid collab.drive',
       redirect_uri:  REDIRECT_URI,
       state,
       login:         'true'
