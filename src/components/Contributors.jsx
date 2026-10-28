@@ -257,7 +257,10 @@ const fetchContributors = async () => {
         {authors.map((field, index) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
-              <Form.Item label={<span className="step-subtitle">Author {index + (custName ? 2 : 1)}</span>}>
+              <Form.Item label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
+                <span className="step-subtitle">Author {index + (custName ? 2 : 1)}</span>
+                <Button type="link" size="small" className="remove-text-btn" style={{ color: "#d32f2f" }} onClick={() => removeAuthor(index)}>Remove</Button>
+              </span>}>
                 <Checkbox
                   style={{ marginBottom: 10 }}
                   checked={field.isCustom}
@@ -329,10 +332,6 @@ const fetchContributors = async () => {
                 </>
               )}
             </div>
-
-            <Button type="danger" size="small" className="remove-text-btn" onClick={() => removeAuthor(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
-              Remove
-            </Button>
           </div>
         ))}
 
@@ -348,7 +347,10 @@ const fetchContributors = async () => {
         {otherContribs.map((field, index) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
-              <Form.Item label={<span className="step-subtitle">Contributor {index + 1}</span>}>
+              <Form.Item label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
+                <span className="step-subtitle">Contributor {index + 1}</span>
+                <Button type="link" size="small" className="remove-text-btn" style={{ color: "#d32f2f" }} onClick={() => removeOtherContr(index)}>Remove</Button>
+              </span>}>
                 <Checkbox
                   style={{ marginBottom: 10 }}
                   checked={field.isCustom}
@@ -431,10 +433,6 @@ const fetchContributors = async () => {
                 </>
               )}
             </div>
-
-            <Button type="danger" size="small" className="remove-text-btn" onClick={() => removeOtherContr(index)} style={{ marginLeft: 0, flex: '0 0 auto' }}>
-              Remove
-            </Button>
           </div>
         ))}
 
