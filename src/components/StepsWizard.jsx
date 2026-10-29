@@ -606,7 +606,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
           {collab.enabled
             ? <><strong>Your answers are saved in the Collab drive of this dataset.</strong>{' '}
                 {collab.status === 'saving' ? 'Saving…'
-                  : collab.status === 'error' ? `Not saved: ${collab.error}`
+                  : collab.status === 'error' ? `Not saved in the Collab drive: ${collab.error} Your answers are still in this page; click Download draft to be safe.`
                   : dirty ? 'Changes will be saved in a few seconds.'
                   : collab.pending ? 'Paused: a saved draft already exists (see below).'
                   : collab.savedAt ? `Saved at ${collab.savedAt.toLocaleTimeString()}, including figures and tables.` : 'Changes are saved automatically.'}</>

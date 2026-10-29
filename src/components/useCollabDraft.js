@@ -39,6 +39,7 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
   const tickRef = useRef(editTick); tickRef.current = editTick
   const getPayloadRef = useRef(getPayload); getPayloadRef.current = getPayload
   const onSavedRef = useRef(onSaved); onSavedRef.current = onSaved
+  const resolvedRef = useRef(false); resolvedRef.current = resolved
   const files = useRef(new Set())                     // picture files known to be in the drive folder
 
   const pending = valid && enabled && !!remote?.exists && !resolved
@@ -103,10 +104,16 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
     busy.current = true; setStatus('saving'); setError('')
     const tickAtStart = tickRef.current
     try {
+      // Before the first save: make sure no earlier draft is in the drive (the check at page load may have failed).
+      if (!resolvedRef.current) {
+        const info = await refreshRemote()
+        if (!info) throw new Error('The Collab drive could not be checked for an earlier draft, so nothing was saved. It will be tried again after your next change.')
+        if (info.exists) { setStatus('idle'); return }          // the "saved draft found" notice takes over
+      }
       const payload = await getPayloadRef.current()
       const r = await post('/api/drive/draft/save', { datasetVersionId, payload })
       await syncFigures()
-      setSavedAt(new Date(r.savedAt)); setStatus('saved')
+      setSavedAt(new Date(r.savedAt)); setStatus('saved'); setResolved(true)
       setRemote({ exists: true, mtime: r.savedAt })
       if (tickRef.current === tickAtStart) onSavedRef.current?.()
     } catch (e) {
@@ -116,7 +123,7 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
       busy.current = false
       if (again.current) { again.current = false; saveNow() }
     }
-  }, [datasetVersionId, valid, syncFigures])
+  }, [datasetVersionId, valid, syncFigures, refreshRemote])
 
   // some seconds after the last edit (never before the first edit, never while a remote draft is undecided)
   useEffect(() => {
