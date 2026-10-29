@@ -15,6 +15,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocx
   // ── second button: send the Word data descriptor to the ticket (own article) ──
   const [ddStatus, setDdStatus] = useState(null) // null | 'loading' | 'success' | 'error'
   const [ddError, setDdError]   = useState('')
+  const [ddInfo, setDdInfo]     = useState('')
   const handleSubmitDd = async () => {
     setDdStatus('loading'); setDdError('')
     try {
@@ -27,6 +28,8 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocx
         const body = await res.json().catch(() => ({}))
         throw new Error(body?.error || `Server error ${res?.status}`)
       }
+      const done = await res.json().catch(() => ({}))
+      setDdInfo(done?.ticketNumber ? `Ticket #${done.ticketNumber}, internal note ${done.articleId}, ${done.filename} (${done.sizeKb} KB). Internal notes can be seen by curators (agents) only.` : '')
       setDdStatus('success')
     } catch (e) {
       setDdError(e.message || 'Could not send the data descriptor.')
@@ -191,7 +194,7 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocx
           </Button>
           {ddStatus === 'success' && (
             <Alert type="success" showIcon style={{ maxWidth: 320 }}
-              message="Data descriptor sent to your support ticket." />
+              message="Data descriptor sent to your support ticket." description={ddInfo || undefined} />
           )}
           {ddStatus === 'error' && (
             <Alert type="error" showIcon style={{ maxWidth: 320 }}

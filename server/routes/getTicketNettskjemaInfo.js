@@ -546,7 +546,25 @@ async function saveDocxToTicket(req, res) {
     const responseData = await response.json().catch(() => ({}))
     if (response.ok) {
       logger.info(`Data descriptor saved to Zammad ticket ${ticketId}, article id: ${responseData.id}`)
-      return res.status(200).json({ success: true, articleId: responseData.id, ticketId, filename })
+      // Do not trust the "created" answer alone: read the article back and check that the file is attached
+      // and that the note belongs to the ticket we meant. Also report the human ticket NUMBER.
+      let attachments = null, ticketNumber = null
+      try {
+        const back = await fetch(`${ZAMMAD_BASE}/api/v1/ticket_articles/${responseData.id}`, ZAMMAD_HEADERS)
+        if (back.ok) {
+          const a = await back.json()
+          attachments = Array.isArray(a.attachments) ? a.attachments.length : 0
+          if (String(a.ticket_id) !== String(parseInt(ticketId, 10))) logger.error(`Zammad article ${responseData.id} is on ticket ${a.ticket_id}, expected ${ticketId}`)
+        }
+        const t = await fetch(`${ZAMMAD_BASE}/api/v1/tickets/${parseInt(ticketId, 10)}`, ZAMMAD_HEADERS)
+        if (t.ok) ticketNumber = (await t.json()).number || null
+      } catch (e) { logger.warn(`Could not read the data descriptor article back from Zammad: ${e.message}`) }
+      logger.info(`Data descriptor check: ticket number ${ticketNumber}, attachments on the article: ${attachments}`)
+      if (attachments === 0) {
+        logger.error(`Zammad accepted article ${responseData.id} but it has NO attachment (ticket ${ticketId})`)
+        return res.status(502).json({ error: 'The ticket system accepted the note but the Word file is not attached to it.' })
+      }
+      return res.status(200).json({ success: true, articleId: responseData.id, ticketId, ticketNumber, filename, sizeKb: Math.round(buf.length / 1024) })
     }
     logger.error(`Zammad error ${response.status}: ${JSON.stringify(responseData)}`)
     return res.status(response.status).json({ error: 'Zammad API error', detail: responseData })
