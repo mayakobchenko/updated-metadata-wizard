@@ -23,6 +23,7 @@ export const getFigures = () => items
 export function addFigure(item) { items = [...items, item]; emit() }
 export function updateFigure(id, patch) { items = items.map(i => i.id === id ? { ...i, ...patch } : i); emit() }
 export function removeFigure(id) { items = items.filter(i => i.id !== id); emit() }
+export function setFigures(list) { items = Array.isArray(list) ? list : []; emit() }
 export function clearFigures() { items = []; emit() }
 export function useFigures() {
   return useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb) }, getFigures)

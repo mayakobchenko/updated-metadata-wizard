@@ -20,7 +20,7 @@ import useLoginKeepalive from './useLoginKeepalive.js'
 import useCollabDraft from './useCollabDraft.js'
 import { normalizeImportedJson } from './importNormalize.js'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
-import { getFigures } from './figuresStore'
+import { getFigures, useFigures, setFigures } from './figuresStore'
 
 const { Text } = Typography
 
@@ -125,6 +125,9 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const [lastSavedAt, setLastSavedAt]                   = useState(null)
   const [dirty, setDirty]                               = useState(false)
   const lastUserInputRef                                = useRef(0)   // time of the last real edit by the user
+  const figureItems                                     = useFigures()
+  const figuresSeen                                     = useRef(false)
+  const figuresToApply                                  = useRef(null) // pictures/tables loaded from the Collab drive, applied together with the draft
   const [editTick, setEditTick]                         = useState(0) // counts real edits (triggers the Collab autosave)
 
   useEffect(() => {
@@ -224,12 +227,15 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     setFormData(merged)
     form.setFieldsValue(normalizeDatesForForm(merged))
     onFormDataChange?.(merged)
+    if (figuresToApply.current) { setFigures(figuresToApply.current); figuresToApply.current = null }
+    collab.resolve()
     setImportModalVisible(false)
     setImportPreview(null)
     setImportFileName('')
   }
 
   const handleImportCancel = () => {
+    figuresToApply.current = null
     setImportModalVisible(false)
     setImportPreview(null)
     setImportError('')
@@ -533,6 +539,11 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     })
   }
 
+  useEffect(() => {          // adding, changing or removing a figure/table counts as an edit for the Collab autosave
+    if (!figuresSeen.current) { figuresSeen.current = true; return }
+    setEditTick((n) => n + 1)
+  }, [figureItems])
+
   const collab = useCollabDraft({
     datasetVersionId: formData?.datasetVersionId || skjemaInfo?.datasetVersionId,
     getPayload: () => mapDataset1OptionsToIds(formDataRef.current),
@@ -540,19 +551,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     onSaved: () => setDirty(false),
   })
 
-  const toggleCollab = (on) => {
-    if (!on) { collab.disable(); return }
-    Modal.confirm({
-      title: 'Save your draft in the Collab drive?',
-      content: 'While this is on, the wizard saves your answers about 20 seconds after each change as the file metadata_wizard_draft.json in the Collab drive of this dataset (d-' + (formData?.datasetVersionId || skjemaInfo?.datasetVersionId) + '). Everyone who is a member of that Collab can read the file. Figures added to the data descriptor are not included.',
-      okText: 'Turn on', cancelText: 'Cancel',
-      onOk: () => collab.enable(),
-    })
-  }
+  const toggleCollab = (on) => { if (on) collab.enable(); else collab.disable() }
 
   const loadFromCollab = async () => {
     try {
       const parsed = await collab.load()
+      figuresToApply.current = await collab.loadFigures().catch(() => null)
       setImportFileName('metadata_wizard_draft.json (Collab drive)')
       setImportError('')
       setImportPreview(parsed)
@@ -604,16 +608,17 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
                 {collab.status === 'saving' ? 'Saving…'
                   : collab.status === 'error' ? `Not saved: ${collab.error}`
                   : dirty ? 'Changes will be saved in a few seconds.'
-                  : collab.savedAt ? `Saved at ${collab.savedAt.toLocaleTimeString()}.` : ''}{' '}
-                Everyone in that Collab can read the file.</>
-            : <><strong>Your answers are not stored on any server or in this browser</strong> unless you turn on the Collab drive copy.{' '}
+                  : collab.pending ? 'Paused: a saved draft already exists (see below).'
+                  : collab.savedAt ? `Saved at ${collab.savedAt.toLocaleTimeString()}, including figures and tables.` : 'Changes are saved automatically.'}</>
+            : <><strong>Your answers are not stored on any server or in this browser</strong> unless you turn on the Collab copy.{' '}
+                {collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
                 {dirty
                   ? 'You have changes that are not saved. Click Download draft before you close this page.'
                   : lastSavedAt
                     ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
                     : 'To continue later, click Download draft and keep the file.'}</>}
           {collab.status === 'error' && !collab.enabled && collab.error ? <span style={{ color: '#cf1322' }}> {collab.error}</span> : null}
-          {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague. <strong>Figures and tables added to the data descriptor are not part of the draft file</strong>; add them again after importing.
+          {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague. <strong>Figures and tables are not part of the downloaded draft file</strong>{collab.enabled ? ' (they are kept in the Collab drive copy)' : '; add them again after importing'}.
         </span>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
           {collab.available && (
@@ -642,6 +647,16 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
           </Upload>
         </div>
       </div>
+
+      {collab.pending && (
+        <Alert type="warning" showIcon style={{ margin: '4px 16px' }}
+          message="A draft is already saved in the Collab drive of this dataset"
+          description={<>
+            It was saved {collab.remote?.mtime ? new Date(collab.remote.mtime).toLocaleString() : 'earlier'}. Automatic saving is paused so that it is not overwritten by an empty form.{' '}
+            <Button size="small" type="primary" onClick={loadFromCollab}>Load the saved draft</Button>{' '}
+            <Button size="small" onClick={() => collab.resolve()} title="Keep working here; the saved draft will be replaced by what you enter">Start fresh and replace it</Button>
+          </>} />
+      )}
 
       {/* ── Import preview modal ─────────────────────────────────────────── */}
       <Modal

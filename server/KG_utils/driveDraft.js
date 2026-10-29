@@ -52,7 +52,11 @@ async function authed(url, driveToken, init = {}) {
   return res
 }
 
+const libCache = new Map()   // driveToken + name -> { lib, exp }
 export async function findLibrary(driveToken, name) {
+  const ck = `${driveToken}|${name}`
+  const c = libCache.get(ck)
+  if (c && c.exp > Date.now()) return c.lib
   const res = await authed(`${BASE}/api2/repos/`, driveToken)
   if (res.status === 401 || res.status === 403) throw new DriveError('NO_DRIVE_ACCESS', 'The Collab drive did not accept your login. Please log out and log in again.', 403)
   if (!res.ok) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${res.status} when listing your libraries.`)
@@ -61,22 +65,37 @@ export async function findLibrary(driveToken, name) {
   if (!lib) {
     throw new DriveError('NO_LIBRARY', `No Collab drive named ${name} was found among the libraries you can access. You must be a member of that Collab.`, 404)
   }
+  libCache.set(ck, { lib, exp: Date.now() + DRIVE_TOKEN_TTL_MS })
   return lib
 }
 
 const quoted = (t) => String(t).trim().replace(/^"(.*)"$/, '$1')
 
-export async function saveDraft(ebrainsToken, datasetVersionId, jsonText) {
+const FOLDER_OK = new Set([200, 201, 400, 409])   // 400/409: the folder exists already
+export const FILES_DIR = 'metadata_wizard_draft_files'
+
+async function ensureDir(driveToken, lib, dir) {
+  if (dir === '/') return
+  const res = await authed(`${BASE}/api2/repos/${lib.id}/dir/?p=${encodeURIComponent(dir)}`, driveToken, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'operation=mkdir',
+  })
+  if (res.status === 403) throw new DriveError('NO_WRITE', `You have no write access to the Collab drive ${lib.name}.`, 403)
+  if (!FOLDER_OK.has(res.status)) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${res.status} when creating the folder ${dir}.`)
+}
+
+// Writes (replaces) one file in a folder of the dataset's Collab drive. dir is '/' or '/name'.
+export async function putFile(ebrainsToken, datasetVersionId, dir, fileName, content, mime = 'application/json') {
   const driveToken = await getDriveToken(ebrainsToken)
   const lib = await findLibrary(driveToken, `d-${datasetVersionId}`)
-  const linkRes = await authed(`${BASE}/api2/repos/${lib.id}/upload-link/?p=/`, driveToken)
+  await ensureDir(driveToken, lib, dir)
+  const linkRes = await authed(`${BASE}/api2/repos/${lib.id}/upload-link/?p=${encodeURIComponent(dir)}`, driveToken)
   if (linkRes.status === 403) throw new DriveError('NO_WRITE', `You have no write access to the Collab drive d-${datasetVersionId}.`, 403)
   if (!linkRes.ok) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${linkRes.status} when asked for an upload link.`)
   const link = quoted(await linkRes.text())
   const form = new FormData()
-  form.append('parent_dir', '/')
+  form.append('parent_dir', dir)
   form.append('replace', '1')
-  form.append('file', new Blob([jsonText], { type: 'application/json' }), DRAFT_FILE)
+  form.append('file', new Blob([content], { type: mime }), fileName)
   const up = await authed(`${link}${link.includes('?') ? '&' : '?'}ret-json=1`, driveToken, { method: 'POST', body: form })
   if (up.status === 403) throw new DriveError('NO_WRITE', `You have no write access to the Collab drive d-${datasetVersionId}.`, 403)
   if (!up.ok) {
@@ -84,6 +103,29 @@ export async function saveDraft(ebrainsToken, datasetVersionId, jsonText) {
     throw new DriveError('DRIVE_ERROR', `The Collab drive refused the upload (${up.status}${body ? `: ${body.slice(0, 120)}` : ''}).`)
   }
   return { savedAt: new Date().toISOString() }
+}
+
+export const saveDraft = (t, id, jsonText) => putFile(t, id, '/', DRAFT_FILE, jsonText)
+
+// Reads one file as a Buffer, or null when it does not exist.
+export async function getFileBuffer(ebrainsToken, datasetVersionId, path) {
+  const driveToken = await getDriveToken(ebrainsToken)
+  const lib = await findLibrary(driveToken, `d-${datasetVersionId}`)
+  const linkRes = await authed(`${BASE}/api2/repos/${lib.id}/file/?p=${encodeURIComponent(path)}&reuse=1`, driveToken)
+  if (linkRes.status === 404) return null
+  if (!linkRes.ok) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${linkRes.status} when asked for ${path}.`)
+  const fileRes = await call(quoted(await linkRes.text()), {}, 'The file')
+  if (!fileRes.ok) throw new DriveError('DRIVE_ERROR', `The file ${path} could not be downloaded (${fileRes.status}).`)
+  return Buffer.from(await fileRes.arrayBuffer())
+}
+
+export async function deleteFile(ebrainsToken, datasetVersionId, path) {
+  const driveToken = await getDriveToken(ebrainsToken)
+  const lib = await findLibrary(driveToken, `d-${datasetVersionId}`)
+  const res = await authed(`${BASE}/api2/repos/${lib.id}/file/?p=${encodeURIComponent(path)}`, driveToken, { method: 'DELETE' })
+  if (res.status === 403) throw new DriveError('NO_WRITE', `You have no write access to the Collab drive d-${datasetVersionId}.`, 403)
+  if (!res.ok && res.status !== 404) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${res.status} when deleting ${path}.`)
+  return { deleted: true }
 }
 
 // { exists:false } or { exists:true, mtime (ISO), size }

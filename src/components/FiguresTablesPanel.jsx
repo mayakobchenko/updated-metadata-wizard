@@ -71,7 +71,7 @@ export default function FiguresTablesPanel() {
       <Text strong style={{ display: 'block', marginBottom: 4 }}>Figures and tables (optional)</Text>
       <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
         Add figures (PNG, JPG) or tables (CSV, TSV, or a picture of a table) with a caption. They are
-        placed in the Word file after the section you choose. The files stay in your browser and are
+        placed in the Word file after the section you choose. The files stay in your browser (and in the Collab drive copy of your draft, if it is on) and are
         only used when you press <b>Generate Data Descriptor</b> or <b>Submit data descriptor</b>.
         <b>They are not part of the draft file</b>: if you reload the page or import a draft later,
         you need to add them again. Pictures are checked for resolution (about 6 inches wide in print),
