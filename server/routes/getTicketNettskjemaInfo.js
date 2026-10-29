@@ -144,7 +144,7 @@ async function getZammadInfo(req, res) {
     const exactIds = candidateIds.filter(
       id => String(searchData.assets?.Ticket?.[id]?.number) === cleanNumber
     )
-    logger.info(`zammad search for ${cleanNumber}: candidates=${JSON.stringify(candidateIds)}, exact=${JSON.stringify(exactIds)}`)
+    logger.debug(`zammad search for ${cleanNumber}: candidates=${JSON.stringify(candidateIds)}, exact=${JSON.stringify(exactIds)}`)
 
     if (exactIds.length === 0) {
       return res.status(404).json({ error: `Ticket number ${cleanNumber} not found in Zammad` })
@@ -159,7 +159,7 @@ async function getZammadInfo(req, res) {
     //const articleIds = ticketInfo.article_ids || []
     //need to sort articles ids 
     const articleIds = (ticketInfo.article_ids || []).sort((a, b) => a - b)
-    logger.info(`found articles ids in the zammad ticket : ${articleIds}`)
+    logger.debug(`found articles ids in the zammad ticket : ${articleIds}`)
 
     // ── extract collab/dataset version ID from first article body ─────────────
     let datasetVersionId = null
@@ -545,7 +545,6 @@ async function saveDocxToTicket(req, res) {
     })
     const responseData = await response.json().catch(() => ({}))
     if (response.ok) {
-      logger.info(`Data descriptor saved to Zammad ticket ${ticketId}, article id: ${responseData.id}`)
       // Do not trust the "created" answer alone: read the article back and check that the file is attached
       // and that the note belongs to the ticket we meant. Also report the human ticket NUMBER.
       let attachments = null, ticketNumber = null
@@ -559,7 +558,7 @@ async function saveDocxToTicket(req, res) {
         const t = await fetch(`${ZAMMAD_BASE}/api/v1/tickets/${parseInt(ticketId, 10)}`, ZAMMAD_HEADERS)
         if (t.ok) ticketNumber = (await t.json()).number || null
       } catch (e) { logger.warn(`Could not read the data descriptor article back from Zammad: ${e.message}`) }
-      logger.info(`Data descriptor check: ticket number ${ticketNumber}, attachments on the article: ${attachments}`)
+      logger.info(`Data descriptor saved to Zammad ticket ${ticketNumber || ticketId} (article ${responseData.id}, attachments: ${attachments})`)
       if (attachments === 0) {
         logger.error(`Zammad accepted article ${responseData.id} but it has NO attachment (ticket ${ticketId})`)
         return res.status(502).json({ error: 'The ticket system accepted the note but the Word file is not attached to it.' })

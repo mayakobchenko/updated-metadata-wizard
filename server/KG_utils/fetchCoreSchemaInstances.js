@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { getRequestOptions } from './kgAuthentication.js'
 import { fileURLToPath } from 'url'
+import logger from '../logger.js'
 
 const __filename      = fileURLToPath(import.meta.url)
 const __dirname       = path.dirname(__filename)
@@ -11,8 +12,8 @@ const API_BASE_URL    = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT    = "v3/instances"
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
-  if (err && err.code !== 'EEXIST') { console.log(err) }
-  else { console.log("New directory successfully created.") }
+  if (err && err.code !== 'EEXIST') { logger.error(err) }
+  else { logger.debug("New directory successfully created.") }
 })
 
 export const fetchCoreSchemaInstances = async (typeSpecifications, requestOptions = null) => {
@@ -30,7 +31,7 @@ export const fetchCoreSchemaInstances = async (typeSpecifications, requestOption
     const instances   = await fetchAndParseInstances(queryUrl, requestOptions, 'ORCID', orcidSpec.typeProperties)
     const filePath    = path.join(OUTPUT_DIR, 'ORCID.json')
     await fs.promises.writeFile(filePath, JSON.stringify(instances, null, 2))
-    console.log(`File with instances for ORCID written successfully (${instances.length} entries)`)
+    logger.debug(`File with instances for ORCID written successfully (${instances.length} entries)`)
   }
 
   // ── all other types fetched in parallel, grouped by type name ────────────
@@ -50,13 +51,13 @@ export const fetchCoreSchemaInstances = async (typeSpecifications, requestOption
     ]
     const queryUrl = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${TYPE_NAME}`
 
-    console.log(`Fetching ${TYPE_NAME} stage=${stageName} space=${spaceName}…`)
+    logger.debug(`Fetching ${TYPE_NAME} stage=${stageName} space=${spaceName}…`)
 
     try {
     const instances = await fetchAndParseInstances(
       queryUrl, requestOptions, TYPE_NAME, typeSpecification.typeProperties
     )
-    console.log(`  → ${instances.length} instances for ${TYPE_NAME} (${stageName})`)
+    logger.debug(`  → ${instances.length} instances for ${TYPE_NAME} (${stageName})`)
     if (!resultsByType.has(TYPE_NAME)) resultsByType.set(TYPE_NAME, [])
     resultsByType.get(TYPE_NAME).push(...instances)
     } catch (error) {
@@ -92,14 +93,14 @@ for (const [typeName, instances] of resultsByType.entries()) {
     for (const e of existing) merged.set(e.uuid, e)
     for (const e of deduped)  merged.set(e.uuid, e)   // new entries win
     finalInstances    = [...merged.values()]
-    console.log(`fetchCoreSchemaInstances: merged ${existing.length} existing + ${deduped.length} new → ${finalInstances.length} total for ${typeName}`)
+    logger.debug(`fetchCoreSchemaInstances: merged ${existing.length} existing + ${deduped.length} new → ${finalInstances.length} total for ${typeName}`)
   } catch {
     // file doesn't exist yet — just write fresh
     finalInstances = deduped
   }
 
   await fs.promises.writeFile(filePath, JSON.stringify(finalInstances, null, 2))
-  console.log(`File with instances for ${typeName} written successfully (${finalInstances.length} entries)`)
+  logger.debug(`File with instances for ${typeName} written successfully (${finalInstances.length} entries)`)
 }
 }
 
@@ -114,7 +115,7 @@ async function fetchAndParseInstances(apiQueryUrl, requestOptions, typeName, pro
       throw new Error(`Status ${response.status} for ${typeName}`)
     }
   } catch (error) {
-    console.log(`Error fetching instances for ${typeName}:`, error)
+    logger.error(`Error fetching instances for ${typeName}:`, error)
     return []
   }
 }

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import logger from '../logger.js'
 dotenv.config() //on localhost: dotenv.config({ path: '../../.env' })
 
 export async function getRequestOptions() {
@@ -23,7 +24,7 @@ export async function getRequestOptions() {
 export async function getTokenFromServiceAccount() {
     const clientId = process.env.WIZARD_OIDC_CLIENT_ID
     const clientSecret = process.env.WIZARD_OIDC_CLIENT_SECRET
-    console.log('client id:', clientId)
+    logger.debug('client id:', clientId)
     
     const endpointURL = "https://iam.ebrains.eu/auth/realms/hbp/protocol/openid-connect/token"
     const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')

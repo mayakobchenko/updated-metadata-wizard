@@ -5,6 +5,7 @@ import { writeFile } from 'fs/promises'
 import { getRequestOptions } from './kgAuthentication.js'
 import { subjectProperties } from './constants.js'
 import { Techniques } from './constants.js'
+import logger from '../logger.js'
 
 const API_BASE_URL = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT = "v3/instances"
@@ -21,9 +22,9 @@ const RETRY_DELAY_MS = 1000  // wait 1 second between retries
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err) {
         if (err.code === 'EEXIST') {
-            console.log("Directory already exists.")
-        } else { console.log(err) }
-    } else { console.log("New directory for controlled terms successfully created.") }
+            logger.debug("Directory already exists.")
+        } else { logger.error(err) }
+    } else { logger.debug("New directory for controlled terms successfully created.") }
 })
 
 export default async function fetchControlledTerms() {
@@ -55,7 +56,7 @@ export default async function fetchControlledTerms() {
 async function fetchWithRetry(url, requestOptions, controlledTerm) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            console.log(`Fetching ${controlledTerm} (attempt ${attempt}/${MAX_RETRIES})...`)
+            logger.debug(`Fetching ${controlledTerm} (attempt ${attempt}/${MAX_RETRIES})...`)
             await fetchInstances(url, requestOptions, controlledTerm)
             return  // success — exit the retry loop
         } catch (error) {
@@ -98,7 +99,7 @@ async function parseAndSaveData(data, instanceName) {
                 name: thisInstance[`${OPENMINDS_VOCAB}/name`]
             }
             if (instanceName === "preparationType") { 
-                console.log("preparationType:", thisInstance)
+                logger.debug("preparationType:", thisInstance)
             }
             // ── enrich Strain: resolve species @id → species identifier ───
             if (instanceName === "Strain") {
@@ -117,7 +118,7 @@ async function parseAndSaveData(data, instanceName) {
         instanceList.sort((a, b) => a.name.localeCompare(b.name))
         const filePath = path.join(OUTPUT_DIR, `${instanceName}.json`)
         await writeFile(filePath, JSON.stringify(instanceList, null, 2))
-        console.log(`File with instances for ${instanceName} written successfully`)
+        logger.debug(`File with instances for ${instanceName} written successfully`)
     } catch (error) {
         console.error(`Error while parsing and saving data for ${instanceName}:`, error)
     }
@@ -173,7 +174,7 @@ async function parseAndSaveData(data, instanceName) {
     } catch { /* file doesn't exist yet — write fresh */ }
 
     await writeFile(filePath, JSON.stringify(instanceList, null, 2))
-    console.log(`File with instances for ${instanceName} written successfully`)
+    logger.debug(`File with instances for ${instanceName} written successfully`)
 
   } catch (error) {
     console.error(`Error while parsing and saving data for ${instanceName}:`, error)

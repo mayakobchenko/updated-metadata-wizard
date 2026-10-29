@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import logger from '../logger.js'
 
 const __filename      = fileURLToPath(import.meta.url)
 const __dirname       = path.dirname(__filename)
@@ -86,7 +87,7 @@ export default async function fetchFunders() {
   try {
     await mkdir(path.dirname(OUTPUT_PATH), { recursive: true })
     await writeFile(OUTPUT_PATH, JSON.stringify(funders, null, 2), 'utf-8')
-    console.log(`fetchFunders: wrote ${funders.length} funders to Funders.json`)
+    logger.debug(`fetchFunders: wrote ${funders.length} funders to Funders.json`)
   } catch (err) {
     console.error('fetchFunders: could not write Funders.json:', err.message)
   }

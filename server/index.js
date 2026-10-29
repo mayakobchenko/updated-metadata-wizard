@@ -23,9 +23,17 @@ const PORT = process.env.PORT_SERVER || 4000
 const app = express()
 
 app.use(express.json({ limit: '10mb' }))
+// Request log: only API calls (not pages or static files), without query strings except a few ids.
+// Never the OAuth "code"/"state" of the login redirect. Routine reference-data and keep-alive calls are debug only.
+const QUIET_PATHS = ['/api/auth/keepalive', '/api/kginfo/', '/api/subjects/']
+const LOGGED_PARAMS = ['TicketNumber', 'NettskjemaId', 'datasetVersionId']
 app.use((req, res, next) => {
-    logger.info(`${req.method} ${req.url}`)
-    //console.log(`${req.method} ${req.url}`);
+    if (req.path.startsWith('/api/')) {
+        const ids = LOGGED_PARAMS.filter(k => req.query?.[k]).map(k => `${k}=${req.query[k]}`)
+        const line = `${req.method} ${req.path}${ids.length ? ` ?${ids.join('&')}` : ''}`
+        if (QUIET_PATHS.some(q => req.path.startsWith(q))) logger.debug(line)
+        else logger.info(line)
+    }
     next()
 })
 
@@ -63,4 +71,4 @@ app.use('/api/dd/', ddRender)
 app.get('/health', (req, res) => res.status(200).send('ok'))
 app.get('/api/test', (req, res) => res.send('BACKEND_OK'))
 
-ViteExpress.listen(app, PORT, () => console.log(`Server running on ${PORT}`))
+ViteExpress.listen(app, PORT, () => logger.info(`Server running on ${PORT}`))

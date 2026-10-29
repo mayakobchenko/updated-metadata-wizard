@@ -1,3 +1,5 @@
+import logger from '../logger.js'
+
 let access_token     = ''
 let access_token_exp = 0
 let refresh_token    = ''
@@ -40,7 +42,7 @@ const tokenFunctions = {
     }
 
     // access token expired — try refresh
-    console.log('Access token expired, attempting refresh…')
+    logger.debug('Access token expired, attempting refresh…')
 
     if (tokenFunctions.isRefreshExpired()) {
       // both tokens dead — nothing we can do server-side
@@ -78,7 +80,7 @@ const tokenFunctions = {
       access_token_exp = Date.now() + (data.expires_in || 300) * 1000
       access_token     = working_token
 
-      console.log('Token refreshed successfully.')
+      logger.debug('Token refreshed successfully.')
       return working_token
 
     } catch (err) {
@@ -102,18 +104,18 @@ function scheduleRefresh(expiresIn) {
     if (tokenFunctions.isRefreshExpired()) {
       // refresh token is dead — nothing we can do silently,
       // the user will need to log in again next time they try to submit
-      console.log('[tokenManager] Refresh token expired — silent renewal not possible.')
+      logger.warn('[tokenManager] Refresh token expired — silent renewal not possible.')
       return
     }
 
     try {
-      console.log('[tokenManager] Background token refresh starting…')
+      logger.debug('[tokenManager] Background token refresh starting…')
       await tokenFunctions.getWorkingToken()
 
       // reschedule using the new expiry
       const newExpiresIn = Math.floor((access_token_exp - Date.now()) / 1000)
       scheduleRefresh(newExpiresIn)
-      console.log(`[tokenManager] Background refresh succeeded. Next refresh in ${newExpiresIn - 60}s`)
+      logger.debug(`[tokenManager] Background refresh succeeded. Next refresh in ${newExpiresIn - 60}s`)
     } catch (err) {
       console.error('[tokenManager] Background refresh failed:', err.message)
       // retry in 30 seconds
@@ -127,7 +129,7 @@ const _originalSetAccessToken = tokenFunctions.setAccessToken.bind(tokenFunction
 tokenFunctions.setAccessToken = function(clientId, clientSecret, newAccessToken, expiresIn, refresh, refresh_exp) {
   _originalSetAccessToken(clientId, clientSecret, newAccessToken, expiresIn, refresh, refresh_exp)
   scheduleRefresh(expiresIn)
-  console.log(`[tokenManager] Token set. Background refresh scheduled in ${expiresIn - 60}s`)
+  logger.debug(`[tokenManager] Token set. Background refresh scheduled in ${expiresIn - 60}s`)
 }
 
 export default tokenFunctions

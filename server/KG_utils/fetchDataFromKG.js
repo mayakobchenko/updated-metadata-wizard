@@ -5,6 +5,7 @@ import fetchStudyTargets from './fetchStudyTargets.js'
 import fetchTechniques from './fetchTechniques.js'
 import fetchFunders from './fetchFunders.js'
 import { getRequestOptions } from './kgAuthentication.js'
+import logger from '../logger.js'
 
 const configReleased = [
   { openMindsType: "ORCID",        typeProperties: ["identifier"] },
@@ -30,14 +31,14 @@ const configInProgress = [
 
 export default async function fetchDataFromKg() {
   try {
-    console.log('fetchDataFromKg: starting…')
+    logger.info('fetchDataFromKg: starting…')
     await fetchLicenses()
     await fetchCoreSchemaInstances(configReleased)
     await fetchControlledTerms()
     await fetchStudyTargets()
     await fetchTechniques()
     await fetchFunders()
-    console.log('fetchDataFromKg: complete')
+    logger.info('fetchDataFromKg: complete')
   } catch (error) {
     console.error('fetchDataFromKg error:', error.message)
   }

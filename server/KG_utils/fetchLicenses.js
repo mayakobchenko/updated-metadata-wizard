@@ -7,6 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import {getRequestOptions} from './kgAuthentication.js'
 import { fileURLToPath } from 'url'
+import logger from '../logger.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -55,7 +56,7 @@ async function parseAndSaveData(data, propertyNameList) {
         const filename = "Licenses.json"
         const filePath = path.join(OUTPUT_DIR, filename)
         await fs.promises.writeFile(filePath, jsonStr);
-        console.log('File with licenses written successfully');
+        logger.debug('File with licenses written successfully');
     } catch (error) {
         console.error(`Error while parsing and saving data for licenses`, error)}
 } */
@@ -92,7 +93,7 @@ async function parseAndSaveData(data, propertyNameList) {
     } catch { /* file doesn't exist yet — write fresh */ }
 
     await fs.promises.writeFile(filePath, JSON.stringify(LicensesList, null, 2))
-    console.log('File with licenses written successfully')
+    logger.debug('File with licenses written successfully')
 
   } catch (error) {
     console.error('Error while parsing and saving data for licenses', error)

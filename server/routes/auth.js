@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import crypto from 'crypto'
 import tokenFunctions from './tokenManager.js'
 import { createUserSession, getUserAccessToken } from './userSessions.js'
+import logger from '../logger.js'
 dotenv.config()
 
 const EBRAINS_IAM_SERVER = "https://iam.ebrains.eu/auth/realms/hbp"
@@ -79,7 +80,7 @@ function extractUserFromIdToken(idToken) {
 
   if (!username && !email && !fullname) return null
 
-  console.log(`User from id_token: ${fullname} <${email}> (@${username})`)
+  logger.info(`login: ${fullname} <${email}> (@${username})`)
   return { username, fullname, email, firstName, lastName }
 }
 
@@ -102,7 +103,7 @@ async function fetchUserFromKG(accessToken, signal) {
     const data = body.data || {}
     const userInfo = {}
     Object.keys(KG_USER_MAP).forEach(key => { userInfo[key] = data[KG_USER_MAP[key]] })
-    console.log('User from KG endpoint:', userInfo)
+    logger.debug('User from KG endpoint:', userInfo)
     return userInfo
   } catch (err) {
     if (err.name === 'AbortError') throw err
@@ -188,7 +189,7 @@ async function getToken(req, res) {
       redirect_uri:  REDIRECT_URI
     })
 
-    console.log('Exchanging code at token endpoint…')
+    logger.debug('Exchanging code at token endpoint…')
     const tokenResponse = await fetch(TOKEN_ENDPOINT, {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -205,7 +206,7 @@ async function getToken(req, res) {
     const tokenData = JSON.parse(text)
     const { access_token, id_token, expires_in, refresh_token, refresh_expires_in } = tokenData
 
-    console.log(`Token received — expires in ${expires_in}s`)
+    logger.debug(`Token received — expires in ${expires_in}s`)
 
     // ── store token for background KG fetches ─────────────────────────────────
     tokenFunctions.setAccessToken(
@@ -223,12 +224,12 @@ async function getToken(req, res) {
     if (id_token) {
       userInfo = extractUserFromIdToken(id_token)
       if (userInfo) {
-        console.log('User info resolved from id_token — no extra network call needed')
+        logger.debug('User info resolved from id_token — no extra network call needed')
       }
     }
 
     if (!userInfo) {
-      console.log('id_token parsing failed or missing — falling back to KG user endpoint')
+      logger.warn('id_token parsing failed or missing — falling back to KG user endpoint')
       userInfo = await fetchUserFromKG(access_token, controller.signal)
     }
 
@@ -252,7 +253,7 @@ async function getToken(req, res) {
 
   } catch (error) {
     if (error?.name === 'AbortError') {
-      console.log('Token fetch aborted — client disconnected')
+      logger.debug('Token fetch aborted — client disconnected')
       if (!res.headersSent) { try { res.status(499).end() } catch { /* ignore */ } }
       return
     }

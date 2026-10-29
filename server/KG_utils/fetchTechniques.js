@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { writeFile } from 'fs/promises'
 import { getRequestOptions } from './kgAuthentication.js'
 import { Techniques } from './constants.js'
+import logger from '../logger.js'
 
 const API_BASE_URL    = "https://core.kg.ebrains.eu/"
 const API_ENDPOINT    = "v3/instances"
@@ -16,7 +17,7 @@ const RETRY_DELAY_MS  = 1000
 
 fs.mkdir(OUTPUT_DIR, { recursive: true }, (err) => {
     if (err && err.code !== 'EEXIST') console.error(err)
-    else console.log('Techniques output directory ready.')
+    else logger.debug('Techniques output directory ready.')
 })
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -70,14 +71,14 @@ export default async function fetchTechniques() {
     }
 
     await writeFile(filePath, JSON.stringify(merged, null, 2))
-    console.log(`Techniques file written: ${merged.length} entries across ${Techniques.length} types`)
+    logger.debug(`Techniques file written: ${merged.length} entries across ${Techniques.length} types`)
     return merged
 }
 
 async function fetchWithRetry(url, requestOptions, term) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            console.log(`Fetching Technique/${term} (attempt ${attempt}/${MAX_RETRIES})...`)
+            logger.debug(`Fetching Technique/${term} (attempt ${attempt}/${MAX_RETRIES})...`)
             return await fetchInstances(url, requestOptions, term)
         } catch (error) {
             const isLastAttempt = attempt === MAX_RETRIES

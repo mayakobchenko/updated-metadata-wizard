@@ -8,7 +8,7 @@ const logFormat = printf(({ timestamp, level, message, stack }) => {
 });
 
 const logger = winston.createLogger({
-    level: 'info',
+    level: process.env.LOG_LEVEL || 'info',   // 'debug' shows the routine details again
     format: combine(
         colorize(),
         timestamp(),
