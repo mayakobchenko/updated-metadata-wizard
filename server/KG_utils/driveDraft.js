@@ -71,16 +71,23 @@ export async function findLibrary(driveToken, name) {
 
 const quoted = (t) => String(t).trim().replace(/^"(.*)"$/, '$1')
 
-const FOLDER_OK = new Set([200, 201, 400, 409])   // 400/409: the folder exists already
 export const FILES_DIR = 'metadata_wizard_draft_files'
+const dirsKnown = new Set()   // library id + folder, already checked or created
 
+// Seafile does NOT refuse "mkdir" on an existing folder: it creates "name (1)", "name (2)" ... So look first.
 async function ensureDir(driveToken, lib, dir) {
   if (dir === '/') return
+  const key = `${lib.id}|${dir}`
+  if (dirsKnown.has(key)) return
+  const look = await authed(`${BASE}/api2/repos/${lib.id}/dir/?p=${encodeURIComponent(dir)}`, driveToken)
+  if (look.ok) { dirsKnown.add(key); return }
+  if (look.status !== 404) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${look.status} when looking for the folder ${dir}.`)
   const res = await authed(`${BASE}/api2/repos/${lib.id}/dir/?p=${encodeURIComponent(dir)}`, driveToken, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'operation=mkdir',
   })
   if (res.status === 403) throw new DriveError('NO_WRITE', `You have no write access to the Collab drive ${lib.name}.`, 403)
-  if (!FOLDER_OK.has(res.status)) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${res.status} when creating the folder ${dir}.`)
+  if (!res.ok) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${res.status} when creating the folder ${dir}.`)
+  dirsKnown.add(key)
 }
 
 // Writes (replaces) one file in a folder of the dataset's Collab drive. dir is '/' or '/name'.

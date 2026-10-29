@@ -593,32 +593,30 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         dataDescriptorEnabled={DATA_DESCRIPTOR_ENABLED}
       />
 
-      {/* ── Draft bar: always visible, nothing is stored in the browser ──── */}
+      {/* ── Draft bar: nothing is stored in the browser ──── */}
       <div
         style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '6px 16px', background: dirty ? '#fffbe6' : '#f0f7ff',
           border: `1px solid ${dirty ? '#ffe58f' : '#bae0ff'}`, borderRadius: 6, margin: '8px 16px 4px', gap: 12,
-          position: 'sticky', top: 0, zIndex: 20,
         }}>
         <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
           {dirty ? '⚠️ ' : '💾 '}
           {collab.enabled
-            ? <><strong>Your answers are saved in the Collab drive of this dataset.</strong>{' '}
+            ? <><strong>Saved automatically in the Collab drive of this dataset.</strong>{' '}
                 {collab.status === 'saving' ? 'Saving…'
-                  : collab.status === 'error' ? `Not saved in the Collab drive: ${collab.error} Your answers are still in this page; click Download draft to be safe.`
+                  : collab.status === 'error' ? <span style={{ color: '#cf1322' }}>Not saved: {collab.error} Your answers are still in this page; click Download draft to be safe.</span>
                   : dirty ? 'Changes will be saved in a few seconds.'
                   : collab.pending ? 'Paused: a saved draft already exists (see below).'
-                  : collab.savedAt ? `Saved at ${collab.savedAt.toLocaleTimeString()}, including figures and tables.` : 'Changes are saved automatically.'}</>
-            : <><strong>Your answers are not stored on any server or in this browser</strong> unless you turn on the Collab copy.{' '}
+                  : collab.savedAt ? `Last saved ${collab.savedAt.toLocaleTimeString()}, with figures and tables.` : ''}</>
+            : <><strong>Your answers are not stored on any server or in this browser.</strong>{' '}
                 {collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
                 {dirty
                   ? 'You have changes that are not saved. Click Download draft before you close this page.'
                   : lastSavedAt
                     ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
-                    : 'To continue later, click Download draft and keep the file.'}</>}
-          {collab.status === 'error' && !collab.enabled && collab.error ? <span style={{ color: '#cf1322' }}> {collab.error}</span> : null}
-          {' '}Next time, open the wizard and use <strong>Import draft</strong> to pick up where you stopped. You can also send the file to a colleague. <strong>Figures and tables are not part of the downloaded draft file</strong>{collab.enabled ? ' (they are kept in the Collab drive copy)' : '; add them again after importing'}.
+                    : 'To continue later, click Download draft and keep the file.'}
+                {' '}Figures and tables are not part of the draft file.</>}
         </span>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
           {collab.available && (
