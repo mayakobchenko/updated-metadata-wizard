@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthContext } from './context/NewContextProvider.jsx'
 import ConfigProvider from './ConfigProvider.jsx'
-import { Form as AntForm, Button, Modal, Upload, Alert, Typography, Switch, message } from 'antd'
-import { FileTextOutlined } from '@ant-design/icons'
+import { Form as AntForm, Button, Modal, Upload, Alert, Typography, Switch, Popover, Select, message } from 'antd'
+import { FileTextOutlined, LoadingOutlined, CheckCircleFilled, InfoCircleOutlined, WarningFilled } from '@ant-design/icons'
 import ProgressBar from './ProgressBar.jsx'
 import Contributors from './Contributors.jsx'
 import { authorProblems } from './authorModel'
@@ -17,7 +17,7 @@ import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 import useLoginKeepalive from './useLoginKeepalive.js'
-import useCollabDraft from './useCollabDraft.js'
+import useCollabDraft, { INTERVAL_OPTIONS, intervalLabel } from './useCollabDraft.js'
 import { normalizeImportedJson } from './importNormalize.js'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { getFigures, useFigures, setFigures } from './figuresStore'
@@ -594,58 +594,85 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       />
 
       {/* ── Draft bar: nothing is stored in the browser ──── */}
-      <div
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '6px 16px', background: dirty ? '#fffbe6' : '#f0f7ff',
-          border: `1px solid ${dirty ? '#ffe58f' : '#bae0ff'}`, borderRadius: 6, margin: '8px 16px 4px', gap: 12,
-        }}>
-        <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
-          {dirty ? '⚠️ ' : '💾 '}
-          {collab.enabled
-            ? <><strong>Saved automatically in the Collab drive of this dataset.</strong>{' '}
-                {collab.remote?.problem ? <span style={{ color: '#ad6800' }}>Could not check the Collab drive for an earlier draft yet ({collab.remote.problem}). Trying again; automatic saving waits until this works. You can click Download draft meanwhile.</span>
-                  : collab.status === 'saving' ? 'Saving…'
-                  : collab.status === 'error' ? <span style={{ color: '#cf1322' }}>Not saved: {collab.error} Your answers are still in this page; click Download draft to be safe.</span>
-                  : dirty ? 'Changes will be saved in a few seconds.'
-                  : collab.pending ? 'Paused: a saved draft already exists (see below).'
-                  : collab.savedAt ? `Last saved ${collab.savedAt.toLocaleTimeString()}, with figures and tables.` : ''}</>
-            : <><strong>Your answers are not stored on any server or in this browser.</strong>{' '}
-                {collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
-                {dirty
-                  ? 'You have changes that are not saved. Click Download draft before you close this page.'
-                  : lastSavedAt
-                    ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.`
-                    : 'To continue later, click Download draft and keep the file.'}
-                {' '}Figures and tables are not part of the draft file.</>}
-        </span>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-          {collab.available && (
-            <>
-              <span style={{ fontSize: 12, color: '#555' }} title="Keep a copy of the draft in the Collab drive of this dataset">
-                <Switch size="small" checked={collab.enabled} loading={collab.status === 'saving' && !collab.savedAt}
-                  onChange={toggleCollab} /> Collab copy
-              </span>
-              {collab.remote?.exists && (
-                <Button size="small" onClick={loadFromCollab}
-                  title={collab.remote.mtime ? `Saved ${new Date(collab.remote.mtime).toLocaleString()}` : 'Open the draft saved in the Collab drive'}>
-                  Load from Collab
-                </Button>
+      {(() => {
+        const on = collab.enabled
+        const every = intervalLabel(collab.intervalSec)
+        const warn = (on && (collab.status === 'error' || !!collab.remote?.problem)) || collab.pending || (!on && dirty)
+        let icon = <InfoCircleOutlined style={{ color: '#1677ff' }} />
+        let text
+        if (on) {
+          if (collab.remote?.problem) { icon = <WarningFilled style={{ color: '#faad14' }} />; text = <>Could not check the Collab drive for an earlier draft yet ({collab.remote.problem}). Trying again; automatic saving waits until this works. You can click Download draft meanwhile.</> }
+          else if (collab.status === 'error') { icon = <WarningFilled style={{ color: '#cf1322' }} />; text = <span style={{ color: '#cf1322' }}>Not saved in the Collab drive: {collab.error} Your answers are still in this page; click Download draft to be safe.</span> }
+          else if (collab.pending) { icon = <WarningFilled style={{ color: '#faad14' }} />; text = <>Automatic saving is paused: a saved draft already exists in the Collab drive (see below).</> }
+          else if (collab.status === 'saving') { icon = <LoadingOutlined />; text = <>Saving in the Collab drive…</> }
+          else if (collab.unsaved) { icon = <LoadingOutlined />; text = <>Changes not saved yet. They will be saved automatically within {every}.</> }
+          else if (collab.savedAt) { icon = <CheckCircleFilled style={{ color: '#52c41a' }} />; text = <>All changes are saved in the Collab drive (last saved {collab.savedAt.toLocaleTimeString()}, with figures and tables).</> }
+          else text = <>Your answers are saved automatically in the Collab drive of this dataset, at most every {every}, once you make a change.</>
+        } else {
+          if (dirty) icon = <WarningFilled style={{ color: '#faad14' }} />
+          text = <><strong>Your answers are not stored on any server or in this browser.</strong>{' '}
+            {collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
+            {dirty ? 'You have changes that are not saved. Click Download draft before you close this page.'
+              : lastSavedAt ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.` : 'To continue later, click Download draft and keep the file.'}
+            {' '}Figures and tables are not part of the draft file.</>
+        }
+        return (
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '6px 16px', background: warn ? '#fffbe6' : '#f0f7ff',
+            border: `1px solid ${warn ? '#ffe58f' : '#bae0ff'}`, borderRadius: 6, margin: '8px 16px 4px', gap: 12,
+          }}>
+            <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
+              <span style={{ marginRight: 6 }}>{icon}</span>{text}
+              {on && !collab.remote?.problem && collab.status !== 'error' && !collab.pending && (
+                <span style={{ color: '#888' }}> Each save replaces the previous saved draft.</span>
               )}
-            </>
-          )}
-          <Button size="small" type={dirty ? 'primary' : 'default'} onClick={downloadJson}
-            title="Download everything you have entered, including the data descriptor, as a draft file">
-            Download draft
-          </Button>
-          <Upload accept=".json" showUploadList={false} beforeUpload={handleJsonUpload}>
-            <Button size="small" icon={<FileTextOutlined />}
-              title="Import a draft file you downloaded earlier (or received from a colleague)">
-              Import draft
-            </Button>
-          </Upload>
-        </div>
-      </div>
+            </span>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+              {collab.available && (
+                <>
+                  <span style={{ fontSize: 12, color: '#555' }}>
+                    <Switch size="small" checked={collab.enabled} loading={collab.status === 'saving' && !collab.savedAt}
+                      onChange={toggleCollab} /> Collab copy{' '}
+                    <Popover trigger="click" placement="bottomRight" title="Collab copy"
+                      content={
+                        <div style={{ maxWidth: 340, fontSize: 13 }}>
+                          <p style={{ margin: '0 0 8px' }}>Keeps a copy of your answers, figures and tables in the Collab drive of this dataset, so you can continue later, also on another computer.</p>
+                          <p style={{ margin: '0 0 8px' }}>While you make changes, the copy is saved automatically at most every
+                            {' '}<Select size="small" value={collab.intervalSec} onChange={collab.setIntervalSec} style={{ width: 135 }}
+                              options={INTERVAL_OPTIONS.map(v => ({ value: v, label: intervalLabel(v) }))} />.
+                            You can also use <b>Save now</b>.</p>
+                          <p style={{ margin: '0 0 8px' }}><b>Each save replaces the previous one</b>, so a change you made and later regret cannot be undone from the saved copy. Use <b>Download draft</b> to keep a version you want to return to.</p>
+                          <p style={{ margin: 0 }}>If you switch it off, nothing is saved anywhere and you must use Download draft before closing the page. The interval is forgotten when you close the page.</p>
+                        </div>}>
+                      <InfoCircleOutlined style={{ cursor: 'pointer', color: '#1677ff' }} title="About the Collab copy" />
+                    </Popover>
+                  </span>
+                  {on && collab.unsaved && (
+                    <Button size="small" onClick={collab.saveNow} title="Save the copy in the Collab drive now">Save now</Button>
+                  )}
+                  {collab.remote?.exists && (
+                    <Button size="small" onClick={loadFromCollab}
+                      title={collab.remote.mtime ? `Saved ${new Date(collab.remote.mtime).toLocaleString()}` : 'Open the draft saved in the Collab drive'}>
+                      Load from Collab
+                    </Button>
+                  )}
+                </>
+              )}
+              <Button size="small" type={!on && dirty ? 'primary' : 'default'} onClick={downloadJson}
+                title="Download everything you have entered, including the data descriptor, as a draft file">
+                Download draft
+              </Button>
+              <Upload accept=".json" showUploadList={false} beforeUpload={handleJsonUpload}>
+                <Button size="small" icon={<FileTextOutlined />}
+                  title="Import a draft file you downloaded earlier (or received from a colleague)">
+                  Import draft
+                </Button>
+              </Upload>
+            </div>
+          </div>
+        )
+      })()}
 
       {collab.pending && (
         <Alert type="warning" showIcon style={{ margin: '4px 16px' }}

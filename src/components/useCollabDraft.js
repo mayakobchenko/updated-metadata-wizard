@@ -8,7 +8,9 @@ import { getFigures, setFigures } from './figuresStore'
 // Runs with the person's own EBRAINS login on the server.
 // A draft that is already in the drive is never overwritten before the person has loaded it or chosen to start fresh.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DELAY_MS = 20 * 1000
+export const INTERVAL_OPTIONS = [30, 60, 120, 300]    // seconds between automatic saves
+export const DEFAULT_INTERVAL = 30
+export const intervalLabel = (sec) => (sec < 60 ? `${sec} seconds` : sec === 60 ? '1 minute' : `${sec / 60} minutes`)
 const STOP_CODES = ['NO_LIBRARY', 'NO_WRITE', 'NO_DRIVE_ACCESS', 'SESSION_EXPIRED', 'BAD_ID']
 
 async function api(path, options) {
@@ -34,9 +36,14 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
   const [savedAt, setSavedAt] = useState(null)
   const [remote, setRemote] = useState(null)          // null while looking; { exists, mtime }
   const [resolved, setResolved] = useState(false)     // the person decided what to do with an existing remote draft
+  const [intervalSec, setIntervalSec] = useState(DEFAULT_INTERVAL)
+  const [savedTick, setSavedTick] = useState(0)       // the edit counter that the last successful save covered
+  const timer = useRef(null)
+  const savedTickRef = useRef(0)
   const busy = useRef(false)
   const again = useRef(false)
   const tickRef = useRef(editTick); tickRef.current = editTick
+  const intervalRef = useRef(DEFAULT_INTERVAL)
   const getPayloadRef = useRef(getPayload); getPayloadRef.current = getPayload
   const onSavedRef = useRef(onSaved); onSavedRef.current = onSaved
   const resolvedRef = useRef(false); resolvedRef.current = resolved
@@ -112,6 +119,7 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
     if (!valid) return
     if (busy.current) { again.current = true; return }
     busy.current = true; setStatus('saving'); setError('')
+    clearTimeout(timer.current); timer.current = null      // a save is running, no extra one is planned
     const tickAtStart = tickRef.current
     try {
       // Before the first save: make sure no earlier draft is in the drive (the check at page load may have failed).
@@ -125,22 +133,30 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
       await syncFigures()
       setSavedAt(new Date(r.savedAt)); setStatus('saved'); setResolved(true)
       setRemote({ exists: true, mtime: r.savedAt })
+      savedTickRef.current = tickAtStart; setSavedTick(tickAtStart)
       if (tickRef.current === tickAtStart) onSavedRef.current?.()
     } catch (e) {
       setStatus('error'); setError(e.message)
       if (STOP_CODES.includes(e.code)) setEnabled(false)    // the person must act; the bar shows why
+      else timer.current = setTimeout(() => { timer.current = null; saveNow() }, Math.max(intervalRef.current, 30) * 1000)   // try again
     } finally {
       busy.current = false
       if (again.current) { again.current = false; saveNow() }
     }
   }, [datasetVersionId, valid, syncFigures, refreshRemote])
 
-  // some seconds after the last edit (never before the first edit, never while a remote draft is undecided)
+  // Saves at most once per interval: the first change after a save starts the clock, further changes do not postpone it.
+  // Never before the first edit, never while a remote draft is undecided.
+  intervalRef.current = intervalSec
   useEffect(() => {
-    if (!ready || editTick === 0) return undefined
-    const t = setTimeout(saveNow, DELAY_MS)
-    return () => clearTimeout(t)
-  }, [ready, editTick, saveNow])
+    if (!ready || editTick === 0 || editTick === savedTickRef.current) return
+    if (timer.current) return
+    timer.current = setTimeout(() => { timer.current = null; saveNow() }, intervalSec * 1000)
+  }, [ready, editTick, intervalSec, saveNow])
+  // a new interval, or the copy switched off: drop the planned save (the effect above plans a new one if needed)
+  useEffect(() => () => { clearTimeout(timer.current); timer.current = null }, [intervalSec, ready])
+
+  const unsaved = ready && editTick > 0 && editTick !== savedTick
 
   const enable = useCallback(() => { setEnabled(true); setNote(''); setResolved(true); saveNow() }, [saveNow])
   const disable = useCallback(() => { setEnabled(false); setStatus('idle'); setError('') }, [])
@@ -162,6 +178,6 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
     return out
   }, [datasetVersionId])
 
-  return { available: valid, enabled, pending, status, error, note, savedAt, remote, enable, disable, resolve, saveNow, load, loadFigures, refreshRemote }
+  return { available: valid, enabled, pending, unsaved, intervalSec, setIntervalSec, status, error, note, savedAt, remote, enable, disable, resolve, saveNow, load, loadFigures, refreshRemote }
 }
 export { setFigures }
