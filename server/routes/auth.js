@@ -133,6 +133,12 @@ router.get('/me', async (req, res) => {
   const user = token ? getSessionUser(req) : null
   res.json({ active: !!user, user })
 })
+// Log out of the wizard only (the EBRAINS login of the browser is left alone).
+router.post('/logout', (req, res) => {
+  destroyUserSession(req, res)
+  res.set('Cache-Control', 'no-store')
+  res.json({ ok: true })
+})
 router.get('/hello',     (req, res) => res.json({ message: 'Hello from auth route' }))
 
 // ── GET /loginurl ─────────────────────────────────────────────────────────────

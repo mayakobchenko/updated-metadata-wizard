@@ -604,7 +604,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
           {dirty ? '⚠️ ' : '💾 '}
           {collab.enabled
             ? <><strong>Saved automatically in the Collab drive of this dataset.</strong>{' '}
-                {collab.status === 'saving' ? 'Saving…'
+                {collab.remote?.problem ? <span style={{ color: '#ad6800' }}>Could not check the Collab drive for an earlier draft yet ({collab.remote.problem}). Trying again; automatic saving waits until this works. You can click Download draft meanwhile.</span>
+                  : collab.status === 'saving' ? 'Saving…'
                   : collab.status === 'error' ? <span style={{ color: '#cf1322' }}>Not saved: {collab.error} Your answers are still in this page; click Download draft to be safe.</span>
                   : dirty ? 'Changes will be saved in a few seconds.'
                   : collab.pending ? 'Paused: a saved draft already exists (see below).'

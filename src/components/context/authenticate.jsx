@@ -1,3 +1,4 @@
+const LOGGED_OUT_KEY = 'mw_logged_out'
 const USER_INFO_URL = import.meta.env.VITE_APP_USER_INFO_URL
 const userMap = {
     username: 'http://schema.org/alternateName',
@@ -45,6 +46,7 @@ nettskjema: async function nettskjema (nettskjemaId) {
 // silent === true: ask the EBRAINS login to answer without showing anything (works when the person is already logged in
 // to EBRAINS in this browser). Any other argument (for example the click event of a button) is a normal login.
 login: async function login (silent) {
+    if (silent !== true) { try { sessionStorage.removeItem(LOGGED_OUT_KEY) } catch { /* ignore */ } }
     const urlParams = new URLSearchParams(window.location.search)
     if (silent === true) urlParams.set('silent', '1')
     let url = 'api/auth/loginurl'  
@@ -67,15 +69,35 @@ me: async function me () {
     } catch { return null }
 },
 
+// "Log-out" logs the person out of the WIZARD (server session) and remembers it in this tab, so the wizard does not log
+// them straight in again. The EBRAINS login of the browser is not touched (other EBRAINS sites, such as the support
+// site, would then have to take part in the logout, and a problem there stops the page on an error).
 logout: async function logout() {
     try {
-        let url = 'api/auth/logouturl'    
-        const logoutResponse = await fetch(url)
+        try { sessionStorage.setItem(LOGGED_OUT_KEY, '1') } catch { /* ignore */ }
+        await fetch('api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
+        // back to the wizard page of the ticket, which now shows the login dialog
+        const ticket = new URLSearchParams(window.location.search).get('TicketNumber')
+        const first = (() => { try { return new URL(localStorage.getItem('wizard_link_ticket') || '').searchParams.get('TicketNumber') } catch { return null } })()
+        const t = ticket || first
+        window.location.href = window.location.pathname + (t ? `?TicketNumber=${encodeURIComponent(t)}` : '')
+    } catch (error) {console.error('Error occurred while logging out:', error.message)}
+},
+
+// Log out of EBRAINS as well (all EBRAINS sites in this browser), for example on a shared computer.
+logoutEbrains: async function logoutEbrains() {
+    try {
+        try { sessionStorage.setItem(LOGGED_OUT_KEY, '1') } catch { /* ignore */ }
+        const ticket = new URLSearchParams(window.location.search).get('TicketNumber')
+        const logoutResponse = await fetch('api/auth/logouturl' + (ticket ? `?TicketNumber=${encodeURIComponent(ticket)}` : ''))
         if (!logoutResponse.ok) {
             throw new Error(`Failed to logout. Status: ${logoutResponse.status}`)}
         window.location.href = await logoutResponse.text()
     } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
+
+wasLoggedOut: () => { try { return sessionStorage.getItem(LOGGED_OUT_KEY) === '1' } catch { return false } },
+clearLoggedOut: () => { try { sessionStorage.removeItem(LOGGED_OUT_KEY) } catch { /* ignore */ } },
 
 getToken: async function getToken(opts = {}) {
     const { signal } = opts

@@ -43,7 +43,7 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
   const files = useRef(new Set())                     // picture files known to be in the drive folder
 
   const pending = valid && enabled && !!remote?.exists && !resolved
-  const ready = valid && enabled && remote !== null && !pending
+  const ready = valid && enabled && remote !== null && !remote.problem && !pending
 
   const refreshRemote = useCallback(async () => {
     if (!valid) return null
@@ -61,13 +61,23 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
       } catch { /* no figures yet */ }
       return info
     } catch (e) {
-      setRemote({ exists: false, problem: e.message })
-      if (STOP_CODES.includes(e.code)) { setEnabled(false); setNote(e.message) }
+      if (STOP_CODES.includes(e.code)) { setRemote({ exists: false }); setEnabled(false); setNote(e.message) }
+      else setRemote({ exists: false, problem: e.message })      // temporary: tried again below
       return null
     }
   }, [datasetVersionId, valid])
 
   useEffect(() => { refreshRemote() }, [refreshRemote])
+
+  // The check for an earlier draft failed for a temporary reason: say so and try again a few times.
+  const retries = useRef(0)
+  useEffect(() => {
+    if (!remote?.problem) { if (remote) retries.current = 0; return undefined }
+    const delays = [3000, 8000, 20000, 60000]
+    if (retries.current >= delays.length) return undefined
+    const t = setTimeout(() => { retries.current += 1; refreshRemote() }, delays[retries.current])
+    return () => clearTimeout(t)
+  }, [remote, refreshRemote])
 
   const syncFigures = useCallback(async () => {
     const items = getFigures()
