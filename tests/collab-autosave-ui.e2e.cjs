@@ -21,8 +21,8 @@ const json = (o) => ({ status: 200, contentType: 'application/json', body: JSON.
   await page.goto(base + '/?TicketNumber=4826029'); await page.clock.runFor(1500)
   const bar = () => page.locator('div', { hasText: /Collab copy/ }).last().innerText().catch(() => '')
   let t = await page.locator('body').innerText()
-  ok('start: states the interval, no warning wording', /at most every 30 seconds/.test(t) && !/few seconds/.test(t))
-  ok('start: says each save replaces the previous one', /Each save replaces the previous saved draft/.test(t))
+  ok('start: short text, no interval sentence, no warning wording', /saved automatically in the Collab drive of this dataset\./.test(t) && !/at most every/.test(t) && !/Each save replaces/.test(t) && !/few seconds/.test(t))
+  ok('interval selector visible next to the switch', await page.locator('.ant-select').filter({ hasText: '30 seconds' }).count() > 0)
   // type into the first text field of the Introduction step
   const field = page.locator('input.ant-input[type="text"]').first()
   await field.click(); await field.type('hello', { delay: 20 }); await page.clock.runFor(300)
@@ -44,7 +44,8 @@ const json = (o) => ({ status: 200, contentType: 'application/json', body: JSON.
   // change interval to 5 minutes
   await page.locator('.anticon-info-circle[title="About the Collab copy"]').click()
   ok('popover explains that a save cannot be undone', await page.getByText(/cannot be undone from the saved copy/).count() > 0)
-  await page.locator('.ant-popover .ant-select').click(); await page.getByText('5 minutes', { exact: true }).last().click()
+  await page.keyboard.press('Escape')
+  await page.locator('.ant-select').filter({ hasText: '30 seconds' }).first().click(); await page.getByText('5 minutes', { exact: true }).last().click()
   await field.click(); await field.type('d', { delay: 10 }); await page.clock.runFor(120000); await page.waitForTimeout(300)
   ok('with 5 minutes nothing is saved after 2 minutes', saves === 3, 'saves=' + saves)
   await page.clock.runFor(190000); await page.waitForTimeout(400); await page.clock.runFor(100)

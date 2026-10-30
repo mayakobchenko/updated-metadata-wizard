@@ -607,7 +607,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
           else if (collab.status === 'saving') { icon = <LoadingOutlined />; text = <>Saving in the Collab drive…</> }
           else if (collab.unsaved) { icon = <LoadingOutlined />; text = <>Changes not saved yet. They will be saved automatically within {every}.</> }
           else if (collab.savedAt) { icon = <CheckCircleFilled style={{ color: '#52c41a' }} />; text = <>All changes are saved in the Collab drive (last saved {collab.savedAt.toLocaleTimeString()}, with figures and tables).</> }
-          else text = <>Your answers are saved automatically in the Collab drive of this dataset, at most every {every}, once you make a change.</>
+          else text = <>Your answers are saved automatically in the Collab drive of this dataset.</>
         } else {
           if (dirty) icon = <WarningFilled style={{ color: '#faad14' }} />
           text = <><strong>Your answers are not stored on any server or in this browser.</strong>{' '}
@@ -624,9 +624,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
           }}>
             <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
               <span style={{ marginRight: 6 }}>{icon}</span>{text}
-              {on && !collab.remote?.problem && collab.status !== 'error' && !collab.pending && (
-                <span style={{ color: '#888' }}> Each save replaces the previous saved draft.</span>
-              )}
             </span>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
               {collab.available && (
@@ -634,14 +631,19 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
                   <span style={{ fontSize: 12, color: '#555' }}>
                     <Switch size="small" checked={collab.enabled} loading={collab.status === 'saving' && !collab.savedAt}
                       onChange={toggleCollab} /> Collab copy{' '}
+                    {on && (
+                      <>
+                        <span style={{ color: '#888' }}>save every</span>{' '}
+                        <Select size="small" value={collab.intervalSec} onChange={collab.setIntervalSec} style={{ width: 120 }}
+                          title="How often changes are saved automatically in the Collab drive"
+                          options={INTERVAL_OPTIONS.map(v => ({ value: v, label: intervalLabel(v) }))} />{' '}
+                      </>
+                    )}
                     <Popover trigger="click" placement="bottomRight" title="Collab copy"
                       content={
                         <div style={{ maxWidth: 340, fontSize: 13 }}>
                           <p style={{ margin: '0 0 8px' }}>Keeps a copy of your answers, figures and tables in the Collab drive of this dataset, so you can continue later, also on another computer.</p>
-                          <p style={{ margin: '0 0 8px' }}>While you make changes, the copy is saved automatically at most every
-                            {' '}<Select size="small" value={collab.intervalSec} onChange={collab.setIntervalSec} style={{ width: 135 }}
-                              options={INTERVAL_OPTIONS.map(v => ({ value: v, label: intervalLabel(v) }))} />.
-                            You can also use <b>Save now</b>.</p>
+                          <p style={{ margin: '0 0 8px' }}>While you make changes, the copy is saved automatically at most as often as the interval you choose next to the switch. You can also use <b>Save now</b>.</p>
                           <p style={{ margin: '0 0 8px' }}><b>Each save replaces the previous one</b>, so a change you made and later regret cannot be undone from the saved copy. Use <b>Download draft</b> to keep a version you want to return to.</p>
                           <p style={{ margin: 0 }}>If you switch it off, nothing is saved anywhere and you must use Download draft before closing the page. The interval is forgotten when you close the page.</p>
                         </div>}>
