@@ -8,7 +8,7 @@ import authRoutes from './routes/auth.js'
 import KGinfoRoutes from './routes/infoKG.js'
 import KGinfoSubjects from './routes/infoSubjects.js'
 import zammadInfo from './routes/getTicketNettskjemaInfo.js'
-import fetchDataFromKg from './KG_utils/fetchDataFromKG.js'
+import fetchDataFromKg, { waitForKgData, isKgDataReady } from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
 import collabDraft from './routes/collabDraft.js'
@@ -55,6 +55,17 @@ setInterval(() => {
   //resetFundingInProgressFlag()  // ← allow re-fetch next login
   fetchDataFromKg()
 }, 86400000)
+
+// Right after a restart the KG reference files are still being written: wait for them (at most KG_WAIT_MS)
+// instead of answering with empty lists or errors.
+let announcedWaiting = false
+app.use(['/api/kginfo/', '/api/subjects/'], async (req, res, next) => {
+    if (isKgDataReady()) return next()
+    if (!announcedWaiting) { announcedWaiting = true; logger.info('Reference data from the KG is still loading after the start; requests wait for it (up to KG_WAIT_MS).') }
+    const result = await waitForKgData()
+    if (result === 'timeout') logger.warn(`Reference data not ready yet, answering ${req.path} anyway`)
+    next()
+})
 
 app.use('/api/', formRoutes)
 app.use('/api/auth/', authRoutes)

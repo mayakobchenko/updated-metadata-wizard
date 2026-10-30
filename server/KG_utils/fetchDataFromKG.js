@@ -29,6 +29,21 @@ const configInProgress = [
   },
 ]
 
+// The reference data (people, organisations, terms, licences ...) is written to files after the server has started.
+// Requests that need those files wait for the FIRST run, but never longer than KG_WAIT_MS, so the wizard never hangs.
+let markReady
+const firstRunDone = new Promise((resolve) => { markReady = resolve })
+let ready = false
+export const isKgDataReady = () => ready
+export async function waitForKgData(maxMs = parseInt(process.env.KG_WAIT_MS || '45000', 10)) {
+  if (ready) return 'ready'
+  let timer
+  const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve('timeout'), maxMs) })
+  const result = await Promise.race([firstRunDone.then(() => 'ready'), timeout])
+  clearTimeout(timer)
+  return result
+}
+
 export default async function fetchDataFromKg() {
   try {
     logger.info('fetchDataFromKg: starting…')
@@ -41,6 +56,9 @@ export default async function fetchDataFromKg() {
     logger.info('fetchDataFromKg: complete')
   } catch (error) {
     console.error('fetchDataFromKg error:', error.message)
+  } finally {
+    ready = true        // after a failed first run the wizard works with what is on disk instead of waiting again
+    markReady()
   }
 }
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Button, Modal, Select, Input, Typography } from 'antd'
+import { Button, Modal, Select, Input, Typography, Alert } from 'antd'
 import { KeyOutlined } from '@ant-design/icons'
-import { PROVIDERS, useAiSettings, setAiSettings } from './aiClient'
+import { PROVIDERS, useAiSettings, setAiSettings, testAiSettings } from './aiClient'
 
 const { Text } = Typography
 
@@ -14,6 +14,13 @@ export default function AiKeyButton() {
   const [model, setModel] = useState(settings?.model || '')
   const [key, setKey] = useState(settings?.key || '')
   const [baseUrl, setBaseUrl] = useState(settings?.baseUrl || '')
+  const [test, setTest] = useState(null)   // null | { loading } | { ok } | { error }
+
+  const runTest = async () => {
+    setTest({ loading: true })
+    try { await testAiSettings({ provider, model: model.trim(), key: key.trim(), baseUrl: baseUrl.trim() }); setTest({ ok: true }) }
+    catch (e) { setTest({ error: e.message }) }
+  }
 
   const save = () => {
     setAiSettings(key.trim() ? { provider, model: model.trim(), key: key.trim(), baseUrl: baseUrl.trim() } : null)
@@ -31,6 +38,7 @@ export default function AiKeyButton() {
         footer={(_, { OkBtn, CancelBtn }) => (
           <>
             {settings?.key && <Button danger onClick={remove}>Remove key</Button>}
+            <Button onClick={runTest} loading={!!test?.loading} disabled={!key.trim()}>Test connection</Button>
             <CancelBtn /><OkBtn />
           </>
         )}>
@@ -50,7 +58,10 @@ export default function AiKeyButton() {
         <Input.Password value={key} onChange={e => setKey(e.target.value)} style={{ marginBottom: 10 }}
           placeholder={`API key (${PROVIDERS[provider].keyHint})`} autoComplete="off" />
         <Input value={model} onChange={e => setModel(e.target.value)}
+          onInput={() => setTest(null)}
           placeholder={PROVIDERS[provider].model ? `Model (default: ${PROVIDERS[provider].model})` : 'Model name (required for this provider)'} />
+        {test?.ok && <Alert type="success" showIcon style={{ marginTop: 10 }} message="The provider accepted the key and answered." />}
+        {test?.error && <Alert type="error" showIcon style={{ marginTop: 10 }} message="The test did not work" description={test.error} />}
         {PROVIDERS[provider].compatible && (
           <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
             Works with any provider that offers an OpenAI-compatible API (for example Mistral, Groq, Together, OpenRouter or a model run by your institution).
