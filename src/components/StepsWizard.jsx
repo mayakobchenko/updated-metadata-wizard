@@ -120,6 +120,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const [importModalVisible, setImportModalVisible]     = useState(false)
   const [importPreview, setImportPreview]               = useState(null)
   const [importError, setImportError]                   = useState('')
+  const [applyingImport, setApplyingImport]             = useState(false)
   const [importFileName, setImportFileName]             = useState('')
   // Unsaved-changes tracking: the form lives only in memory, so the user must download a draft to keep it.
   const [lastSavedAt, setLastSavedAt]                   = useState(null)
@@ -211,15 +212,26 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   }
 
   const applyImportedJson = async () => {
-    if (!importPreview) return
+    if (!importPreview || applyingImport) return
+    setApplyingImport(true)
+    try {
     // The exported JSON holds KG URLs for "type of data" and free-form values for
     // the data standards; map them back to what the form widgets understand.
-    let dataTypes = []
+    // Right after a deployment the server may still be loading its reference data; wait for it (bounded)
+    // instead of silently importing without the data-type mapping.
+    let dataTypes = null
     try {
-      const res = await fetch('api/kginfo/datatypes')
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 60000)
+      const res = await fetch('api/kginfo/datatypes', { signal: ctrl.signal })
+      clearTimeout(timer)
       if (res.ok) dataTypes = (await res.json()).dataTypes || []
     } catch (e) {
       console.warn('Could not load KG data types for import:', e.message)
+    }
+    if (dataTypes === null) {
+      setImportError('The reference data from the server is not available yet (the wizard may have just been updated). Please wait a moment and click "Apply to form" again.')
+      return
     }
     const normalized = normalizeImportedJson(importPreview, dataTypes)
     const merged = deepMerge(formDataRef.current, normalized)
@@ -232,6 +244,10 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     setImportModalVisible(false)
     setImportPreview(null)
     setImportFileName('')
+    setImportError('')
+    } finally {
+      setApplyingImport(false)
+    }
   }
 
   const handleImportCancel = () => {
@@ -700,8 +716,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         footer={[
           <Button key="cancel" onClick={handleImportCancel}>Cancel</Button>,
           importPreview && (
-            <Button key="apply" type="primary" onClick={applyImportedJson}>
-              Apply to form
+            <Button key="apply" type="primary" loading={applyingImport} onClick={applyImportedJson}>
+              {applyingImport ? 'Applying…' : 'Apply to form'}
             </Button>
           )
         ].filter(Boolean)}

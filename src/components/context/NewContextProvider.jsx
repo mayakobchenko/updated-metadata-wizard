@@ -138,9 +138,10 @@ export default function NewContextProvider({ children }) {
               //    Once per minute at most, so a problem can never turn into a redirect loop.
               const earlier = readSilent()
               if (!earlier || Date.now() - earlier.t > 60000) {
-                  writeSilent(ticketInUrl)
-                  await authFunctions.login(true)
-                  return false
+                  // the marker is set only when the redirect really starts, so a failed request (for example while
+                  // the server restarts after a deployment) does not use up the one silent attempt
+                  const redirected = await authFunctions.login(true, () => writeSilent(ticketInUrl))
+                  if (redirected !== false) return false
               }
               // 3. otherwise the person has to log in: show the dialog
               if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" })

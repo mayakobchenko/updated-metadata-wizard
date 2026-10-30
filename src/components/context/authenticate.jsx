@@ -45,7 +45,7 @@ nettskjema: async function nettskjema (nettskjemaId) {
 
 // silent === true: ask the EBRAINS login to answer without showing anything (works when the person is already logged in
 // to EBRAINS in this browser). Any other argument (for example the click event of a button) is a normal login.
-login: async function login (silent) {
+login: async function login (silent, beforeRedirect) {
     if (silent !== true) { try { sessionStorage.removeItem(LOGGED_OUT_KEY) } catch { /* ignore */ } }
     const urlParams = new URLSearchParams(window.location.search)
     if (silent === true) urlParams.set('silent', '1')
@@ -55,8 +55,11 @@ login: async function login (silent) {
         const urlResponse = await fetch(url)
         if (!urlResponse.ok) {
             throw new Error(`Failed to fetch IAM link from backend: ${urlResponse.status}`)}
-        window.location.href = await urlResponse.text()
+        const target = await urlResponse.text()
+        if (typeof beforeRedirect === 'function') beforeRedirect()
+        window.location.href = target
     } catch (error) {
+        if (silent === true) return false     // silent attempt failed (for example the server is restarting): caller shows the dialog
         throw new Error ('Error occurred while logging in:', error.message)}
 },
 

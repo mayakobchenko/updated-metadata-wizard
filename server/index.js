@@ -8,7 +8,7 @@ import authRoutes from './routes/auth.js'
 import KGinfoRoutes from './routes/infoKG.js'
 import KGinfoSubjects from './routes/infoSubjects.js'
 import zammadInfo from './routes/getTicketNettskjemaInfo.js'
-import fetchDataFromKg, { waitForKgData, isKgDataReady } from './KG_utils/fetchDataFromKG.js'
+import fetchDataFromKg, { waitForKgData, waitForFiles, isKgDataReady } from './KG_utils/fetchDataFromKG.js'
 import runpython from './routes/pythonKGupload.js'
 import driveupload from './routes/driveUpload.js'
 import collabDraft from './routes/collabDraft.js'
@@ -59,10 +59,31 @@ setInterval(() => {
 // Right after a restart the KG reference files are still being written: wait for them (at most KG_WAIT_MS)
 // instead of answering with empty lists or errors.
 let announcedWaiting = false
+const CT = 'controlledTerms/', KI = 'kg-instances/'
+const KG_FILES = {
+  '/kginfo/datatypes': [CT + 'SemanticDataType.json'],
+  '/kginfo/contributorsfile': [KI + 'Person.json'],
+  '/kginfo/typecontribution': [CT + 'ContributionType.json'],
+  '/kginfo/experimentalapproaches': [CT + 'ExperimentalApproach.json'],
+  '/kginfo/preparationtypes': [CT + 'PreparationType.json'],
+  '/kginfo/techniques': ['techniques/techniques.json'],
+  '/kginfo/studytargets': ['studyTargets/studyTargets.json'],
+  '/kginfo/license': [KI + 'Licenses.json'],
+  '/kginfo/organisations': [KI + 'Organization.json'],
+  '/kginfo/consortium': [KI + 'Consortium.json'],
+  '/subjects/sex': [CT + 'BiologicalSex.json'],
+  '/subjects/agecategory': [CT + 'AgeCategory.json'],
+  '/subjects/handedness': [CT + 'Handedness.json'],
+  '/subjects/species': [CT + 'Species.json'],
+  '/subjects/strain': [CT + 'Strain.json'],
+  '/subjects/disease': [CT + 'Disease.json'],
+}
 app.use(['/api/kginfo/', '/api/subjects/'], async (req, res, next) => {
     if (isKgDataReady()) return next()
-    if (!announcedWaiting) { announcedWaiting = true; logger.info('Reference data from the KG is still loading after the start; requests wait for it (up to KG_WAIT_MS).') }
-    const result = await waitForKgData()
+    if (!announcedWaiting) { announcedWaiting = true; logger.info('Reference data from the KG is still loading after the start; requests wait for the files they need (up to KG_WAIT_MS).') }
+    const files = KG_FILES[req.baseUrl.replace(/^\/api/, '').replace(/\/$/, '') + req.path.replace(/\/$/, '')]
+    // known route: wait only for its own files; other routes wait for the whole first run
+    const result = files ? await waitForFiles(files) : await waitForKgData()
     if (result === 'timeout') logger.warn(`Reference data not ready yet, answering ${req.path} anyway`)
     next()
 })

@@ -6,6 +6,9 @@ import fetchTechniques from './fetchTechniques.js'
 import fetchFunders from './fetchFunders.js'
 import { getRequestOptions } from './kgAuthentication.js'
 import logger from '../logger.js'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { readFile } from 'fs/promises'
 
 const configReleased = [
   { openMindsType: "ORCID",        typeProperties: ["identifier"] },
@@ -42,6 +45,23 @@ export async function waitForKgData(maxMs = parseInt(process.env.KG_WAIT_MS || '
   const result = await Promise.race([firstRunDone.then(() => 'ready'), timeout])
   clearTimeout(timer)
   return result
+}
+
+// Wait only for the files a request needs (they usually appear within seconds of the start, long before the whole
+// first run is finished). A file counts once it can be read and parsed. Resolves 'ready' or 'timeout'.
+const DATA_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '../data')
+export async function waitForFiles(files, maxMs = parseInt(process.env.KG_WAIT_MS || '45000', 10)) {
+  const present = async (f) => {
+    try { JSON.parse(await readFile(path.join(DATA_DIR, f), 'utf-8')); return true } catch { return false }
+  }
+  const t0 = Date.now()
+  for (;;) {
+    if (ready) return 'ready'
+    const ok = await Promise.all(files.map(present))
+    if (ok.every(Boolean)) return 'ready'
+    if (Date.now() - t0 >= maxMs) return 'timeout'
+    await new Promise((r) => setTimeout(r, 250))
+  }
 }
 
 export default async function fetchDataFromKg() {
