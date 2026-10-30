@@ -6,7 +6,7 @@
 import express from 'express'
 import logger from '../logger.js'
 import { getUserAccessToken } from './userSessions.js'
-import { saveDraft, draftInfo, loadDraft, putFile, getFileBuffer, deleteFile, FILES_DIR, DriveError } from '../KG_utils/driveDraft.js'
+import { saveDraft, draftInfo, loadDraft, putFile, getFileBuffer, deleteFile, describeToken, FILES_DIR, DriveError } from '../KG_utils/driveDraft.js'
 
 const router = express.Router()
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -18,7 +18,20 @@ async function guard(req, res, id, fn) {
   if (!token) return res.status(401).json({ code: 'SESSION_EXPIRED', error: 'Your EBRAINS login has ended. Please log in again (in a new browser tab if you want to keep this page).' })
   res.set('Cache-Control', 'no-store')
   try {
-    return res.json(await fn(token, String(id).toLowerCase()))
+    const dv = String(id).toLowerCase()
+    try {
+      return res.json(await fn(token, dv))
+    } catch (e) {
+      // The Drive sometimes refuses the token of a login that is only seconds old, but accepts a renewed one.
+      if (!(e instanceof DriveError) || e.code !== 'DRIVE_TOKEN_ERROR') throw e
+      logger.warn(`collab draft: ${e.message} Token: ${describeToken(token)}. Trying once more with a renewed token.`)
+      let renewed = null
+      try { renewed = await getUserAccessToken(req, { force: true }) } catch { /* below */ }
+      if (!renewed || renewed === token) throw e
+      const result = await fn(renewed, dv)
+      logger.info('collab draft: worked with the renewed token')
+      return res.json(result)
+    }
   } catch (e) {
     if (e instanceof DriveError) {
       logger.warn(`collab draft ${e.code} for d-${id}: ${e.message}`)

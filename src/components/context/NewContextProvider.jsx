@@ -228,12 +228,7 @@ export default function NewContextProvider({ children }) {
             <Dialog open>
                 <DialogTitle>Welcome to the EBRAINS Metadata Wizard</DialogTitle>
                 <DialogContent>
-                  <Typography>{authFunctions.wasLoggedOut() ? 'You have logged out of the wizard. Log in again to continue.' : 'Please login with your EBRAINS account to continue.'}</Typography>
-                  {authFunctions.wasLoggedOut() && (
-                    <Typography variant="body2" style={{ marginTop: 12, color: '#666' }}>
-                      Using a shared computer? <a href="#" onClick={(e) => { e.preventDefault(); authFunctions.logoutEbrains() }}>Log out of EBRAINS as well</a> (this also logs you out of other EBRAINS sites in this browser; if one of them shows an error during this, you are still logged out of the wizard).
-                    </Typography>
-                  )}
+                  <Typography>Please login with your EBRAINS account to continue.</Typography>
                 </DialogContent>
                 <DialogActions>
                   <Button variant="contained" onClick={() => authFunctions.login()}>Login</Button>

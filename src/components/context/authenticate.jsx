@@ -84,18 +84,6 @@ logout: async function logout() {
     } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
 
-// Log out of EBRAINS as well (all EBRAINS sites in this browser), for example on a shared computer.
-logoutEbrains: async function logoutEbrains() {
-    try {
-        try { sessionStorage.setItem(LOGGED_OUT_KEY, '1') } catch { /* ignore */ }
-        const ticket = new URLSearchParams(window.location.search).get('TicketNumber')
-        const logoutResponse = await fetch('api/auth/logouturl' + (ticket ? `?TicketNumber=${encodeURIComponent(ticket)}` : ''))
-        if (!logoutResponse.ok) {
-            throw new Error(`Failed to logout. Status: ${logoutResponse.status}`)}
-        window.location.href = await logoutResponse.text()
-    } catch (error) {console.error('Error occurred while logging out:', error.message)}
-},
-
 wasLoggedOut: () => { try { return sessionStorage.getItem(LOGGED_OUT_KEY) === '1' } catch { return false } },
 clearLoggedOut: () => { try { sessionStorage.removeItem(LOGGED_OUT_KEY) } catch { /* ignore */ } },
 

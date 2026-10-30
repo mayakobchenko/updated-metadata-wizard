@@ -28,10 +28,9 @@ const DSV = '724d4af0-fe28-4032-8837-120b0d64a81c'
   calls = []
   await page.getByRole('button', { name: /Log-out/ }).click(); await page.waitForTimeout(1500)
   ok('logout called POST /api/auth/logout, no IAM redirect', calls.includes('POST /api/auth/logout') && !calls.some(c => c.includes('loginurl')), JSON.stringify(calls.filter(c => c.includes('auth'))))
-  ok('logged-out dialog shown', await page.getByText('You have logged out of the wizard').count() > 0)
+  ok('login dialog shown with the usual message', await page.getByText('Please login with your EBRAINS account to continue.').count() > 0)
   ok('ticket kept in URL', page.url().includes('TicketNumber=4826029'), page.url())
   ok('no automatic login after logout (no loginurl call)', !calls.some(c => c.includes('loginurl')))
-  ok('EBRAINS full logout offered', await page.getByText('Log out of EBRAINS as well').count() > 0)
   calls = []
   await page.getByRole('button', { name: 'Login' }).first().click(); await page.waitForTimeout(800)
   ok('Login click goes to the login (not silent)', calls.some(c => c.includes('loginurl')) && !calls.some(c => c.includes('silent=1')), JSON.stringify(calls))

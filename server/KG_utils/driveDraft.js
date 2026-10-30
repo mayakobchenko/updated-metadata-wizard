@@ -37,7 +37,11 @@ export async function getDriveToken(ebrainsToken, { fresh = false } = {}) {
   if (res.status === 401 || res.status === 403) {
     throw new DriveError('NO_DRIVE_ACCESS', 'Your EBRAINS login does not give access to the Collab drive. Please log out and log in again.', 403)
   }
-  if (!res.ok) throw new DriveError('DRIVE_ERROR', `The Collab drive answered ${res.status} when asked for access.`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    const snippet = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+    throw new DriveError('DRIVE_TOKEN_ERROR', `The Collab drive answered ${res.status} when asked for access${snippet ? ` (${snippet})` : ''}.`)
+  }
   const token = (await res.text()).trim().replace(/^"(.*)"$/, '$1')
   if (!token) throw new DriveError('NO_DRIVE_ACCESS', 'The Collab drive did not give an access token.', 403)
   driveTokens.set(key, { token, exp: Date.now() + DRIVE_TOKEN_TTL_MS })
@@ -67,6 +71,14 @@ export async function findLibrary(driveToken, name) {
   }
   libCache.set(ck, { lib, exp: Date.now() + DRIVE_TOKEN_TTL_MS })
   return lib
+}
+
+// What the EBRAINS token says about itself (scope, audience, age) for the log. The token itself is never logged.
+export function describeToken(jwt) {
+  try {
+    const p = JSON.parse(Buffer.from(String(jwt).split('.')[1], 'base64url').toString('utf8'))
+    return `scope="${p.scope || ''}" aud=${JSON.stringify(p.aud || '')} azp=${p.azp || ''} issued ${p.iat ? Math.round(Date.now() / 1000 - p.iat) : '?'}s ago`
+  } catch { return 'token not readable' }
 }
 
 const quoted = (t) => String(t).trim().replace(/^"(.*)"$/, '$1')
