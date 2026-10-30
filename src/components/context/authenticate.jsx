@@ -42,8 +42,11 @@ nettskjema: async function nettskjema (nettskjemaId) {
     }
 },
 
-login: async function login () {
+// silent === true: ask the EBRAINS login to answer without showing anything (works when the person is already logged in
+// to EBRAINS in this browser). Any other argument (for example the click event of a button) is a normal login.
+login: async function login (silent) {
     const urlParams = new URLSearchParams(window.location.search)
+    if (silent === true) urlParams.set('silent', '1')
     let url = 'api/auth/loginurl'  
     url += '?' + urlParams.toString()
     try {
@@ -53,6 +56,15 @@ login: async function login () {
         window.location.href = await urlResponse.text()
     } catch (error) {
         throw new Error ('Error occurred while logging in:', error.message)}
+},
+
+// Is this browser already logged in to the wizard (server session)? Then no trip to the EBRAINS login is needed.
+me: async function me () {
+    try {
+        const r = await fetch('api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+        if (!r.ok) return null
+        return await r.json()
+    } catch { return null }
 },
 
 logout: async function logout() {

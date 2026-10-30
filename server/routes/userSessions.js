@@ -34,6 +34,25 @@ export function createUserSession(req, res, { access_token, expires_in, refresh_
   const secure = req.secure || req.headers['x-forwarded-proto'] === 'https'
   res.append('Set-Cookie',
     `${COOKIE}=${sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE_MS / 1000}${secure ? '; Secure' : ''}`)
+  return sid
+}
+
+// who is logged in (name, e-mail, username): lets a reloaded page continue without going to the EBRAINS login again
+export function setSessionUser(sid, user) {
+  const s = sid && sessions.get(sid)
+  if (s) s.user = user
+}
+export function getSessionUser(req) {
+  const sid = readCookie(req, COOKIE)
+  const s = sid && sessions.get(sid)
+  return s && s.sessionExp >= Date.now() ? (s.user || null) : null
+}
+// log-out: forget the session on the server and in the browser
+export function destroyUserSession(req, res) {
+  const sid = readCookie(req, COOKIE)
+  if (sid) sessions.delete(sid)
+  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https'
+  res.append('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`)
 }
 
 // Returns a valid access token for the logged-in user, or null.

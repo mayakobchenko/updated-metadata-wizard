@@ -16,6 +16,11 @@ const initialState = {
 export const AuthContext = createContext(initialState)
 export const AuthDispatch = createContext(null)
 const WIZARD_LINK = 'wizard_link_ticket'
+// remembers (in this tab only) that a silent login check was started, and for which ticket
+const SILENT_KEY = 'mw_silent_login'
+const readSilent = () => { try { return JSON.parse(sessionStorage.getItem(SILENT_KEY) || 'null') } catch { return null } }
+const writeSilent = (ticket) => { try { sessionStorage.setItem(SILENT_KEY, JSON.stringify({ t: Date.now(), ticket: ticket || '' })) } catch { /* ignore */ } }
+const clearSilent = () => { try { sessionStorage.removeItem(SILENT_KEY) } catch { /* ignore */ } }
 
 export default function NewContextProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState)
@@ -60,9 +65,23 @@ export default function NewContextProvider({ children }) {
           const hasError = url.searchParams.has("error")
           //console.log('hasCode:', hasCode, 'hasError:', hasError)
           if (hasError) {
-              console.log("Auth redirect had error:", url.searchParams.get("error"))
-              removeUrlParams(["error"])
-              setTimeout(() => { if (mountedRef.current) { dispatch({ type: "SHOW_LOGIN_DIALOG" }) } }, 3000)
+              const why = url.searchParams.get("error")
+              console.log("Auth redirect had error:", why)
+              // The silent check answered "not logged in to EBRAINS": put the ticket number back (the answer does not
+              // carry it) and show the normal login dialog at once.
+              const silentTry = readSilent()
+              const quiet = ['login_required', 'interaction_required', 'consent_required'].includes(why)
+              if (silentTry?.ticket && !url.searchParams.get("TicketNumber")) {
+                  const u = new URL(window.location.origin + window.location.pathname)
+                  u.searchParams.set("TicketNumber", silentTry.ticket)
+                  window.history.replaceState({}, document.title, u.toString())
+              } else {
+                  removeUrlParams(["error", "error_description", "state", "iss", "session_state"])
+              }
+              if (mountedRef.current) {
+                  if (quiet) dispatch({ type: "SHOW_LOGIN_DIALOG" })
+                  else setTimeout(() => { if (mountedRef.current) { dispatch({ type: "SHOW_LOGIN_DIALOG" }) } }, 3000)
+              }
               return false
           }
           if (hasCode && !hasAuthenticatedRef.current) {
@@ -73,6 +92,7 @@ export default function NewContextProvider({ children }) {
             //console.log('body:', body)
             if (!mountedRef.current) return false
             removeUrlParams(["code", "iss", "session_state"])
+            clearSilent()
             //const trimmed = user.replace(/^'|'\s*$/g, '')
             //const json_user = JSON.parse(trimmed)
             //console.log('fetched user info', json_user)
@@ -96,8 +116,28 @@ export default function NewContextProvider({ children }) {
             return true
           }
           if (!hasAuthenticatedRef.current) {
-                setTimeout(() => {if (mountedRef.current) {dispatch({ type: "SHOW_LOGIN_DIALOG" })}
-                }, 3000)
+              const ticketInUrl = url.searchParams.get("TicketNumber")
+              // 1. already logged in to the wizard (server session)? Then simply continue, no trip to EBRAINS.
+              const me = await authFunctions.me()
+              if (!mountedRef.current) return false
+              if (me?.active && me.user) {
+                  dispatch({ type: "SET_USER", text: me.user })
+                  hasAuthenticatedRef.current = true
+                  hasTicket.current = ticketInUrl
+                  if (ticketInUrl) dispatch({ type: "SET_TICKET", text: ticketInUrl })
+                  console.log('Continued with the existing login.')
+                  return true
+              }
+              // 2. logged in to EBRAINS in this browser? Ask the EBRAINS login silently; it answers without showing anything.
+              //    Once per minute at most, so a problem can never turn into a redirect loop.
+              const earlier = readSilent()
+              if (!earlier || Date.now() - earlier.t > 60000) {
+                  writeSilent(ticketInUrl)
+                  await authFunctions.login(true)
+                  return false
+              }
+              // 3. otherwise the person has to log in: show the dialog
+              if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" })
               return false
           }
         return false        

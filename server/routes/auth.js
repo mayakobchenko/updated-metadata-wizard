@@ -2,7 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import crypto from 'crypto'
 import tokenFunctions from './tokenManager.js'
-import { createUserSession, getUserAccessToken } from './userSessions.js'
+import { createUserSession, getUserAccessToken, setSessionUser, getSessionUser, destroyUserSession } from './userSessions.js'
 import logger from '../logger.js'
 dotenv.config()
 
@@ -125,6 +125,14 @@ router.get('/keepalive', async (req, res) => {
   try { token = await getUserAccessToken(req, { force: true }) } catch { /* treated as not logged in */ }
   res.json({ active: !!token })
 })
+// Is this browser already logged in to the wizard (server session)? Then a reloaded page needs no trip to the EBRAINS login.
+router.get('/me', async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  let token = null
+  try { token = await getUserAccessToken(req) } catch { /* treated as not logged in */ }
+  const user = token ? getSessionUser(req) : null
+  res.json({ active: !!user, user })
+})
 router.get('/hello',     (req, res) => res.json({ message: 'Hello from auth route' }))
 
 // ── GET /loginurl ─────────────────────────────────────────────────────────────
@@ -149,6 +157,9 @@ async function getLoginUrl(req, res) {
       state,
       login:         'true'
     })
+    // silent=1: ask the EBRAINS login to answer WITHOUT showing anything. If the person is already logged in to
+    // EBRAINS in this browser the answer is a code; if not, it comes back with error=login_required.
+    if (req.query?.silent === '1') params.set('prompt', 'none')
 
     res.status(200).send(AUTH_ENDPOINT + '?' + params.toString())
   } catch (error) {
@@ -216,7 +227,7 @@ async function getToken(req, res) {
     )
 
     // the user's own token, kept server-side behind an HttpOnly cookie (used for read-only bucket listing)
-    createUserSession(req, res, tokenData)
+    const sid = createUserSession(req, res, tokenData)
 
     // ── 2. extract user info — id_token first, KG endpoint as fallback ────────
     let userInfo = null
@@ -245,6 +256,7 @@ async function getToken(req, res) {
       })
     }
 
+    setSessionUser(sid, userInfo)
     return res.status(200).send({
       success: true,
       user:    userInfo,
@@ -268,6 +280,7 @@ async function getToken(req, res) {
 
 async function getLogOutUrl(req, res) {
   try {
+    destroyUserSession(req, res)
     let redirectUrl = REDIRECT_URI
     if (!redirectUrl) throw new Error('Missing redirect url')
     if (req.query && Object.keys(req.query).length > 0) {
