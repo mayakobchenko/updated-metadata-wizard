@@ -93,9 +93,8 @@ function buildTrie(objects, { partialDirs = [], unreadDirs = [], knownDirs = [],
 
 // Layout used by the EBRAINS Data Descriptor template: one entry per line, each starting with "/",
 // two spaces of indentation per folder level, a short description in square brackets.
-//   /repository-root
-//     /sub-XXX
-//       /sub-XXX_slice-XXXX.tif [brain slice scan of subject XXX]
+//   /sub-XXX
+//     /sub-XXX_slice-XXXX.tif [brain slice scan of subject XXX]
 //
 // Big buckets (thousands of files) must stay readable, so the listing is generalised:
 //   - files whose names differ only by numbers become ONE line: the common pattern and how many there are,
@@ -358,9 +357,10 @@ export function buildTree(objects, rootLabel = 'repository-root', options = {}) 
   const levels = Object.keys(levelOptions).length ? [{ ...LEVELS[0], ...levelOptions }] : LEVELS
   let lines = []
   for (const level of levels) {
-    const kinds = [bids && 'BIDS dataset (Brain Imaging Data Structure)', nwb && 'NWB dataset (Neurodata Without Borders)'].filter(Boolean)
-    lines = [`/${rootLabel}${kinds.length ? ` [${kinds.join(' / ')}]` : ''}`]
-    renderNode(root, 1, lines, { placeholders: true, partial, bids, nwb, ...level })
+    // no "/repository-root" line, and a single wrapper folder (e.g. /data) is left out as well: the list starts
+    // with the folders and files the researcher recognises
+    lines = []
+    renderNode(top, 0, lines, { placeholders: true, partial, bids, nwb, ...level })
     if (lines.length <= MAX_LINES) break
   }
   if (lines.length > MAX_LINES) {

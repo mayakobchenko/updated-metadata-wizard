@@ -33,3 +33,16 @@ test('different modalities stay separate lines', () => {
   const { tree } = describeBucket(objs, 'b', { standards: ['NWB'] })
   assert.equal(tree.split('\n').filter(l => l.includes('.nwb')).length >= 2, true)
 })
+
+test('no /repository-root line and no single wrapper folder', () => {
+  const { tree } = describeBucket(nwbBucket(), 'b', { standards: ['NWB'] })      // everything is inside data/
+  assert.ok(!tree.includes('repository-root'), tree)
+  assert.ok(!/^\/data/m.test(tree) && !/^ *\/data\b/m.test(tree), tree)
+  assert.match(tree.split('\n')[0], /^\/figure-3/)
+})
+
+test('a folder with several top-level folders keeps them', () => {
+  const objs = ['a', 'b'].flatMap(d => [1, 2, 3].map(i => ({ name: `${d}/f${i}.txt`, bytes: 10 })))
+  const { tree } = describeBucket(objs, 'b')
+  assert.match(tree, /^\/a/m); assert.match(tree, /^\/b/m)
+})

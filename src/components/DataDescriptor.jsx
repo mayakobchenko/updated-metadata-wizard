@@ -962,10 +962,10 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
 
         <Q label="File structure of the data" name="dataRecordsTree" example={EXAMPLES.tree}
           exampleNote="Generated from your bucket when possible. This is how the hierarchy should look: one entry per line, two spaces per level, a short description in square brackets."
-          hint={'Reduced generic layout of the repository (see the template): one entry per line starting with "/", two spaces of indentation per folder level, and a one-sentence description of each example file in square brackets. Names that differ only in a label are written as one line, e.g. cohort-<WT|HZ>.'}>
+          hint={'Reduced generic layout of the repository (see the template): one entry per line starting with "/", two spaces of indentation per folder level, and a one-sentence description of each example file in square brackets.'}>
           <TextArea autoSize={{ minRows: 6, maxRows: 24 }} wrap="off"
             style={{ fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre' }}
-            placeholder={'/repository-root\n  /sub-XXX\n    /sub-XXX_slice-XXXX.tif [brain slice scan of subject XXX]'} />
+            placeholder={'/sub-XXX\n  /sub-XXX_slice-XXXX.tif [brain slice scan of subject XXX]'} />
         </Q>
 
         <FormatsTable rows={formatRows} onChange={changeFormats} />
