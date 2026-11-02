@@ -940,7 +940,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
         {/* ══ 4. Data records ════════════════════════════════════════ */}
         <SectionHeading number="4" title="Data records" />
 
-        <Q label="Introduction to the data records (optional)" name="dataDescription" example={EXAMPLES.dataRecords}
+        <Q label="Introduction to the data records" name="dataDescription" example={EXAMPLES.dataRecords}
           hint="Short text before the file tree. Mention the (meta)data standard followed (e.g. BIDS, NWB), explain filename codes if filenames carry information (e.g. sub-01_ses-02), and say what is inside container files, if any. Leave empty if the file tree and the format table say it all."
           prefilled={autoPopulated.dataDescription}>
           <WordCountArea autoSize={{ minRows: 4, maxRows: 10 }}
