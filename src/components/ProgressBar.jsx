@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Grid, Popover, Steps } from 'antd'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { Popover, Steps } from 'antd'
 
 // Step definitions — order matches the steps array in StepsWizard
 const BASE_STEP_NAMES = [
@@ -32,8 +32,20 @@ const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
 
 const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescriptorEnabled = true }) => {
   const [, setCurrent] = useState(0)
-  const screens = Grid.useBreakpoint()
-  const compact = screens.xl === false      // phones and narrow tablets: dots only, the current step is written above
+  // The labelled steps need about 140 px each. When the room is smaller (phone, tablet, narrow window) only dots are shown
+  // and the current step is written above them. The room is measured, not guessed from the screen size.
+  const boxRef = useRef(null)
+  const [room, setRoom] = useState(null)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return undefined
+    const measure = () => setRoom(el.getBoundingClientRect().width)
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    window.addEventListener('resize', measure)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
+  }, [])
 
   const onChange = (value) => {
     setCurrent(value)
@@ -65,9 +77,13 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescript
     })
   }
 
+  const compact = room !== null && room < items.length * 140 + 16
+
+  const wrap = (node) => <div ref={boxRef}>{node}</div>
+
   if (compact) {
     const cur = items[Math.min(step, items.length - 1)] || items[0]
-    return (
+    return wrap(
       <div className="wizard-progress-compact" style={{ marginBottom: '16px' }}>
         <span className="wizard-progress-label"><b>Step {Math.min(step, items.length - 1) + 1} of {items.length}:</b> {cur?.title}</span>
         <Steps
@@ -82,7 +98,7 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescript
     )
   }
 
-  return (
+  return wrap(
     <div style={{ marginBottom: '30px' }}>
       <Steps
         current={step}

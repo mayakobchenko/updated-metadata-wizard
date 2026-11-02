@@ -585,14 +585,12 @@ img, video { max-width: 100%; }
   .step-title { font-size: 18px; }
 }
 
-/* step indicator: dots only below 1200 px, where the eight labelled steps no longer fit */
-@media (max-width: 1199px) {
-  /* progress dots */
-  .wizard-progress-label { display: block; margin: 0 0 8px; font-size: 14px; color: #333; }
-  .wizard-progress-compact .ant-steps { width: 100%; }
-  .wizard-progress-compact .ant-steps-item { flex: 1 1 0; min-width: 0; overflow: visible; }
-  .wizard-progress-compact .ant-steps-item-content { display: none; }
-  .wizard-progress-compact .ant-steps-item:last-child { flex: 0 0 auto; }
-  .wizard-progress-compact .ant-steps-item-icon { margin-inline-start: 0 !important; }
-  .wizard-progress-compact .ant-steps-item-tail { margin-inline-start: 0 !important; width: 100%; padding: 0 !important; }
-}
+/* step indicator with dots only (used when the labelled steps do not fit, see ProgressBar.jsx) */
+/* progress dots */
+.wizard-progress-label { display: block; margin: 0 0 8px; font-size: 14px; color: #333; }
+.wizard-progress-compact .ant-steps { width: 100%; }
+.wizard-progress-compact .ant-steps-item { flex: 1 1 0; min-width: 0; overflow: visible; }
+.wizard-progress-compact .ant-steps-item-content { display: none; }
+.wizard-progress-compact .ant-steps-item:last-child { flex: 0 0 auto; }
+.wizard-progress-compact .ant-steps-item-icon { margin-inline-start: 0 !important; }
+.wizard-progress-compact .ant-steps-item-tail { margin-inline-start: 0 !important; width: 100%; padding: 0 !important; }
