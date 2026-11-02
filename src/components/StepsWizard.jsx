@@ -638,7 +638,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             padding: '6px 16px', background: warn ? '#fffbe6' : '#f0f7ff', flexWrap: 'wrap',
             border: `1px solid ${warn ? '#ffe58f' : '#bae0ff'}`, borderRadius: 6, margin: '8px 16px 4px', gap: 12,
           }}>
-            <span style={{ fontSize: 12, color: '#555', flex: 1 }}>
+            <span style={{ fontSize: 12, color: '#555', flex: '1 1 260px' }}>
               <span style={{ marginRight: 6 }}>{icon}</span>{text}
             </span>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState } from 'react'
 import { Popover, Steps } from 'antd'
 
 // Step definitions — order matches the steps array in StepsWizard
@@ -86,14 +86,16 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescript
     return wrap(
       <div className="wizard-progress-compact" style={{ marginBottom: '16px' }}>
         <span className="wizard-progress-label"><b>Step {Math.min(step, items.length - 1) + 1} of {items.length}:</b> {cur?.title}</span>
-        <Steps
-          current={step}
-          onChange={onChange}
-          responsive={false}
-          size="small"
-          progressDot
-          items={items.map(i => ({ status: i.status, title: '' }))}
-        />
+        <div className="wizard-dots" role="tablist" aria-label="Steps of the wizard">
+          {items.map((it, i) => (
+            <Fragment key={i}>
+              <button type="button" role="tab" aria-selected={i === step} aria-label={`Step ${i + 1}: ${it.title}`} title={it.title}
+                className={`wizard-dot ${i === step ? 'is-current' : it.status === 'finish' ? 'is-done' : ''}`}
+                onClick={() => onChange(i)}><span /></button>
+              {i < items.length - 1 && <span className={`wizard-dot-line ${i < step ? 'is-done' : ''}`} />}
+            </Fragment>
+          ))}
+        </div>
       </div>
     )
   }

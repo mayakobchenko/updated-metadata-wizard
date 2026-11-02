@@ -520,7 +520,7 @@ input[type=radio] {
   user-select: none;         /* Standard */
 }
 /* the form card never gets wider than the window (laptops with a narrow window, tablets) */
-.container-form { box-sizing: border-box; min-width: 0; max-width: calc(100vw - 6rem); }
+.container-form { box-sizing: border-box; min-width: 0; width: calc(100% - 6rem); max-width: calc(100vw - 6rem); }
 .container-form > *, .container-form .ant-form { min-width: 0; max-width: 100%; }
 
 /* ───────── Small screens (phones, narrow tablets). Desktop layout above is untouched. ───────── */
@@ -545,7 +545,7 @@ img, video { max-width: 100%; }
 
   /* the form card uses the full width */
   .container-form {
-    max-width: none; margin: 0.25rem 0.5rem 5rem; padding: 16px 12px 24px; border-radius: 12px; box-sizing: border-box;
+    width: auto; max-width: none; margin: 0.25rem 0.5rem 5rem; padding: 16px 12px 24px; border-radius: 12px; box-sizing: border-box;
     min-width: 0; overflow-wrap: anywhere;
   }
   .container-form > *, .container-form .ant-form { min-width: 0; max-width: 100%; }
@@ -581,16 +581,21 @@ img, video { max-width: 100%; }
   .ant-popover { max-width: calc(100vw - 16px); }
 }
 @media (max-width: 480px) {
-  .container-form { max-width: none; margin-left: 0.25rem; margin-right: 0.25rem; padding: 12px 8px 20px; }
+  .container-form { width: auto; max-width: none; margin-left: 0.25rem; margin-right: 0.25rem; padding: 12px 8px 20px; }
   .step-title { font-size: 18px; }
 }
 
-/* step indicator with dots only (used when the labelled steps do not fit, see ProgressBar.jsx) */
-/* progress dots */
-.wizard-progress-label { display: block; margin: 0 0 8px; font-size: 14px; color: #333; }
-.wizard-progress-compact .ant-steps { width: 100%; }
-.wizard-progress-compact .ant-steps-item { flex: 1 1 0; min-width: 0; overflow: visible; }
-.wizard-progress-compact .ant-steps-item-content { display: none; }
-.wizard-progress-compact .ant-steps-item:last-child { flex: 0 0 auto; }
-.wizard-progress-compact .ant-steps-item-icon { margin-inline-start: 0 !important; }
-.wizard-progress-compact .ant-steps-item-tail { margin-inline-start: 0 !important; width: 100%; padding: 0 !important; }
+/* step indicator with dots only (used when the labelled steps do not fit, see ProgressBar.jsx):
+   the dots are spread evenly over the full width, the first at the left edge and the last at the right edge */
+.wizard-progress-label { display: block; margin: 0 0 4px; font-size: 14px; color: #333; }
+.wizard-dots { display: flex; align-items: center; width: 100%; }
+.wizard-dot { flex: 0 0 auto; width: 28px; height: 28px; margin: 0 -9px; padding: 0; border: 0; background: transparent; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; }
+.wizard-dot:first-child { margin-left: -9px; }
+.wizard-dot span { width: 10px; height: 10px; border-radius: 50%; background: #bfbfbf; transition: transform 0.15s, background 0.15s; }
+.wizard-dot.is-done span { background: #8fd1b0; }
+.wizard-dot.is-current span { background: var(--button-color-primary); transform: scale(1.5); }
+.wizard-dot:hover span { background: var(--button-color-primary-hover); }
+.wizard-dot:focus-visible { outline: 2px solid var(--button-color-primary); outline-offset: 0; }
+.wizard-dot-line { flex: 1 1 0; min-width: 4px; height: 2px; background: #e0e0e0; border-radius: 1px; }
+.wizard-dot-line.is-done { background: #8fd1b0; }
