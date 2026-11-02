@@ -79,9 +79,9 @@ export default function Funding({ form, onChange, data = {} }) {
                       </Form.Item>
 
                       <Form.Item
-                        label="Grant ID / Award number (optional)"
+                        label="Grant ID / Award number"
                         name={[field.name, 'grantId']}
-                        extra="Optional. If the funding has a grant ID or award number, please state it."
+                        extra="Please state the grant ID for the funding you have received."
                         style={{ marginBottom: 0 }}
                       >
                         <Input placeholder="e.g. ERC-2021-STG-123456" />
