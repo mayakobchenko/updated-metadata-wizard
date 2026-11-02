@@ -25,7 +25,7 @@ export function DatasetStep({ form, onChange, data }) {
   return (
     <div>
       <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
-      <p>
+      <p className="welcome-text">
         Thank you for choosing EBRAINS to share your research data. In this form, you can
         describe key aspects of your dataset so that other researchers will be able to find,
         reuse and cite your work. While filling out this form, please remember to consider

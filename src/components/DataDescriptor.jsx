@@ -6,6 +6,10 @@ import { buildAgentPrompt, buildSectionPrompt, detectDomain } from './dataDescri
 import { SKILL_TEXTS, SKILL_ZIP_URL } from './dataDescriptorSkill'
 import BucketStructurePanel from './BucketStructurePanel'
 import AiDraftAll from './AiDraftAll'
+
+// Drafting with the person's own AI key (Draft with your own AI / Use my own AI key) is switched off for now.
+// The code is kept: set to true to show it again.
+const AI_KEY_ENABLED = false
 import WordCountArea, { countWords } from './WordCountArea'
 import { EXAMPLES } from './ddExamples'
 import { buildLookups } from './metadataLookups'
@@ -195,6 +199,13 @@ function isAutoStandardsText(dd, d1) {
   return !saved || saved === (dd.autoDataDescription || '').trim() || saved === legacyStandardsSentence(d1)
 }
 
+// "Funding" is the automatic sentence while it is empty or equals the last automatic sentence (kept in the draft), so
+// it follows the Funding step when funders are added, changed or removed later; a text the person edited is kept.
+function isAutoFundingText(dd) {
+  const saved = (dd.funding || '').trim()
+  return !saved || saved === (dd.autoFunding || '').trim()
+}
+
 // ── compute scalar prefill values ─────────────────────────────────────────
 function computeFieldValues(data) {
   const d1   = data.dataset1        || {}
@@ -235,7 +246,7 @@ function computeFieldValues(data) {
     aiDomain:            dd.aiDomain            || undefined,
     usageNotes:     dd.usageNotes     || '',
     limitations:    dd.limitations    || '',
-    funding:        pf(dd.funding,    buildFundingText(fund)),
+    funding:        isAutoFundingText(dd) ? buildFundingText(fund) : dd.funding,
     references:     dd.references     || '',
   }
 }
@@ -251,7 +262,7 @@ function computeAutoPopulated(data) {
   return {
     summary:             no('summary')             && !!(d1.briefSummary || dataTypePhrase(d1.optionsData || []) || buildSubjectSummary(subj)),
     dataDescription:     isAutoStandardsText(dd, d1) && !!standardsSentence(d1),
-    funding:             no('funding')             && !!buildFundingText(fund),
+    funding:             isAutoFundingText(dd)     && !!buildFundingText(fund),
   }
 }
 
@@ -366,7 +377,9 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
     const affiliationsChanged =
       JSON.stringify(nextAffiliations) !== JSON.stringify(dd.affiliations_list || [])
 
-    if (authorsChanged || affiliationsChanged) {
+    const fundingChanged = (fieldVals.funding || '') !== (dd.funding || '') || buildFundingText(data.funding || {}) !== (dd.autoFunding || '')
+
+    if (authorsChanged || affiliationsChanged || fundingChanged) {
       emitAll(nextAuthors, nextAffiliations)
     }
   }, [data, personMap]) // re-run when personMap loads too
@@ -450,6 +463,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
         autoVersionSpec:           autoVersionSpecRef.current || dd.autoVersionSpec || '',
         bucketExts:                [...bucketExtsRef.current],
         autoDataDescription: standardsSentence(data.dataset1 || {}),
+        autoFunding:         buildFundingText(data.funding || {}),
         authors:           newAuthors,
         affiliations_list: newAffs,
         ...extra,
@@ -667,7 +681,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
     { label: 'Email address for every author (Contributors)', ok: authors.every(a => EMAIL_RE.test((a.email || '').trim())) },
     { label: `Summary (at most ${SUMMARY_MAX_WORDS} words)`, field: 'summary', ok: !!fv('summary') && countWords(fv('summary')) <= SUMMARY_MAX_WORDS },
     { label: 'Methods (replace the [bracketed prompts] with your own text)', field: 'methods', ok: !!fv('methods') && !/\[(Ethics approval|Equipment, acquisition|Preprocessing and analysis|species, number)/.test(fv('methods')) },
-    { label: 'File structure or file formats (Data description)', field: 'dataRecordsTree', ok: !!fv('dataRecordsTree') || formatRows.length > 0 },
+    { label: 'File structure or file formats (Data records)', field: 'dataRecordsTree', ok: !!fv('dataRecordsTree') || formatRows.length > 0 },
     { label: 'Usage notes', field: 'usageNotes', ok: !!fv('usageNotes') },
     { label: 'File formats whose files are no longer in the bucket are deleted or kept on purpose (File formats)', field: 'dataRecordsFormats', ok: !formatRows.some(r => r.gone) },
     { label: `Contribution for every author (Contributors): ${authorsWithoutContribution.length} missing`, ok: authors.length > 0 && authorsWithoutContribution.length === 0 },
@@ -771,7 +785,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
       >
 
         {/* ══ 1. Header ══════════════════════════════════════════════════ */}
-        <AiDraftAll
+        {AI_KEY_ENABLED && <AiDraftAll
           sections={[
             { key: 'summary',     label: 'Summary',         field: 'summary' },
             { key: 'methods',     label: 'Methods',         field: 'methods' },
@@ -780,19 +794,8 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
           ]}
           buildPrompt={sectionPrompt}
           onUse={useSectionText}
-        />
+        />}
 
-        <div style={{ margin: '0 0 12px' }}>
-          <DdMarkdownImport
-            getCurrent={(f) => f === 'dataRecordsTree' ? (form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || '') : (form.getFieldValue(['dataDescriptor', f]) || '')}
-            getCurrentFormats={() => formatsRef.current}
-            onApply={(patch, formats) => {
-              Object.entries(patch).forEach(([f, v]) => form.setFieldValue(['dataDescriptor', f], v))
-              if (formats) { formatsRef.current = formats; setFormatRows(formats) }
-              emitAll(authors, affiliations)
-              setGenerated(false)
-            }} />
-        </div>
 
         <SectionHeading number="1" title="Header information" />
 
@@ -852,7 +855,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
           }}>
             <InfoCircleOutlined style={{ flexShrink: 0 }} />
             Authors, their affiliations, emails, contributions, corresponding and equal-contribution marks are entered in the
-            Contributors step (the data custodian and the contact person on the first page). This is how they will appear in the data descriptor.
+            Contributors step (the data custodian and the contact person at the top of the Contributors step). This is how they will appear in the data descriptor.
           </div>
 
           {authors.map((author) => {
@@ -874,7 +877,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
           })}
           {authors.length === 0 && (
             <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-              No authors yet — add the data custodian on the first page and the authors in the Contributors step.
+              No authors yet — add the data custodian and the authors in the Contributors step.
             </div>
           )}
           {affiliations.length > 0 && (
@@ -934,8 +937,8 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
             placeholder="Rats were implanted with Neuropixels 1.0 probes under isoflurane anaesthesia…" />
         </Q>
 
-        {/* ══ 4. Data description ════════════════════════════════════════ */}
-        <SectionHeading number="4" title="Data description" />
+        {/* ══ 4. Data records ════════════════════════════════════════ */}
+        <SectionHeading number="4" title="Data records" />
 
         <Q label="Introduction to the data records (optional)" name="dataDescription" example={EXAMPLES.dataRecords}
           hint="Short text before the file tree. Mention the (meta)data standard followed (e.g. BIDS, NWB), explain filename codes if filenames carry information (e.g. sub-01_ses-02), and say what is inside container files, if any. Leave empty if the file tree and the format table say it all."
@@ -1042,8 +1045,8 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
           <Text style={{ fontSize: 13, color: '#444', display: 'block', marginBottom: 10 }}>
             Copy one ready-made prompt for the whole Data Descriptor and paste it into the AI assistant you normally use (Claude, ChatGPT, Copilot, …). It contains the EBRAINS Data Descriptor guide from
             the data curation team plus everything you have written so far, so the assistant only
-            asks for what is missing and never invents facts. Nothing is sent anywhere from this
-            page unless you add your own AI key; you review every suggestion before using it.
+            asks for what is missing. Nothing is sent anywhere from this page; you review every
+            suggestion before using it. Paste the answer back with <b>Import a Markdown result</b>.
           </Text>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1053,6 +1056,15 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
             <Button icon={<DownloadOutlined />} href={SKILL_ZIP_URL} download>
               Download the skill (.zip)
             </Button>
+          <DdMarkdownImport
+            getCurrent={(f) => f === 'dataRecordsTree' ? (form.getFieldValue(['dataDescriptor', 'dataRecordsTree']) || '') : (form.getFieldValue(['dataDescriptor', f]) || '')}
+            getCurrentFormats={() => formatsRef.current}
+            onApply={(patch, formats) => {
+              Object.entries(patch).forEach(([f, v]) => form.setFieldValue(['dataDescriptor', f], v))
+              if (formats) { formatsRef.current = formats; setFormatRows(formats) }
+              emitAll(authors, affiliations)
+              setGenerated(false)
+            }} />
           </div>
 
           <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

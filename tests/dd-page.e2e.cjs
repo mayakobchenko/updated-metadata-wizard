@@ -1,0 +1,43 @@
+// Data descriptor page: funding follows the Funding step, AI-key part hidden, import button next to the prompt buttons.
+// Mocked server. Run: npx vite preview --port 4173 &  NODE_PATH=$(npm root -g) node tests/dd-page.e2e.cjs
+const { chromium } = require('playwright')
+const base = 'http://localhost:4173'
+const out = []; const ok = (n, c, x = '') => { out.push(`${c ? 'PASS' : 'FAIL'}  ${n} ${x}`); console.log(out[out.length - 1]) }
+const json = (o) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(o) })
+process.on('unhandledRejection', (e) => { console.log('ERROR', String(e).slice(0, 400)); process.exit(1) })
+;(async () => {
+  const browser = await chromium.launch(); const page = await (await browser.newContext({ viewport: { width: 1500, height: 1000 } })).newPage()
+  await page.route('**/api/**', async (route) => {
+    const u = new URL(route.request().url())
+    if (u.pathname === '/api/auth/me') return route.fulfill(json({ active: true, user: { fullname: 'Maya K', email: 'm@x.no', username: 'maya' } }))
+    if (u.pathname === '/api/drive/draft/info') return route.fulfill(json({ exists: false, library: true }))
+    return route.fulfill(json({}))
+  })
+  await page.goto(base + '/?TicketNumber=4826029'); await page.waitForTimeout(2500)
+  const click = (loc) => loc.evaluate((el) => el.click())
+  const go = async (i) => { await page.locator('.ant-steps-item').nth(i).click({ force: true }); await page.waitForTimeout(900) }
+  await go(1)
+  await click(page.locator('label:has(input[value=Yes])')); await page.waitForTimeout(300)
+  await page.getByPlaceholder('e.g. European Research Council').fill('ERC')
+  await page.getByPlaceholder('e.g. ERC-2021-STG-123456').fill('123')
+  await go(5)
+  const f = page.locator('#dataDescriptor_funding')
+  ok('DD: funding is prefilled from the Funding step', /ERC \(grant no\. 123\)/.test(await f.inputValue()), await f.inputValue())
+  await go(1)
+  await page.getByPlaceholder('e.g. ERC-2021-STG-123456').fill('456')
+  await go(5)
+  ok('DD: funding follows a later change in the Funding step', /grant no\. 456/.test(await f.inputValue()), await f.inputValue())
+  await f.fill('My own funding text.'); await page.waitForTimeout(300)
+  await go(1)
+  await page.getByPlaceholder('e.g. ERC-2021-STG-123456').fill('789')
+  await go(5)
+  ok('DD: a text the person wrote is kept', (await f.inputValue()) === 'My own funding text.', await f.inputValue())
+
+  const t = await page.locator('.container-form').innerText()
+  ok('DD: no "own AI key" part and no "never invents facts"', !/Use my own AI key|Draft with your own AI|never invents facts|AI key/.test(t))
+  ok('DD: "Data records" heading, no "Data description"', /Data records/.test(t) && !/Data description/.test(t))
+  const row = page.locator('button:has-text("Copy AI prompt")').locator('xpath=..')
+  ok('DD: Import a Markdown result sits next to Copy AI prompt', await row.locator('button:has-text("Import a Markdown result")').count() === 1)
+  ok('DD: texts point to the Contributors step, not the first page', !/first page/.test(t))
+  await browser.close(); process.exit(out.some(r => r.startsWith('FAIL')) ? 1 : 0)
+})()

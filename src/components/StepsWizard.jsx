@@ -628,7 +628,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         return (
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '6px 16px', background: warn ? '#fffbe6' : '#f0f7ff', flexWrap: 'wrap',
+            padding: '6px 16px', minHeight: 56, boxSizing: 'border-box', background: warn ? '#fffbe6' : '#f0f7ff', flexWrap: 'wrap',
             border: `1px solid ${warn ? '#ffe58f' : '#bae0ff'}`, borderRadius: 6, margin: '8px 16px 4px', gap: 12,
           }}>
             <span style={{ fontSize: 12, color: '#555', flex: '1 1 260px' }}>

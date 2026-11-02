@@ -618,3 +618,7 @@ img, video { max-width: 100%; }
 .container-form .ant-form-item-label > label .step-subtitle { font-size: 15px; font-weight: 400; color: rgba(0, 0, 0, 0.88); }
 .container-form .ant-radio-wrapper, .container-form .ant-checkbox-wrapper { font-size: 15px; }
 .container-form .ant-form-item-extra { font-size: 13px; }
+
+/* welcome text: both edges straight */
+.welcome-text { text-align: justify; text-justify: inter-word; hyphens: auto; -webkit-hyphens: auto; }
+@media (max-width: 991px) { .welcome-text { text-align: left; hyphens: manual; } }

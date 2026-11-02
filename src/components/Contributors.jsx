@@ -135,7 +135,7 @@ const fetchContributors = async () => {
     setCustAuthor(next); emit({ custodianAuthor: next })
   }
 
-  // The contact person (first page) who is also an author: email and affiliation are suggested once.
+  // The contact person (Contributors step, top) who is also an author: email and affiliation are suggested once.
   useEffect(() => {
     const cp = contactName(data).toLowerCase()
     if (!cp) return
