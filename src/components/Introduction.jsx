@@ -1,7 +1,8 @@
 import { Form as AntForm, Input } from 'antd'
 import { useEffect } from 'react'
+import FormShell from './FormShell'
 
-export default function Introduction({ form, onChange, data }) {
+export default function Introduction({ form, onChange, data, embedded = false, register }) {
   const initialValues = {
     //ticketNumber: data.ticketNumber || '',
     //datasetVersionId: data.datasetVersionId || '',
@@ -28,7 +29,10 @@ export default function Introduction({ form, onChange, data }) {
     form.setFieldsValue(initialValues)
   }, [form, initialValues])
 
-  const handleValuesChange = (changedValues, allValues) => {onChange(allValues)}
+  const handleValuesChange = (changedValues, allValues) => {
+    // only this section's values (the page also holds the authors)
+    if (changedValues.contactperson || changedValues.custodian) onChange({ contactperson: allValues.contactperson, custodian: allValues.custodian })
+  }
 
   const checkEmail = (rule, value, callback) => {
     const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -60,11 +64,7 @@ export default function Introduction({ form, onChange, data }) {
   return (
     <div>
       <div><p className="step-title">Contact person</p></div>
-      <AntForm 
-        form={form}
-        layout="vertical"
-        initialValues={initialValues}
-        onValuesChange={handleValuesChange}>
+      <FormShell embedded={embedded} register={register} form={form} initialValues={initialValues} onValuesChange={handleValuesChange}>
         {/*
         <AntForm.Item
           label="Zammad ticket Number"
@@ -168,7 +168,7 @@ export default function Introduction({ form, onChange, data }) {
           <Input />
         </AntForm.Item>
 */}
-      </AntForm>
+      </FormShell>
     </div>
   )
 }

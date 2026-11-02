@@ -149,7 +149,7 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
           description="The folders and the first files of each folder were read. Similar files are already summarised in the structure (for example “img_XXXX.tif [at least 700 files …]”), but the list is incomplete: some files, file formats and the exact number of files may be missing, so no automatic sentence about the number of files was added to the Summary. Please complete the structure and the format table by hand, or paste a listing of your folders in the box below (Windows: tree /F, Mac/Linux: find . -type f)." />
       )}
 
-      {/* standard-specific findings (BIDS, NWB): what the bucket lacks compared with the standard ticked in Dataset part 1 */}
+      {/* standard-specific findings (BIDS, NWB): what the bucket lacks compared with the standard ticked in Dataset */}
       {!loading && !error && ['BIDS', 'NWB'].map(std => {
         const checks = (meta?.checks || []).filter(c => (c.standard || 'BIDS') === std)
         if (!checks.length) return null
@@ -163,13 +163,13 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
         return (
           <Alert key={std} type={hasError ? 'error' : problems.length ? 'warning' : 'success'} showIcon style={{ marginTop: 8 }}
             message={problems.length
-              ? `You ticked ${std} in Dataset part 1. The bucket does not fully look like ${a} ${std} dataset (${problems.length} point${problems.length === 1 ? '' : 's'}).`
-              : `You ticked ${std} in Dataset part 1. The folder and file names look like ${a} ${std} dataset.`}
+              ? `You ticked ${std} in Dataset. The bucket does not fully look like ${a} ${std} dataset (${problems.length} point${problems.length === 1 ? '' : 's'}).`
+              : `You ticked ${std} in Dataset. The folder and file names look like ${a} ${std} dataset.`}
             description={
               <div>
                 {problems.length > 0 && <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>{problems.map((c, i) => <li key={i}>{withLinks(c.text)}</li>)}</ul>}
                 {infos.map((c, i) => <div key={i} style={{ fontSize: 12, opacity: 0.8 }}>{withLinks(c.text)}</div>)}
-                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick {std} in Dataset part 1 if the data do not follow it.{example}</div>}
+                {problems.length > 0 && <div style={{ fontSize: 12, marginTop: 4 }}>Either fix this in the bucket and press “Read the bucket again”, or untick {std} in Dataset if the data do not follow it.{example}</div>}
               </div>
             } />
         )

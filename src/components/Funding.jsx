@@ -1,104 +1,110 @@
-import { Form, Input, Button } from 'antd'
-import { useState, useEffect } from 'react'
+import { Form, Input, Button, Radio } from 'antd'
+import { useEffect } from 'react'
+
+// Funding is mandatory information: first the question "Are you funded?"; with "Yes" at least one funder with its
+// name and grant ID has to be given, with "No" the step is complete. The answer is stored as funding.isFunded
+// ('Yes' | 'No'), the funders as funding.funders (empty when the answer is "No").
+const newFunder = () => ({ id: Date.now() + Math.random(), funderName: '', grantId: '' })
+export const fundedAnswer = (funding) => funding?.isFunded || ((funding?.funders || []).length ? 'Yes' : undefined)
 
 export default function Funding({ form, onChange, data = {} }) {
+  const funding = data.funding || {}
 
-  const [funders, setFunders] = useState(data.funding?.funders || [])
-
+  // show what the data holds (a loaded draft, a revisit of the step); drafts from before the question count as "Yes"
   useEffect(() => {
-    setFunders(data.funding?.funders || [])
-  }, [data])
+    const answer = fundedAnswer(funding)
+    const funders = funding.funders || []
+    form.setFieldsValue({ funding: { isFunded: answer, funders: answer === 'Yes' && !funders.length ? [newFunder()] : funders } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.funding])
 
-  const addFunder = () => {
-    const newFunder = { id: Date.now(), funderName: '', grantId: '' }
-    const updated = [...funders, newFunder]
-    setFunders(updated)
-    onChange({ funding: { ...data.funding, funders: updated } })
+  const send = () => {
+    const f = form.getFieldValue(['funding']) || {}
+    onChange({ funding: { ...funding, isFunded: f.isFunded, funders: f.isFunded === 'Yes' ? (f.funders || []) : [] } })
   }
 
-  const removeFunder = (index) => {
-    const updated = funders.filter((_, i) => i !== index)
-    setFunders(updated)
-    onChange({ funding: { ...data.funding, funders: updated } })
-  }
-
-  const handleFunderChange = (index, field, value) => {
-    const updated = [...funders]
-    updated[index] = { ...updated[index], [field]: value }
-    setFunders(updated)
-    onChange({ funding: { ...data.funding, funders: updated } })
+  const handleValuesChange = (changed) => {
+    const answer = changed?.funding?.isFunded
+    if (answer === 'No') form.setFieldValue(['funding', 'funders'], [])
+    if (answer === 'Yes' && !(form.getFieldValue(['funding', 'funders']) || []).length) form.setFieldValue(['funding', 'funders'], [newFunder()])
+    send()
   }
 
   return (
     <div>
-      <p className="step-title">Funding Information</p>
+      <p className="step-title">Funding information</p>
       <p className="step-description">
-        Please provide information about the funding sources for this dataset.
+        Funding information is mandatory. Please tell us whether this dataset was funded and, if so, by whom.
       </p>
 
-      <Form form={form} layout="vertical">
+      <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
+        <Form.Item
+          name={['funding', 'isFunded']}
+          label="Was the work behind this dataset funded?"
+          rules={[{ required: true, message: 'Please answer yes or no.' }]}
+        >
+          <Radio.Group>
+            <Radio value="Yes">Yes</Radio>
+            <Radio value="No">No</Radio>
+          </Radio.Group>
+        </Form.Item>
 
-        {funders.map((field, index) => (
-          <div
-            key={field.id}
-            style={{
-              border: '1px solid #d9d9d9',
-              borderRadius: 8,
-              padding: '16px 20px',
-              marginBottom: 16,
-              background: '#fafafa'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span className="step-subtitle">Funder {index + 1}</span>
-              <Button
-                type="text"
-                danger
-                onClick={() => removeFunder(index)}
-                className="remove-text-btn"
-              >
-                Remove
-              </Button>
-            </div>
+        <Form.Item noStyle shouldUpdate={(a, b) => a?.funding?.isFunded !== b?.funding?.isFunded}>
+          {({ getFieldValue }) => getFieldValue(['funding', 'isFunded']) === 'Yes' && (
+            <Form.List name={['funding', 'funders']}>
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map((field, index) => (
+                    <div
+                      key={field.key}
+                      style={{ border: '1px solid #d9d9d9', borderRadius: 8, padding: '16px 20px', marginBottom: 16, background: '#fafafa' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <span className="step-subtitle">Funder {index + 1}</span>
+                        {fields.length > 1 && (
+                          <Button type="text" danger onClick={() => { remove(field.name); setTimeout(send, 0) }} className="remove-text-btn">
+                            Remove
+                          </Button>
+                        )}
+                      </div>
 
-            <Form.Item
-              label="Funder name"
-              required
-              extra="Please state the full name of the funder (no abbreviations)."
-              style={{ marginBottom: 12 }}
-            >
-              <Input
-                value={field.funderName}
-                onChange={(e) => handleFunderChange(index, 'funderName', e.target.value)}
-                placeholder="e.g. European Research Council"
-              />
-            </Form.Item>
+                      <Form.Item
+                        label="Funder name"
+                        name={[field.name, 'funderName']}
+                        rules={[{ required: true, whitespace: true, message: 'Please enter the name of the funder.' }]}
+                        extra="Please state the full name of the funder (no abbreviations)."
+                        style={{ marginBottom: 12 }}
+                      >
+                        <Input placeholder="e.g. European Research Council" />
+                      </Form.Item>
 
-            <Form.Item
-              label="Grant ID / Award number"
-              extra="Please state the grant ID for the funding you have received."
-              style={{ marginBottom: 0 }}
-            >
-              <Input
-                value={field.grantId}
-                onChange={(e) => handleFunderChange(index, 'grantId', e.target.value)}
-                placeholder="e.g. ERC-2021-STG-123456"
-              />
-            </Form.Item>
-          </div>
-        ))}
+                      <Form.Item
+                        label="Grant ID / Award number"
+                        name={[field.name, 'grantId']}
+                        rules={[{ required: true, whitespace: true, message: 'Please enter the grant ID / award number.' }]}
+                        extra="Please state the grant ID for the funding you have received."
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Input placeholder="e.g. ERC-2021-STG-123456" />
+                      </Form.Item>
+                    </div>
+                  ))}
 
-        <div style={{ textAlign: 'center', margin: '20px 0' }}>
-          <Button
-            type="dashed"
-            onClick={addFunder}
-            style={{ width: '30%' }}
-            className="add-contributor-button"
-          >
-            Add funder
-          </Button>
-        </div>
-
+                  <div style={{ textAlign: 'center', margin: '20px 0' }}>
+                    <Button
+                      type="dashed"
+                      onClick={() => { add(newFunder()); setTimeout(send, 0) }}
+                      style={{ width: '30%' }}
+                      className="add-contributor-button"
+                    >
+                      Add another funder
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Form.List>
+          )}
+        </Form.Item>
       </Form>
     </div>
   )

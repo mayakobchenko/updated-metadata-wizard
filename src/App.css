@@ -612,3 +612,9 @@ img, video { max-width: 100%; }
 .wizard-progress-full .ant-steps-dot .ant-steps-item-icon { margin-inline-start: calc(50% - 4px) !important; }
 .wizard-progress-full .ant-steps-dot .ant-steps-item-icon .ant-steps-icon-dot { inset-inline-start: 0 !important; }
 .wizard-progress-full .ant-steps-dot .ant-steps-item-tail { margin-inline-start: 50% !important; width: 100%; }
+
+/* one size for all questions: the label of every field, and the answer options next to it */
+.container-form .ant-form-item-label > label,
+.container-form .ant-form-item-label > label .step-subtitle { font-size: 15px; font-weight: 400; color: rgba(0, 0, 0, 0.88); }
+.container-form .ant-radio-wrapper, .container-form .ant-checkbox-wrapper { font-size: 15px; }
+.container-form .ant-form-item-extra { font-size: 13px; }

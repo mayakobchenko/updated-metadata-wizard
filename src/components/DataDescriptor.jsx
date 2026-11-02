@@ -100,7 +100,7 @@ export function softwareWithoutVersion(text) {
   return items.filter(t => !/\d/.test(t) && !/version|unknown|other|n\/a/i.test(t))
 }
 
-// "experimental, raw and derived data" from the Dataset part 1 check boxes (labels only)
+// "experimental, raw and derived data" from the Dataset check boxes (labels only)
 function dataTypePhrase(options = []) {
   const map = { 'Experimental data': 'experimental', 'Simulated data': 'simulated', 'Raw data': 'raw', 'Derived data': 'derived' }
   const words = options.map(o => map[o]).filter(Boolean)
@@ -213,7 +213,7 @@ function computeFieldValues(data) {
   return {
     title,   // always from Dataset1, not from dd.title
 
-    // One Summary field, starting from the brief summary in Dataset part 1 (or a one-sentence description).
+    // One Summary field, starting from the brief summary in Dataset (or a one-sentence description).
     summary: pf(dd.summary, (() => {
       if (d1.briefSummary) return d1.briefSummary
       const types = dataTypePhrase(d1.optionsData || [])
@@ -227,7 +227,7 @@ function computeFieldValues(data) {
 
     software: dd.software || '',
 
-    // follows Dataset part 1 (incl. the "other standard(s)" text) as long as it is empty or still the automatic sentence
+    // follows Dataset (incl. the "other standard(s)" text) as long as it is empty or still the automatic sentence
     dataDescription: isAutoStandardsText(dd, d1) ? standardsSentence(d1) : dd.dataDescription,
 
     dataRecordsTree:     dd.dataRecordsTree     || '',
@@ -355,7 +355,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
     const fieldVals = computeFieldValues(data)
     form.setFieldsValue({ dataDescriptor: fieldVals })
 
-    // 2. authors and affiliations: derived from the first page (custodian) and the Contributors step, which owns them
+    // 2. authors and affiliations: derived from the data custodian and the Contributors step, which owns them
     const { authors: nextAuthors, affiliations: nextAffiliations } = buildAuthorTable(data, (e) => resolveAuthorName(e, personMap))
 
     setAuthors(nextAuthors)
@@ -661,7 +661,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
   const figs = useFigures()
   const swNoVersion = softwareWithoutVersion(fv('software'))
   const checklist = [
-    { label: 'Dataset title (Dataset part 1): at most 110 characters, without colons or parentheses', ok: !!(data.dataset1?.dataTitle || '').trim() && data.dataset1.dataTitle.length <= TITLE_MAX_CHARS && !/[:()]/.test(data.dataset1.dataTitle) },
+    { label: 'Dataset title (Dataset): at most 110 characters, without colons or parentheses', ok: !!(data.dataset1?.dataTitle || '').trim() && data.dataset1.dataTitle.length <= TITLE_MAX_CHARS && !/[:()]/.test(data.dataset1.dataTitle) },
     { label: 'At least one corresponding author, with a valid email (Contributors)', ok: corrAuthorsValid },
     { label: 'Affiliation for every author (Contributors)', ok: authors.every(a => (a.affiliationNumbers || '').trim()) },
     { label: 'Email address for every author (Contributors)', ok: authors.every(a => EMAIL_RE.test((a.email || '').trim())) },
@@ -686,7 +686,7 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
       return
     }
     if (data.dataset1?.dataTitle && data.dataset1.dataTitle.length > TITLE_MAX_CHARS) {
-      setGenError(`The title has ${data.dataset1.dataTitle.length} characters; the maximum is ${TITLE_MAX_CHARS} including spaces. Please shorten it in Dataset part 1.`)
+      setGenError(`The title has ${data.dataset1.dataTitle.length} characters; the maximum is ${TITLE_MAX_CHARS} including spaces. Please shorten it in Dataset.`)
       return
     }
     if (!corrAuthorsValid) {
@@ -802,13 +802,13 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
             <span>
               Dataset title
               <Tag color="green" style={{ fontSize: 10, padding: '0 5px', lineHeight: '16px', marginLeft: 6 }}>
-                from Dataset part 1
+                from Dataset
               </Tag>
             </span>
           }
           extra={<span style={EXTRA}>
-            This title is set in Dataset part 1 and cannot be changed here. To edit the title, please go back to “Dataset part 1”.
-            {onGoToStep && <Button size="small" style={{ marginLeft: 10 }} onClick={() => onGoToStep(1)}>Edit in Dataset part 1</Button>}
+            This title is set in Dataset and cannot be changed here. To edit the title, please go back to “Dataset”.
+            {onGoToStep && <Button size="small" style={{ marginLeft: 10 }} onClick={() => onGoToStep(0)}>Edit in Dataset</Button>}
           </span>}
         >
           <div>
@@ -825,13 +825,13 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
             fontSize:     14,
             minHeight:    32,
           }}>
-            {title || 'Not yet entered — please fill in Dataset part 1'}
+            {title || 'Not yet entered — please fill in Dataset'}
           </div>
           {(titleTooLong || titleBadChars) && (
             <Alert type="error" showIcon style={{ marginTop: 6 }}
               message={titleTooLong
-                ? `The title has ${title.length} characters; the maximum is ${TITLE_MAX_CHARS} including spaces. Please shorten it in Dataset part 1.`
-                : 'The title must not contain colons or parentheses. Please change it in Dataset part 1.'} />
+                ? `The title has ${title.length} characters; the maximum is ${TITLE_MAX_CHARS} including spaces. Please shorten it in Dataset.`
+                : 'The title must not contain colons or parentheses. Please change it in Dataset.'} />
           )}
           </div>
         </AntForm.Item>

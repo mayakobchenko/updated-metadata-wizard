@@ -4,16 +4,13 @@ import ConfigProvider from './ConfigProvider.jsx'
 import { Form as AntForm, Button, Modal, Upload, Alert, Typography, Switch, Popover, Select, message } from 'antd'
 import { FileTextOutlined, LoadingOutlined, CheckCircleFilled, InfoCircleOutlined, WarningFilled } from '@ant-design/icons'
 import ProgressBar from './ProgressBar.jsx'
-import Contributors from './Contributors.jsx'
+import { DatasetStep, ContributorsStep } from './MergedSteps.jsx'
 import { authorProblems } from './authorModel'
+import { missingRequired } from './requiredFields'
 import Subjects from './Subjects.jsx'
-import Introduction from './Introduction.jsx'
-import Dataset1 from './Dataset1.jsx'
-import Dataset2 from './Dataset2.jsx'
 import Funding from './Funding.jsx'
 import Experiments from './Experiments.jsx'
 import PopoverSave from './FinalChoice.jsx'
-import LoadingSpinner from './LoadingSpinner.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 import useLoginKeepalive from './useLoginKeepalive.js'
@@ -282,32 +279,28 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
   // ── step definitions ──────────────────────────────────────────────────────
   //
-  //  Index  Component        Visible when
-  //  ─────  ───────────────  ──────────────────────────────
-  //    0    Intro            always
-  //    1    Dataset1         always
-  //    2    Dataset2         always
-  //    3    Funding          always
-  //    4    Contributors     always
-  //    5    Experiments      always
-  //    6    Subjects         only when subjectschoice === 'Yes'
-  //    7    DataDescriptor   always (last step) — only when
-  //                          VITE_ENABLE_DATA_DESCRIPTOR !== 'false'
+  //  Index  Component         Visible when
+  //  ─────  ────────────────  ──────────────────────────────
+  //    0    DatasetStep       always (welcome, dataset questions, additional information)
+  //    1    Funding           always
+  //    2    ContributorsStep  always (contact person, data custodian, authors, other contributors)
+  //    3    Experiments       always
+  //    4    Subjects          only when subjectschoice === 'Yes'
+  //    5    DataDescriptor    always (last step) — only when
+  //                           VITE_ENABLE_DATA_DESCRIPTOR !== 'false'
 
   const steps = [
-    { id: 0, component: Intro          },
-    { id: 1, component: Dataset1       },
-    { id: 2, component: Dataset2       },
-    { id: 3, component: Funding        },
-    { id: 4, component: Contributors   },
-    { id: 5, component: Experiments    },
-    { id: 6, component: Subjects       },  // may be skipped
+    { id: 0, component: DatasetStep      },   // welcome, dataset questions, additional information
+    { id: 1, component: Funding          },
+    { id: 2, component: ContributorsStep },   // contact person, data custodian, authors, other contributors
+    { id: 3, component: Experiments      },
+    { id: 4, component: Subjects         },  // may be skipped
     ...(DATA_DESCRIPTOR_ENABLED
-      ? [{ id: 7, component: DataDescriptor }]  // always last, when enabled
+      ? [{ id: 5, component: DataDescriptor }]  // always last, when enabled
       : []),
   ]
 
-  const SUBJECTS_INDEX = 6
+  const SUBJECTS_INDEX = 4
   // Last real step index, derived from the actual steps array rather than
   // hardcoded — automatically tracks whichever step is really last:
   // DataDescriptor (7) when the flag is on, Subjects (6) when it's off.
@@ -351,7 +344,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     form.validateFields()
       .then(() => {
         // Contributors: every author needs an email and an affiliation
-        if (steps[currentStepIndex].component === Contributors) {
+        if (steps[currentStepIndex].component === ContributorsStep) {
           const issues = authorProblems(formDataRef.current || formData)
           setAuthorIssues(issues)
           setShowAuthorIssues(issues.length > 0)
@@ -745,7 +738,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
 
       {/* ── Current step ─────────────────────────────────────────────────── */}
       <CurrentStep form={form} onChange={handleInputChange} data={formData}
-        showErrors={showAuthorIssues} onGoToContributors={() => setCurrentStepIndex(4)} onGoToStep={(i) => setCurrentStepIndex(i)} />
+        showErrors={showAuthorIssues} onGoToContributors={() => setCurrentStepIndex(2)} onGoToStep={(i) => setCurrentStepIndex(i)} />
 
       {/* ── Navigation buttons ───────────────────────────────────────────── */}
       <div className="buttons-save-next-back">
@@ -768,6 +761,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             dataDescriptorEnabled={DATA_DESCRIPTOR_ENABLED}
             getTicketId={getTicketId}
             downloadJson={downloadJson}
+            getMissing={() => missingRequired(formDataRef.current || formData, { subjectsDone: statuses[SUBJECTS_INDEX] || currentStepIndex === SUBJECTS_INDEX })}
+            onGoToStep={(i) => setCurrentStepIndex(i)}
           />
         )}
       </div>
@@ -785,33 +780,6 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       </Modal>
     </ConfigProvider>
   )
-}
-
-function Intro({ form, onChange, data }) {
-  const userInfo = useAuthContext()
-  if (userInfo?.user) {
-    return (
-      <div>
-        <p className="step-title">Welcome to the EBRAINS Metadata Wizard!</p>
-        <p>
-          Thank you for choosing EBRAINS to share your research data. In this form, you can
-          describe key aspects of your dataset so that other researchers will be able to find,
-          reuse and cite your work. While filling out this form, please remember to consider
-          all data related to the dataset that you wish to publish on EBRAINS. Some fields
-          might be pre-filled from the curation request form that you had submitted earlier.
-          You can edit the fields or leave them unchanged and once you complete the form,
-          metadata describing your dataset will be curated according to the{' '}
-          <a href="https://openminds-documentation.readthedocs.io/en/latest/"
-            target="_blank" rel="noopener noreferrer" style={{ margin: '0 5px' }}>
-            openMINDS standard.
-          </a>
-        </p>
-        <Introduction form={form} onChange={onChange} data={data} />
-      </div>
-    )
-  }
-  if (!userInfo.reloadWizard) return <LoadingSpinner />
-  return null
 }
 
 export default StepsWizard

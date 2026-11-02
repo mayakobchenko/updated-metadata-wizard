@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Form, Input, Select, Checkbox, Button, Typography } from 'antd'
+import FormShell from './FormShell'
 import { CUSTODIAN_AFF, institutionList, custodianName, contactName, isEmail } from './authorModel'
 
 const { Option } = Select
 const { Text } = Typography
 
-export default function Contributors({ form, onChange, data = {}, showErrors = false }) {
+export default function Contributors({ form, onChange, data = {}, showErrors = false, embedded = false, register }) {
   const [contributors, setContributors] = useState([])
   const [typesContribution, setTypesContribution] = useState([])
   const [authors, setAuthors] = useState(data.contribution?.authors || [])
@@ -206,7 +207,7 @@ const fetchContributors = async () => {
     <div>
       <p className="step-title">Dataset authors:</p>
 
-      <Form form={form} layout="vertical" initialValues={initialValues} onValuesChange={handleValuesChange}>
+      <FormShell embedded={embedded} register={register} form={form} initialValues={initialValues} onValuesChange={handleValuesChange}>
         <p className="step-description">
           Please list all authors who have contributed to the dataset, in the order you would like them to appear on
           the data publication. Please note that the list of authors may be different for this data publication as compared
@@ -221,8 +222,8 @@ const fetchContributors = async () => {
             descriptor are created automatically.
           </p>
           {data.custodian?.institution
-            ? <div style={{ marginBottom: 6 }}><Text>{data.custodian.institution}</Text> <Text type="secondary" style={{ fontSize: 12 }}>(the data custodian’s affiliation, from the first page)</Text></div>
-            : <div style={{ marginBottom: 6 }}><Text type="warning" style={{ fontSize: 12 }}>The data custodian’s affiliation is missing on the first page.</Text></div>}
+            ? <div style={{ marginBottom: 6 }}><Text>{data.custodian.institution}</Text> <Text type="secondary" style={{ fontSize: 12 }}>(the data custodian’s affiliation, from the section above)</Text></div>
+            : <div style={{ marginBottom: 6 }}><Text type="warning" style={{ fontSize: 12 }}>The data custodian’s affiliation is missing in the section above.</Text></div>}
           {affiliations.map((aff, i) => (
             <div key={aff.id} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
               <Input value={aff.text} onChange={(e) => changeAffiliation(i, e.target.value)} placeholder="Department, Institution, City, Country" />
@@ -232,12 +233,12 @@ const fetchContributors = async () => {
           <Button type="dashed" size="small" onClick={addAffiliation}>Add an institution</Button>
         </div>
 
-        {/* the data custodian (first page) is author 1 */}
+        {/* the data custodian (section above) is author 1 */}
         {custName && (
           <div style={{ border: '1px solid #e1e8ef', borderRadius: 6, padding: '10px 14px', marginBottom: 16, background: '#fff' }}>
             <span className="step-subtitle">Author 1: {custName} (data custodian)</span>
             <div style={{ fontSize: 12, color: '#777', margin: '2px 0 8px' }}>
-              Name, email and affiliation come from the first page. The data custodian is always the first author.
+              Name, email and affiliation come from the data custodian section above. The data custodian is always the first author.
             </div>
             <Form.Item label="Additional affiliation(s) (optional)" style={{ marginBottom: 8 }}>
               <Select mode="multiple" style={{ width: '100%' }} placeholder="Another institution of the custodian, if any"
@@ -306,7 +307,7 @@ const fetchContributors = async () => {
 
               {custName && authorName(field).toLowerCase() === custName.toLowerCase() && (
                 <div style={{ color: '#d46b08', fontSize: 12, marginBottom: 8 }}>
-                  This person is the data custodian and is already author 1 (first page). You can remove this entry.
+                  This person is the data custodian and is already author 1 (see the data custodian section above). You can remove this entry.
                 </div>
               )}
               {!(custName && authorName(field).toLowerCase() === custName.toLowerCase()) && (
@@ -441,7 +442,7 @@ const fetchContributors = async () => {
             Add a Contributor
           </Button>
         </div>
-      </Form>
+      </FormShell>
     </div>
   )
 }

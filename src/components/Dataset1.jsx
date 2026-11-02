@@ -3,13 +3,14 @@ import { Form as AntForm, Input, Checkbox, Select, DatePicker, Radio } from 'ant
 import { ExportOutlined } from '@ant-design/icons'
 import { resolveStandards, NO_STANDARD } from './importNormalize'
 import dayjs from 'dayjs'
+import FormShell from './FormShell'
 
 const { TextArea } = Input
 const { Option }   = Select
 
 const TITLE_MAX_LENGTH = 110
 
-export default function Dataset1({ form, onChange, data }) {
+export default function Dataset1({ form, onChange, data, embedded = false, register }) {
   const [license, setLicense]               = useState([])
   const [embargo, setEmbargo]               = useState(data.dataset1?.embargo || false)
   const [copyright, setCopyright]           = useState(data.dataset1?.copyright || '')
@@ -79,7 +80,7 @@ export default function Dataset1({ form, onChange, data }) {
     if (d1?.copyright)                  setCopyright(d1.copyright)
     if (d1?.copyrightHolder)            setCopyrightHolder(d1.copyrightHolder)
     if (d1?.dataStandart !== undefined) setShowOtherStandart((d1.dataStandart || []).includes('other(s)'))
-    onChange(allValues)
+    onChange({ dataset1: allValues.dataset1 })     // only this section's values (the page may hold other sections too)
   }
 
   // ── options ───────────────────────────────────────────────────────────────
@@ -111,13 +112,8 @@ export default function Dataset1({ form, onChange, data }) {
 
   return (
     <div>
-      <div><p className="step-title">Dataset part 1</p></div>
-      <AntForm
-        form={form}
-        layout="vertical"
-        initialValues={initialValues}
-        onValuesChange={handleValuesChange}
-      >
+      <div><p className="step-title">Dataset</p></div>
+      <FormShell embedded={embedded} register={register} form={form} initialValues={initialValues} onValuesChange={handleValuesChange}>
         <AntForm.Item
           label="Dataset title"
           name={['dataset1', 'dataTitle']}
@@ -318,7 +314,7 @@ export default function Dataset1({ form, onChange, data }) {
           </AntForm.Item>
         )}
 
-      </AntForm>
+      </FormShell>
     </div>
   )
 }

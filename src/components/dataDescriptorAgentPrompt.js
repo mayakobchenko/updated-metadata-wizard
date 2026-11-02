@@ -12,7 +12,7 @@ import { standardsLabel } from './standards'
 const MAX_FOLDER_LISTING_CHARS = 12000
 
 // what the researcher entered earlier in the wizard that every section can use
-const standardsBlock = (d) => block('Data organisation standard(s) (Dataset part 1; mention it in DATA RECORDS and describe the file structure with its naming conventions)', standardsLabel(d?.dataset1))
+const standardsBlock = (d) => block('Data organisation standard(s) (Dataset; mention it in DATA RECORDS and describe the file structure with its naming conventions)', standardsLabel(d?.dataset1))
 const keywordsBlock = (d) => block('Keywords given in the Experiments step (topics the text can cover; do not invent other keywords)', d?.experiments?.keywords)
 
 // Which of the skill's domain files fits this dataset? Priority:
@@ -119,7 +119,7 @@ export function buildAgentPrompt({
     block('Author contributions (Author contributions section)', values.authorContributions),
     standardsBlock(data),
     keywordsBlock(data),
-    block('Type of data shared (from the wizard, Dataset part 1)', (data.dataset1?.optionsData || []).filter(v => typeof v === 'string' && !v.startsWith('http')).join(', ')),
+    block('Type of data shared (from the wizard, Dataset)', (data.dataset1?.optionsData || []).filter(v => typeof v === 'string' && !v.startsWith('http')).join(', ')),
     block('Usage notes (USAGE NOTES)', values.usageNotes),
     block('Limitations and caveats (USAGE NOTES)', values.limitations),
     block('Funding (Acknowledgements)', values.funding),

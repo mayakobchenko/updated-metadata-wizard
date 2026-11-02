@@ -3,18 +3,16 @@ import { Popover, Steps } from 'antd'
 
 // Step definitions — order matches the steps array in StepsWizard
 const BASE_STEP_NAMES = [
-  'Introduction',    // 0
-  'Dataset part 1',  // 1
-  'Dataset part 2',  // 2
-  'Funding',         // 3
-  'Contributors',    // 4
-  'Experiments',     // 5
-  'Subjects',        // 6  — conditionally hidden
-  'Data descriptor', // 7  — always last
+  'Dataset',         // 0
+  'Funding',         // 1
+  'Contributors',    // 2
+  'Experiments',     // 3
+  'Subjects',        // 4  — conditionally hidden
+  'Data descriptor', // 5  — always last
 ]
 
-const SUBJECTS_INDEX = 6
-const DATA_DESCRIPTOR_INDEX = 7
+const SUBJECTS_INDEX = 4
+const DATA_DESCRIPTOR_INDEX = 5
 
 const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
   let label

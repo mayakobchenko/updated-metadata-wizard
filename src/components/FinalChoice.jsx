@@ -10,7 +10,11 @@ import {
   DownloadOutlined,
 } from '@ant-design/icons'
 
-export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocxToZammad, downloadDocx, dataDescriptorEnabled, getTicketId, downloadJson, formData }) {
+export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocxToZammad, downloadDocx, dataDescriptorEnabled, getTicketId, downloadJson, formData, getMissing, onGoToStep }) {
+
+  // ── mandatory fields: the metadata cannot be submitted while something is missing ──
+  const [missing, setMissing] = useState([])
+
 
   // ── second button: send the Word data descriptor to the ticket (own article) ──
   const [ddStatus, setDdStatus] = useState(null) // null | 'loading' | 'success' | 'error'
@@ -71,6 +75,8 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocx
   }
 
   const handleSubmit = async () => {
+    const open = typeof getMissing === 'function' ? getMissing() : []
+    if (open.length) { setMissing(open); return }
     setStatus('loading')
     setErrorDetail('')
     setModalVisible(true)
@@ -201,6 +207,26 @@ export default function FinalChoice({ uploadpythonKG, saveJsonToZammad, saveDocx
         </>
       )}
       </div>
+
+      <Modal
+        open={missing.length > 0}
+        onCancel={() => setMissing([])}
+        centered
+        width={560}
+        title={<span><WarningOutlined style={{ color: '#faad14', marginRight: 8 }} />The metadata cannot be submitted yet</span>}
+        footer={[<Button key="ok" type="primary" onClick={() => setMissing([])}>OK, I will complete it</Button>]}
+      >
+        <p>Please fill in all mandatory fields first. These are still missing:</p>
+        {missing.map((m) => (
+          <div key={m.step} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <b>{m.title}</b>
+              {onGoToStep && <Button size="small" onClick={() => { setMissing([]); onGoToStep(m.step) }}>Go to {m.title}</Button>}
+            </div>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>{m.items.map((it, i) => <li key={i}>{it}</li>)}</ul>
+          </div>
+        ))}
+      </Modal>
 
       <Modal
         open={modalVisible}

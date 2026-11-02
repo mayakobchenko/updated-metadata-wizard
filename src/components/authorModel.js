@@ -1,5 +1,5 @@
 // Authors and their institutions.
-// The authors are entered in the Contributors step; the data custodian and the contact person come from the first page.
+// The authors are entered in the Contributors step; the data custodian and the contact person are entered at the top of the same step.
 //   data.custodian                       name, email, ORCID and affiliation ("institution") of the data custodian
 //   data.contribution.affiliations       [{ id, text }]  institutions typed in the Contributors step
 //   data.contribution.custodianAuthor    { contributions, corresponding, equal, affiliationIds }  author details of the custodian

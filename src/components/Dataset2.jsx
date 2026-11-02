@@ -1,7 +1,8 @@
 import { Form, Input, Button } from 'antd'
 import { useState, useEffect } from 'react'
+import FormShell from './FormShell'
 
-export default function Dataset2({ form, onChange, data = {}}) {
+export default function Dataset2({ form, onChange, data = {}, embedded = false, register }) {
 
   const [supportChannels, setSupportChannels] = useState(data.dataset2?.supportChannels || [])
   const [relatedPublications, setRelatedPublications] = useState(data.dataset2?.relatedPublications || [])
@@ -11,7 +12,7 @@ export default function Dataset2({ form, onChange, data = {}}) {
       Data2UrlDoiRepo: data.dataset2?.Data2UrlDoiRepo || '',
       Data2DoiJournal: data.dataset2?.Data2DoiJournal || '',
       homePage: data.dataset2?.homePage || '',
-      inputdata: data.dataset2.inputdata || '',
+      inputdata: data.dataset2?.inputdata || '',
       supportChannels: supportChannels,
       relatedPublications: relatedPublications
     }}  
@@ -76,10 +77,10 @@ export default function Dataset2({ form, onChange, data = {}}) {
 
   return (
     <div>
-      <p className="step-title">About your dataset Part 2</p>
+      <p className="step-title">Additional information about the dataset</p>
       <p className="step-description">Please provide some general information about your dataset below.</p>
 
-      <Form form={form} layout="vertical" initialValues={initialValues} onValuesChange={handleValuesChange}>
+      <FormShell embedded={embedded} register={register} form={form} initialValues={initialValues} onValuesChange={handleValuesChange}>
         <Form.Item
           label="Home Page"
           name={['dataset2', 'homePage']}
@@ -162,6 +163,6 @@ export default function Dataset2({ form, onChange, data = {}}) {
           </Button>
         </div>
 
-      </Form>
+      </FormShell>
     </div>
 )}

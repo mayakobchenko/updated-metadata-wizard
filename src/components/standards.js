@@ -1,4 +1,4 @@
-// Data organisation standards ticked in Dataset part 1 (dataStandart) and the free text for "other(s)" (otherDataStandart).
+// Data organisation standards ticked in Dataset (dataStandart) and the free text for "other(s)" (otherDataStandart).
 const NO = "No, I didn't use a standard"
 const OTHER = 'other(s)'
 const arr = (v) => (Array.isArray(v) ? v : v ? [v] : [])
