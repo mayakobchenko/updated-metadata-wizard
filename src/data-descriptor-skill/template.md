@@ -8,7 +8,7 @@ Markdown the Word renderer understands:
 - a line ending in a backslash is a hard line break (one author per line)
 - ^1,2^ is a superscript (affiliation indices, citation numbers)
 - ### headings inside a section become bold subheadings
-- the directory tree is a fenced block starting with "/ repository-root",
+- the directory tree is a fenced block (no "/ repository-root" line),
   one entry per line, indented two spaces per level, with [description]
 - tables are pipe tables; <br> inside a cell is a line break
 - a figure is ![caption](relative/path.png) on its own line
@@ -97,8 +97,8 @@ data: loading routines, analysis packages, with versions. License. -->
 
 <!-- How the data are stored, file types and content. See
 reference/data-records-guide.md.
-1. Directory tree: a fenced block rooted at "/ repository-root", with an
-   inline [description] after each entry.
+1. Directory tree: a fenced block that starts with the first folder or file
+   (no "/ repository-root" line), with an inline [description] after each entry.
 2. Format table with the header
    | Format | Extension | Software used / file specification |
    one row per extension; the third column names the producing software or
@@ -109,7 +109,6 @@ reference/data-records-guide.md.
 The data are stored in the following structure:
 
 ```
-/ repository-root
   <file>                           [<description>]
   <folder>/                        [<description>]
     <file>                         [<description>]

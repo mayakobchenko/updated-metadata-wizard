@@ -42,7 +42,6 @@ export function missingRequired(data = {}, { subjectsDone = true } = {}) {
     if (!funders.length) fs.push('At least one funder')
     funders.forEach((x, i) => {
       if (!t(x.funderName)) fs.push(`Funder ${i + 1}: name`)
-      if (!t(x.grantId)) fs.push(`Funder ${i + 1}: grant ID / award number`)
     })
   }
   add(STEP.funding, 'Funding', fs)

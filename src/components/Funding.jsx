@@ -2,7 +2,7 @@ import { Form, Input, Button, Radio } from 'antd'
 import { useEffect } from 'react'
 
 // Funding is mandatory information: first the question "Are you funded?"; with "Yes" at least one funder with its
-// name and grant ID has to be given, with "No" the step is complete. The answer is stored as funding.isFunded
+// name has to be given (the grant ID is optional), with "No" the step is complete. The answer is stored as funding.isFunded
 // ('Yes' | 'No'), the funders as funding.funders (empty when the answer is "No").
 const newFunder = () => ({ id: Date.now() + Math.random(), funderName: '', grantId: '' })
 export const fundedAnswer = (funding) => funding?.isFunded || ((funding?.funders || []).length ? 'Yes' : undefined)
@@ -79,10 +79,9 @@ export default function Funding({ form, onChange, data = {} }) {
                       </Form.Item>
 
                       <Form.Item
-                        label="Grant ID / Award number"
+                        label="Grant ID / Award number (optional)"
                         name={[field.name, 'grantId']}
-                        rules={[{ required: true, whitespace: true, message: 'Please enter the grant ID / award number.' }]}
-                        extra="Please state the grant ID for the funding you have received."
+                        extra="Optional. If the funding has a grant ID or award number, please state it."
                         style={{ marginBottom: 0 }}
                       >
                         <Input placeholder="e.g. ERC-2021-STG-123456" />

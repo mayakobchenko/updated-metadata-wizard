@@ -12,13 +12,15 @@ data sits inside container files.
 
 ## 1. Directory tree (required)
 
-Render the structure as a fenced code block rooted at `/ repository-root`, with
-an inline `[description]` after each entry. Collapse repeating siblings into
-placeholders (`sub-XX/`). Every path in the tree exists in the listing, and
-every file in the listing is covered by the tree.
+Render the structure as a fenced code block that starts directly with the first
+folder or file (no `/ repository-root` line, and no single wrapper folder such as
+`/data` that holds everything), with an inline `[description]` after each entry. Collapse repeating siblings into
+placeholders (`sub-XX/`). Kinds of files that differ only in a label (cohort,
+side, condition) are written as one line with the label as a placeholder. Every
+path in the tree exists in the listing, and every file in the listing is covered
+by the tree.
 
 ```
-/ repository-root
   data-descriptor.pdf            [dataset-level: this descriptor]
   Licence-CC-BY.pdf              [dataset-level: licence]
   participants.tsv               [dataset-level: one row per subject]
