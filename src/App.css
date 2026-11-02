@@ -519,3 +519,80 @@ input[type=radio] {
   -ms-user-select: none;     /* Internet Explorer */
   user-select: none;         /* Standard */
 }
+/* the form card never gets wider than the window (laptops with a narrow window, tablets) */
+.container-form { box-sizing: border-box; min-width: 0; max-width: calc(100vw - 6rem); }
+.container-form > *, .container-form .ant-form { min-width: 0; max-width: 100%; }
+
+/* ───────── Small screens (phones, narrow tablets). Desktop layout above is untouched. ───────── */
+html { -webkit-text-size-adjust: 100%; }
+img, video { max-width: 100%; }
+@media (max-width: 991px) {
+  .body-wrapper { align-items: stretch; overflow-x: hidden; }
+  .container-logo { padding: 0 16px; }
+  .gradient-line { width: 100%; }
+
+  /* top bar: privacy note, greeting, download and log-out wrap onto several lines and no longer stick */
+  .container-subheader {
+    position: static; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: center;
+    padding: 0.5rem 1rem; margin-bottom: 0.5rem; box-sizing: border-box;
+  }
+  .privacy-banner { max-width: none; flex: 1 1 100%; padding: 0; }
+  .notice-content { margin: 0; padding: 4px 0; }
+  .greetings { flex: 1 1 auto; align-items: flex-start; font-size: 1rem; padding: 0; }
+  .greetings p { margin: 0.25rem 0; }
+  .login-container { flex: 1 1 auto; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-start; }
+  .login-button { margin-left: 0; }
+
+  /* the form card uses the full width */
+  .container-form {
+    max-width: none; margin: 0.25rem 0.5rem 5rem; padding: 16px 12px 24px; border-radius: 12px; box-sizing: border-box;
+    min-width: 0; overflow-wrap: anywhere;
+  }
+  .container-form > *, .container-form .ant-form { min-width: 0; max-width: 100%; }
+  .step-title { font-size: 19px; margin-top: 12px; }
+
+  /* form fields stack, buttons are easy to hit */
+  .container-form .ant-form-item { margin-bottom: 16px; }
+  .container-form .ant-form-item .ant-form-item-label { padding-bottom: 4px; }
+  .container-form .ant-form-item-label > label { height: auto; white-space: normal; }
+  .container-form .ant-row { max-width: 100%; }
+  .container-form .ant-col-offset-0 { margin-left: 0; }
+  .container-form .ant-space { flex-wrap: wrap; max-width: 100%; }
+  .container-form .ant-select, .container-form .ant-picker, .container-form .ant-input-number { max-width: 100%; }
+  .container-form .ant-btn { min-height: 40px; }
+  .container-form .ant-input, .container-form .ant-select-selector, .container-form textarea { font-size: 16px; } /* no zoom-in when typing on iOS */
+
+  /* tables scroll sideways inside their own box instead of widening the page */
+  .container-form .ant-table-wrapper, .container-form .ant-table-container, .container-form .ant-table-content { max-width: 100%; overflow-x: auto; }
+  .container-form pre, .container-form code { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+
+  .buttons-save-next-back { gap: 8px; }
+  .buttons-save-next-back .next-back-button { min-width: 88px; }
+  .container-form .add-contributor-button { width: 100% !important; }
+  .container-form .form-group.field .row.array-item-list .array-item { margin-left: 0; width: 100%; box-sizing: border-box; }
+
+  /* footer: smaller text, stays at the bottom */
+  .container-footer { margin: 0 0.75rem; font-size: 0.8rem; }
+  .container-footer p { margin: 0.1rem 0; }
+
+  /* dialogs fit the screen */
+  .ant-modal { max-width: calc(100vw - 16px) !important; margin: 8px auto !important; }
+  .ant-modal .ant-modal-content { padding: 16px; }
+  .ant-popover { max-width: calc(100vw - 16px); }
+}
+@media (max-width: 480px) {
+  .container-form { max-width: none; margin-left: 0.25rem; margin-right: 0.25rem; padding: 12px 8px 20px; }
+  .step-title { font-size: 18px; }
+}
+
+/* step indicator: dots only below 1200 px, where the eight labelled steps no longer fit */
+@media (max-width: 1199px) {
+  /* progress dots */
+  .wizard-progress-label { display: block; margin: 0 0 8px; font-size: 14px; color: #333; }
+  .wizard-progress-compact .ant-steps { width: 100%; }
+  .wizard-progress-compact .ant-steps-item { flex: 1 1 0; min-width: 0; overflow: visible; }
+  .wizard-progress-compact .ant-steps-item-content { display: none; }
+  .wizard-progress-compact .ant-steps-item:last-child { flex: 0 0 auto; }
+  .wizard-progress-compact .ant-steps-item-icon { margin-inline-start: 0 !important; }
+  .wizard-progress-compact .ant-steps-item-tail { margin-inline-start: 0 !important; width: 100%; padding: 0 !important; }
+}

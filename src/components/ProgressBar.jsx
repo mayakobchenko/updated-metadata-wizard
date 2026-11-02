@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Popover, Steps } from 'antd'
+import { Grid, Popover, Steps } from 'antd'
 
 // Step definitions — order matches the steps array in StepsWizard
 const BASE_STEP_NAMES = [
@@ -32,6 +32,8 @@ const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
 
 const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescriptorEnabled = true }) => {
   const [, setCurrent] = useState(0)
+  const screens = Grid.useBreakpoint()
+  const compact = screens.xl === false      // phones and narrow tablets: dots only, the current step is written above
 
   const onChange = (value) => {
     setCurrent(value)
@@ -61,6 +63,23 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescript
       description: thisDescription,
       status:      thisStatus,
     })
+  }
+
+  if (compact) {
+    const cur = items[Math.min(step, items.length - 1)] || items[0]
+    return (
+      <div className="wizard-progress-compact" style={{ marginBottom: '16px' }}>
+        <span className="wizard-progress-label"><b>Step {Math.min(step, items.length - 1) + 1} of {items.length}:</b> {cur?.title}</span>
+        <Steps
+          current={step}
+          onChange={onChange}
+          responsive={false}
+          size="small"
+          progressDot
+          items={items.map(i => ({ status: i.status, title: '' }))}
+        />
+      </div>
+    )
   }
 
   return (
