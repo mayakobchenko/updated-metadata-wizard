@@ -32,7 +32,7 @@ const makeCustomDot = (totalSteps) => (dot, { status, index }) => {
 
 const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescriptorEnabled = true }) => {
   const [, setCurrent] = useState(0)
-  // The labelled steps need about 140 px each. When the room is smaller (phone, tablet, narrow window) only dots are shown
+  // The labelled steps need about 90 px each (longer titles wrap onto two lines). When the room is smaller (phone, tablet, narrow window) only dots are shown
   // and the current step is written above them. The room is measured, not guessed from the screen size.
   const boxRef = useRef(null)
   const [room, setRoom] = useState(null)
@@ -72,12 +72,13 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescript
 
     items.push({
       title:       BASE_STEP_NAMES[i],
+      label:       BASE_STEP_NAMES[i].replace(/ (\d)$/, '\u00a0$1'),   // 'Dataset part 2' never breaks before the number
       description: thisDescription,
       status:      thisStatus,
     })
   }
 
-  const compact = room !== null && room < items.length * 140 + 16
+  const compact = room !== null && room < items.length * 92 + 8
 
   const wrap = (node) => <div ref={boxRef}>{node}</div>
 
@@ -101,12 +102,12 @@ const ProgressBar = ({ step, status, onChanged, subjectStepVisible, dataDescript
   }
 
   return wrap(
-    <div style={{ marginBottom: '30px' }}>
+    <div className="wizard-progress-full" style={{ marginBottom: '30px' }}>
       <Steps
         current={step}
         onChange={onChange}
         progressDot={makeCustomDot(items.length)}
-        items={items}
+        items={items.map(({ label, ...rest }) => ({ ...rest, title: label }))}
       />
     </div>
   )

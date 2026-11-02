@@ -599,3 +599,16 @@ img, video { max-width: 100%; }
 .wizard-dot:focus-visible { outline: 2px solid var(--button-color-primary); outline-offset: 0; }
 .wizard-dot-line { flex: 1 1 0; min-width: 4px; height: 2px; background: #e0e0e0; border-radius: 1px; }
 .wizard-dot-line.is-done { background: #8fd1b0; }
+
+/* labelled steps: the width is shared by the eight steps (antd gives each a fixed 140 px, which does not fit a laptop);
+   long titles wrap onto two lines, the dot stays centred over its title and the line runs from dot to dot */
+.wizard-progress-full .ant-steps-item,
+.wizard-progress-full .ant-steps-item:last-child { flex: 1 1 0 !important; min-width: 0; padding-inline: 0 !important; margin: 0 !important; }
+.wizard-progress-full .ant-steps-item-container { width: 100%; }
+.wizard-progress-full .ant-steps-dot .ant-steps-item-content,
+.wizard-progress-full .ant-steps-item-content { width: 100%; padding: 0 4px; box-sizing: border-box; text-align: center; }
+.wizard-progress-full .ant-steps-item-title { white-space: normal; line-height: 1.3; padding-inline-end: 0; font-size: 14px; }
+.wizard-progress-full .ant-steps-item-description { font-size: 12px; max-width: 100%; }
+.wizard-progress-full .ant-steps-dot .ant-steps-item-icon { margin-inline-start: calc(50% - 4px) !important; }
+.wizard-progress-full .ant-steps-dot .ant-steps-item-icon .ant-steps-icon-dot { inset-inline-start: 0 !important; }
+.wizard-progress-full .ant-steps-dot .ant-steps-item-tail { margin-inline-start: 50% !important; width: 100%; }
