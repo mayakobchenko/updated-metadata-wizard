@@ -148,6 +148,57 @@ function commonStart(names) {
   return p
 }
 
+// Files that differ only in the VALUE of a label token (sub-01_ses-01_cohort-WT_icephys.nwb / ..._cohort-HZ_icephys.nwb,
+// or the side L/R inside a session label) are ONE kind of file. Same number of '_' tokens, same last token (the
+// modality / suffix), same description -> one line, the differing values are listed: cohort-<HZ|WT>.
+const shapeKey = (name, desc) => {
+  const t = name.split('_')
+  return t.length < 3 ? null : `${t.length}|${t[t.length - 1]}|${desc || ''}|` + t.slice(0, -1).map(x => x.replace(/^([A-Za-z]+-).*$/, '$1')).join('_')
+}
+
+function mergeValues(values) {
+  const uniq = [...new Set(values)]
+  if (uniq.length === 1) return uniq[0]
+  const key = (uniq[0].match(/^([A-Za-z]+-)/) || ['', ''])[1]
+  const bySig = new Map()
+  for (const v of uniq) { const g = v.slice(key.length).replace(/\d+/g, '#'); if (!bySig.has(g)) bySig.set(g, []); bySig.get(g).push(v) }
+  const pats = [...bySig.values()].map(list => patternOf(list.length > 1 ? list : [list[0], list[0]]).slice(key.length))
+  const uniqPats = [...new Set(pats)]
+  if (uniqPats.length === 1) return key + uniqPats[0]
+  if (uniqPats.every(x => x.length === uniqPats[0].length)) {
+    const n = uniqPats[0].length
+    const diff = [...Array(n).keys()].filter(i => uniqPats.some(x => x[i] !== uniqPats[0][i]))
+    if (diff.length <= 2) {
+      let out = ''
+      for (let i = 0; i < n; i++) out += diff.includes(i) ? `[${[...new Set(uniqPats.map(x => x[i]))].join('')}]` : uniqPats[0][i]
+      return key + out
+    }
+  }
+  return `${key}<${uniqPats.slice(0, 6).join('|')}${uniqPats.length > 6 ? '|…' : ''}>`
+}
+
+// items: { names: [file names], bytes, desc } – returns merged items (a group needs >= 3 files and >= 2 items)
+function mergeLabelVariants(items, seriesNote) {
+  const groups = new Map(), rest = []
+  for (const it of items) {
+    const k = shapeKey(it.names[0], it.desc)
+    if (!k) { rest.push(it); continue }
+    if (!groups.has(k)) groups.set(k, [])
+    groups.get(k).push(it)
+  }
+  const out = [...rest]
+  for (const list of groups.values()) {
+    const count = list.reduce((n, x) => n + x.names.length, 0)
+    if (list.length < 2 || count < 3) { out.push(...list); continue }
+    const names = list.flatMap(x => x.names).sort(natural)
+    const tokens = names.map(n => n.split('_'))
+    const pattern = tokens[0].map((_, i) => mergeValues(tokens.map(t => t[i]))).join('_')
+    const bytes = list.reduce((n, x) => n + x.bytes, 0)
+    out.push({ kind: 'series', name: pattern, desc: list[0].desc, note: seriesNote(count, names, bytes) })
+  }
+  return out
+}
+
 function fileEntriesOf(files, opts, partialFolder, folders = 1) {
   const atLeast = partialFolder || opts.partial ? 'at least ' : ''
   const sorted = [...files].sort((a, b) => natural(a.name, b.name))
@@ -162,15 +213,13 @@ function fileEntriesOf(files, opts, partialFolder, folders = 1) {
     bySig.get(sig).push(f)
   }
   const loose = []
-  for (const list of bySig.values()) {
-    if (list.length >= 3) {
-      const bytes = list.reduce((s, f) => s + f.bytes, 0)
-      out.push({
-        kind: 'series', name: patternOf(list.map(f => f.name), fileSignature),
-        desc: fileByStandard(list[0].name, opts),
-        note: `${atLeast}${list.length} files${folders > 1 && !opts.partial && list.length % folders === 0 ? (list.length === folders ? ', one per folder,' : `, ${list.length / folders} per folder,`) : ''} named like ${list[0].name} … ${list[list.length - 1].name}, ${humanSize(bytes)}`,
-      })
-    } else loose.push(...list)
+  const items = [...bySig.values()].map(list => ({ names: list.map(f => f.name), bytes: list.reduce((s, f) => s + f.bytes, 0), desc: fileByStandard(list[0].name, opts), files: list }))
+  const seriesNote = (n, names, bytes) => `${atLeast}${n} files${folders > 1 && !opts.partial && n % folders === 0 ? (n === folders ? ', one per folder,' : `, ${n / folders} per folder,`) : ''} named like ${names[0]} … ${names[names.length - 1]}, ${humanSize(bytes)}`
+  // kinds of files that differ only in a label value (cohort, side, condition) become one line
+  for (const it of mergeLabelVariants(items, seriesNote)) {
+    if (!it.files) out.push(it)
+    else if (it.files.length >= 3) out.push({ kind: 'series', name: patternOf(it.names, fileSignature), desc: it.desc, note: seriesNote(it.files.length, it.names, it.bytes) })
+    else loose.push(...it.files)
   }
   out.sort((a, b) => natural(a.name, b.name))
 

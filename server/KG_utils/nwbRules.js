@@ -21,7 +21,7 @@ export function describeNwbFile(name) {
   const last = base.split('_').pop().toLowerCase()
   const kinds = last.split('+').filter(k => MODALITY[k])
   const what = kinds.length && kinds.length === last.split('+').length
-    ? `NWB file: ${kinds.map(k => MODALITY[k]).join(' and ')}`
+    ? `NWB file: ${kinds.length === 2 && kinds.includes('ecephys') && kinds.includes('icephys') ? 'extracellular and intracellular electrophysiology recording' : kinds.map(k => MODALITY[k]).join(' and ')}`
     : 'NWB file: neurophysiology data and metadata in one HDF5 file'
   return what
 }
