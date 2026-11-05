@@ -44,6 +44,7 @@ const readJsonFile = (file) =>
   })
 
 const deepMerge = (base, incoming) => incoming
+const DATASET_VERSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const loginLost = useLoginKeepalive()
@@ -231,7 +232,19 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       return
     }
     const normalized = normalizeImportedJson(importPreview, dataTypes)
-    const merged = deepMerge(formDataRef.current, normalized)
+    let merged = deepMerge(formDataRef.current, normalized)
+    // Which dataset this form belongs to: the ticket decides when there is one (a draft must never move the
+    // submission and the Collab copy to another dataset); without a ticket the draft's own ID is used.
+    const ticketId = String(skjemaInfo?.datasetVersionId || '').trim()
+    const draftId = String(normalized?.datasetVersionId || '').trim()
+    if (ticketId) {
+      if (draftId && draftId !== ticketId) {
+        message.warning('This draft was made for another dataset version. It was loaded into the dataset of your ticket; the file structure and the format table are read again from the bucket of this dataset.', 10)
+      }
+      merged = { ...merged, datasetVersionId: ticketId }
+    } else if (draftId && !DATASET_VERSION_ID.test(draftId)) {
+      message.warning(`The dataset version ID in this draft ("${draftId}") is not a valid ID (it must look like 12345678-1234-1234-1234-123456789abc), so the bucket cannot be read.`, 10)
+    }
     formDataRef.current = merged
     setFormData(merged)
     form.setFieldsValue(normalizeDatesForForm(merged))

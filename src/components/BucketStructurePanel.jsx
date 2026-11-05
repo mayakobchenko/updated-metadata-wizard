@@ -106,7 +106,17 @@ export default function BucketStructurePanel({ datasetVersionId, onResult, onLis
     load(false)
   }, [datasetVersionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!UUID_RE.test(String(datasetVersionId || '').trim())) return null
+  const givenId = String(datasetVersionId || '').trim()
+  if (!UUID_RE.test(givenId)) {
+    // say why nothing is read instead of staying silent
+    return (
+      <Alert type="warning" showIcon style={{ margin: '4px 0 16px' }}
+        message="The file structure cannot be read from the bucket"
+        description={givenId
+          ? <>The dataset version ID <code>{givenId}</code> is not a valid ID (it must look like <code>12345678-1234-1234-1234-123456789abc</code>). Correct it in the draft file and import it again, or write the file structure by hand.</>
+          : 'No dataset version is known for this form (it was not opened from a curation ticket and the imported draft has no dataset version ID). Write the file structure by hand, or open the wizard from your ticket link.'} />
+    )
+  }
 
   const box = { background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8, padding: '10px 16px', margin: '4px 0 16px' }
   const sentence = (meta?.summarySentence || '').trim()
