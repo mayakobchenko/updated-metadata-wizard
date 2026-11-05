@@ -16,12 +16,14 @@ import mistralRoutes from './routes/mistral.js'
 import bucketRoutes from './routes/bucketStructure.js'
 import ddRender from './routes/ddRender.js'
 import { resetFundingInProgressFlag } from './KG_utils/fetchDataFromKG.js'
+import { rejectBrotliBody } from './rejectCompressedBody.js'
 
 
 dotenv.config({ path: '../.env' })
 const PORT = process.env.PORT_SERVER || 4000
 const app = express()
 
+app.use(rejectBrotliBody)   // before the body is read (see rejectCompressedBody.js)
 app.use(express.json({ limit: '10mb' }))
 // Request log: only API calls (not pages or static files), without query strings except a few ids.
 // Never the OAuth "code"/"state" of the login redirect. Routine reference-data and keep-alive calls are debug only.
