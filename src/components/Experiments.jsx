@@ -130,6 +130,7 @@ export default function Experiments({ form, onChange, data }) {
         <Form.Item
           label="Select preparation type"
           name={['experiments', 'preparationTypes']}
+          rules={[{ required: true, type: 'array', min: 1, message: 'Please select at least one preparation type.' }]}
           extra="Please consider each of your methods and add all preparation types that apply."
         >
           <Select
@@ -154,8 +155,10 @@ export default function Experiments({ form, onChange, data }) {
         <Form.Item
           label="Study targets"
           name={['experiments', 'studyTargets']}
-          extra="Specify all interesting targets you had for producing this dataset.
-          Please select first among the categories, and then choose an instance for that category."
+          rules={[{ required: true, type: 'array', min: 1, message: 'Please select at least one study target.' }]}
+          extra="Specify all targets you studied to produce this dataset. The list is grouped by category:
+          browse the categories or type to search, and select the specific targets that apply
+          (the category headings themselves cannot be selected)."
         >
           <Select
             mode="multiple"

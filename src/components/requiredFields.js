@@ -66,6 +66,8 @@ export function missingRequired(data = {}, { subjectsDone = true } = {}) {
   if (!e.subjectschoice) es.push('Did you use experimental subjects? (yes or no)')
   if (!(e.experimentalApproach || []).length) es.push('Experimental approach')
   if (!(e.techniques || []).length) es.push('Experimental techniques')
+  if (!(e.preparationTypes || []).length) es.push('Preparation type')
+  if (!(e.studyTargets || []).length) es.push('Study targets')
   add(STEP.experiments, 'Experiments', es)
 
   // ── Subjects: checked by the step itself when it is left with Next ──
