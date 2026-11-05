@@ -39,5 +39,8 @@ process.on('unhandledRejection', (e) => { console.log('ERROR', String(e).slice(0
   const row = page.locator('button:has-text("Copy AI prompt")').locator('xpath=..')
   ok('DD: Import a Markdown result sits next to Copy AI prompt', await row.locator('button:has-text("Import a Markdown result")').count() === 1)
   ok('DD: texts point to the Contributors step, not the first page', !/first page/.test(t))
+  ok('DD: note about writing the descriptor in the Collab template', /Alternatively, you can write the data descriptor yourself in the Word template/.test(t) && /please skip this page/.test(t))
+  const ref = page.locator('text=Author Surname, Author Initial(s). Title of article.').first()
+  ok('DD: reference format shows italic journal and bold volume', await ref.locator('i:has-text("Journal Title")').count() === 1 && await ref.locator('b:has-text("Volume")').count() === 1)
   await browser.close(); process.exit(out.some(r => r.startsWith('FAIL')) ? 1 : 0)
 })()

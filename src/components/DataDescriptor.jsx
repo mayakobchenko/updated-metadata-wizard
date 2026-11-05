@@ -774,6 +774,10 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
             were automatically populated from your other wizard answers. Click <strong>Generate</strong> to download a formatted Word document.
             {' '}You may upload tables and figures (with captions) for improved readability where you see fit.
           </Text>
+          <Text style={{ display: 'block', fontSize: 13, color: '#444', marginTop: 8 }}>
+            <strong>Alternatively</strong>, you can write the data descriptor yourself in the Word template in the
+            Drive of your data sharing Collab. If you choose this option, please skip this page.
+          </Text>
         </div>
       </div>
 
@@ -1025,9 +1029,10 @@ export default function DataDescriptor({ form, onChange, data, onGoToContributor
         </Q>
 
         <Q label="References" name="references"
-          hint="All references cited above, using Nature referencing style (Author et al., Journal, Year, doi).">
+          hint={<>All references cited above, using the Nature referencing style:<br />
+            Author Surname, Author Initial(s). Title of article. <i>Journal Title</i> <b>Volume</b>, Page range (Year).</>}>
           <TextArea autoSize={{ minRows: 3, maxRows: 10 }}
-            placeholder={'1. Smith, J. et al. Title. Nature 123, 456–789 (2022). https://doi.org/…\n2. Jones, A. & Brown, B. Another paper. J. Neurosci. 40, 1234 (2021).'} />
+            placeholder={'1. Smith, J. Title of article. Nature 123, 456–789 (2022). https://doi.org/…\n2. Jones, A. & Brown, B. Another paper. J. Neurosci. 40, 1234 (2021).'} />
         </Q>
 
         {/* ══ Figures and tables ═════════════════════════════════════════ */}
