@@ -24,7 +24,7 @@ zammad: async function zammad (ticketNumber) {
         const data = await response.json()
         const nettskjemaId = data.submissionId
         const datasetVersionId = data.datasetVersionId
-        return [ nettskjemaId, datasetVersionId ]
+        return [ nettskjemaId, datasetVersionId, Array.isArray(data.datasetCandidates) ? data.datasetCandidates : [] ]
     } catch (error) {
         throw new Error ('Error occurred while fetching zammad ticket info:', error.message)
     }

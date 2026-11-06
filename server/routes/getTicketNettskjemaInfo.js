@@ -1,3 +1,4 @@
+import { findDatasetCandidates } from './ticketDatasets.js'
 import dotenv        from 'dotenv'
 import express       from 'express'
 import logger        from '../logger.js'
@@ -192,6 +193,9 @@ async function getZammadInfo(req, res) {
       }
     }
 
+    // ALL datasets named in the ticket (a ticket can cover several datasets, each with its own Collab)
+    const datasetCandidates = findDatasetCandidates(articles)
+
     const found = new Set()
     for (const re of tiers) {
       for (const art of articles) {
@@ -235,6 +239,7 @@ async function getZammadInfo(req, res) {
       message:         `Nettskjema id: ${submissionId}; Dataset Version id: ${datasetVersionId}`,
       submissionId:    submissionId,
       datasetVersionId: datasetVersionId,
+      datasetCandidates: datasetCandidates,   // every dataset named in the ticket: [{ id, title }]
       ticketId:        ticketId,          // ← internal Zammad ticket ID (integer)
       ticketNumber:    cleanNumber,       // ← the human-readable ticket number
     })

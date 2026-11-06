@@ -233,15 +233,28 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     }
     const normalized = normalizeImportedJson(importPreview, dataTypes)
     let merged = deepMerge(formDataRef.current, normalized)
-    // Which dataset this form belongs to: the ticket decides when there is one (a draft must never move the
-    // submission and the Collab copy to another dataset); without a ticket the draft's own ID is used.
+    // Which dataset this form belongs to. A ticket can cover several datasets (one Collab each): a draft of any of
+    // them is accepted. A draft of a dataset that is not named in the ticket never moves the submission and the
+    // Collab copy to another dataset. Without a ticket the draft's own ID is used.
     const ticketId = String(skjemaInfo?.datasetVersionId || '').trim()
     const draftId = String(normalized?.datasetVersionId || '').trim()
+    const candidates = skjemaInfo?.datasetCandidates || []
+    const sameId = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase()
     if (ticketId) {
-      if (draftId && draftId !== ticketId) {
-        message.warning('This draft was made for another dataset version. It was loaded into the dataset of your ticket; the file structure and the format table are read again from the bucket of this dataset.', 10)
+      const known = (id) => !!id && (sameId(id, ticketId) || candidates.some(c => sameId(c.id, id)))
+      const currentId = String(formDataRef.current?.datasetVersionId || '').trim()
+      if (draftId && known(draftId)) {
+        merged = { ...merged, datasetVersionId: draftId }
+        if (!sameId(draftId, currentId)) {
+          const title = candidates.find(c => sameId(c.id, draftId))?.title
+          message.info(`The draft belongs to ${title ? `"${title}"` : 'another dataset of this ticket'}; the form now describes this dataset.`, 8)
+        }
+      } else {
+        if (draftId) {
+          message.warning('This draft was made for a dataset that is not named in your ticket. It was loaded into the dataset you are working on; the file structure and the format table are read again from its bucket.', 10)
+        }
+        merged = { ...merged, datasetVersionId: known(currentId) ? currentId : ticketId }
       }
-      merged = { ...merged, datasetVersionId: ticketId }
     } else if (draftId && !DATASET_VERSION_ID.test(draftId)) {
       message.warning(`The dataset version ID in this draft ("${draftId}") is not a valid ID (it must look like 12345678-1234-1234-1234-123456789abc), so the bucket cannot be read.`, 10)
     }
@@ -616,6 +629,31 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       />
 
       {/* ── Draft bar: nothing is stored in the browser ──── */}
+      {/* a ticket can cover several datasets: the person chooses which one this form is for */}
+      {(skjemaInfo?.datasetCandidates || []).length > 1 && (() => {
+        const list = skjemaInfo.datasetCandidates
+        const current = String(formData?.datasetVersionId || skjemaInfo?.datasetVersionId || '').toLowerCase()
+        return (
+          <Alert type="info" showIcon style={{ margin: '8px 16px 4px' }}
+            message={`This ticket covers ${list.length} datasets. Choose the dataset you are describing now.`}
+            description={<>
+              <Select
+                style={{ minWidth: 320, maxWidth: '100%' }}
+                value={list.some(c => c.id === current) ? current : undefined}
+                placeholder="Choose a dataset"
+                onChange={(id) => {
+                  handleInputChange({ datasetVersionId: id })
+                  message.info('The metadata, the file structure and the data descriptor now go to the chosen dataset. Answers you already entered stay in the form.', 8)
+                }}
+                options={list.map(c => ({ value: c.id, label: c.title ? `${c.title} (${c.id.slice(0, 8)}…)` : c.id }))}
+              />
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                Everything you submit goes to this dataset. Submit once for each dataset of the ticket.
+              </div>
+            </>} />
+        )
+      })()}
+
       {(() => {
         const on = collab.enabled
         const every = intervalLabel(collab.intervalSec)

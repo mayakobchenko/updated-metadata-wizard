@@ -11,6 +11,7 @@ const initialState = {
   nettskjemaInfo: null,
   reloadWizard: false,
   datasetVersionId: null,
+  datasetCandidates: [],   // every dataset named in the ticket: [{ id, title }]
   ticketNumber: null,
 }
 export const AuthContext = createContext(initialState)
@@ -167,8 +168,9 @@ export default function NewContextProvider({ children }) {
         // even though the ID had already been fetched successfully from
         // Zammad on the line above. That's why it appeared to "get lost"
         // whenever Nettskjema had an outage.
-        const [nettskjemaId, datasetVersionId] = await authFunctions.zammad(ticketNumber)
+        const [nettskjemaId, datasetVersionId, datasetCandidates] = await authFunctions.zammad(ticketNumber)
         dispatch({ type: 'dsvId', text: datasetVersionId })
+        dispatch({ type: 'dsvCandidates', text: datasetCandidates })
 
         try {
           const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
@@ -269,6 +271,8 @@ export function authReducer(state, action) {
       return { ...state, nettskjemaInfo: action.text }  
     case 'dsvId':
       return { ...state, datasetVersionId: action.text } 
+    case 'dsvCandidates':
+      return { ...state, datasetCandidates: action.text || [] }
     case 'SET_TICKET':
       return { ...state, ticketNumber: action.text } 
     default:
