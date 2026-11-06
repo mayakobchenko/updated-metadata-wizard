@@ -650,7 +650,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
                   handleInputChange({ datasetVersionId: id })
                   message.info('The metadata, the file structure and the data descriptor now go to the chosen dataset. Answers you already entered stay in the form.', 8)
                 }}
-                options={list.map(c => ({ value: c.id, label: c.title ? `${c.title} (${c.id.slice(0, 8)}…)` : c.id }))}
+                options={list.map(c => ({ value: c.id, label: c.title ? `${c.title} (${c.id})` : c.id }))}
               />
               <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
                 Everything you submit goes to this dataset. Submit once for each dataset of the ticket.{!datasetChosen && ' The Collab copy of your answers starts after you have chosen the dataset here.'}
