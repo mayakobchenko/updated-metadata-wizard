@@ -127,6 +127,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const figureItems                                     = useFigures()
   const figuresSeen                                     = useRef(false)
   const figuresToApply                                  = useRef(null) // pictures/tables loaded from the Collab drive, applied together with the draft
+  const [datasetChosen, setDatasetChosen]               = useState(false) // ticket with several datasets: the person has chosen one
   const [editTick, setEditTick]                         = useState(0) // counts real edits (triggers the Collab autosave)
 
   useEffect(() => {
@@ -245,6 +246,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       const currentId = String(formDataRef.current?.datasetVersionId || '').trim()
       if (draftId && known(draftId)) {
         merged = { ...merged, datasetVersionId: draftId }
+        if (candidates.length > 1) setDatasetChosen(true)
         if (!sameId(draftId, currentId)) {
           const title = candidates.find(c => sameId(c.id, draftId))?.title
           message.info(`The draft belongs to ${title ? `"${title}"` : 'another dataset of this ticket'}; the form now describes this dataset.`, 8)
@@ -584,6 +586,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     getPayload: () => mapDataset1OptionsToIds(formDataRef.current),
     editTick,
     onSaved: () => setDirty(false),
+    paused: (skjemaInfo?.datasetCandidates || []).length > 1 && !datasetChosen,   // several datasets: no copy before the person chose one
   })
 
   const toggleCollab = (on) => { if (on) collab.enable(); else collab.disable() }
@@ -634,21 +637,23 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         const list = skjemaInfo.datasetCandidates
         const current = String(formData?.datasetVersionId || skjemaInfo?.datasetVersionId || '').toLowerCase()
         return (
-          <Alert type="info" showIcon style={{ margin: '8px 16px 4px' }}
+          <Alert type={datasetChosen ? 'info' : 'warning'} showIcon style={{ margin: '8px 16px 4px' }}
             message={`This ticket covers ${list.length} datasets. Choose the dataset you are describing now.`}
             description={<>
               <Select
-                style={{ minWidth: 320, maxWidth: '100%' }}
+                style={{ width: '100%', maxWidth: 900 }}
+                popupMatchSelectWidth={false}
                 value={list.some(c => c.id === current) ? current : undefined}
                 placeholder="Choose a dataset"
                 onChange={(id) => {
+                  setDatasetChosen(true)
                   handleInputChange({ datasetVersionId: id })
                   message.info('The metadata, the file structure and the data descriptor now go to the chosen dataset. Answers you already entered stay in the form.', 8)
                 }}
                 options={list.map(c => ({ value: c.id, label: c.title ? `${c.title} (${c.id.slice(0, 8)}…)` : c.id }))}
               />
               <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                Everything you submit goes to this dataset. Submit once for each dataset of the ticket.
+                Everything you submit goes to this dataset. Submit once for each dataset of the ticket.{!datasetChosen && ' The Collab copy of your answers starts after you have chosen the dataset here.'}
               </div>
             </>} />
         )

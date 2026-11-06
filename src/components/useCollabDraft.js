@@ -27,7 +27,7 @@ const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Typ
 
 const extOf = (type) => (type === 'image/png' ? 'png' : 'jpg')
 
-export default function useCollabDraft({ datasetVersionId, getPayload, editTick, onSaved }) {
+export default function useCollabDraft({ datasetVersionId, getPayload, editTick, onSaved, paused = false }) {
   const valid = UUID.test(String(datasetVersionId || ''))
   const [enabled, setEnabled] = useState(true)
   const [status, setStatus] = useState('idle')        // idle | saving | saved | error
@@ -50,7 +50,7 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
   const files = useRef(new Set())                     // picture files known to be in the drive folder
 
   const pending = valid && enabled && !!remote?.exists && !resolved
-  const ready = valid && enabled && remote !== null && !remote.problem && !pending
+  const ready = valid && enabled && !paused && remote !== null && !remote.problem && !pending
 
   const refreshRemote = useCallback(async () => {
     if (!valid) return null
@@ -73,6 +73,20 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
       return null
     }
   }, [datasetVersionId, valid])
+
+  // The dataset changed (a ticket with several datasets): everything known about the earlier Collab drive is dropped,
+  // so the new drive is checked for an earlier draft before anything is saved there.
+  const lastId = useRef(datasetVersionId)
+  useEffect(() => {
+    if (lastId.current === datasetVersionId) return
+    lastId.current = datasetVersionId
+    clearTimeout(timer.current); timer.current = null
+    setRemote(null); setResolved(false); resolvedRef.current = false
+    setStatus('idle'); setError(''); setSavedAt(null)
+    savedTickRef.current = 0; setSavedTick(0)
+    files.current = new Set()
+    setNote((n) => { if (n) setEnabled(true); return '' })
+  }, [datasetVersionId])
 
   useEffect(() => { refreshRemote() }, [refreshRemote])
 
