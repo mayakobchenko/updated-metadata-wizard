@@ -6,7 +6,7 @@ import { FileTextOutlined, LoadingOutlined, CheckCircleFilled, InfoCircleOutline
 import ProgressBar from './ProgressBar.jsx'
 import { DatasetStep, ContributorsStep } from './MergedSteps.jsx'
 import { authorProblems } from './authorModel'
-import { missingRequired } from './requiredFields'
+import { missingRequired, STEP } from './requiredFields'
 import Subjects from './Subjects.jsx'
 import Funding from './Funding.jsx'
 import Experiments from './Experiments.jsx'
@@ -817,7 +817,16 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             dataDescriptorEnabled={DATA_DESCRIPTOR_ENABLED}
             getTicketId={getTicketId}
             downloadJson={downloadJson}
-            getMissing={() => missingRequired(formDataRef.current || formData, { subjectsDone: statuses[SUBJECTS_INDEX] || currentStepIndex === SUBJECTS_INDEX })}
+            getMissing={() => {
+              const list = missingRequired(formDataRef.current || formData, { subjectsDone: statuses[SUBJECTS_INDEX] || currentStepIndex === SUBJECTS_INDEX })
+              if ((skjemaInfo?.datasetCandidates || []).length > 1 && !datasetChosen) {     // several datasets: choose one before submitting
+                const item = 'Choose the dataset you are describing (the box at the top of the page). The ticket covers several datasets.'
+                const first = list.find(m => m.step === STEP.dataset)
+                if (first) first.items.unshift(item)
+                else list.unshift({ step: STEP.dataset, title: 'Dataset', items: [item] })
+              }
+              return list
+            }}
             onGoToStep={(i) => setCurrentStepIndex(i)}
           />
         )}

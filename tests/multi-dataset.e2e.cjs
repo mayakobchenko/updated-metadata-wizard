@@ -54,6 +54,12 @@ async function open(browser, candidates) {
   await s.page.locator('.ant-steps-item').nth(5).click({ force: true }); await s.page.waitForTimeout(2500)
   ok('the file structure is read from the chosen dataset', s.bucketCalls.includes(C), JSON.stringify(s.bucketCalls))
 
+  // submit is blocked until a dataset is chosen
+  s = await open(browser, three)
+  await s.page.locator('.ant-steps-item').nth(5).click({ force: true }).catch(() => {})
+  await s.page.getByRole('button', { name: /Submit metadata/ }).first().evaluate((el) => el.click()); await s.page.waitForTimeout(700)
+  ok('submit is blocked until a dataset is chosen', /Choose the dataset you are describing/.test(await s.page.locator('.ant-modal').innerText()))
+
   // autosave: nothing before a dataset is chosen; after choosing, only the chosen dataset receives a copy
   s = await open(browser, three)
   await s.page.locator('input').first().fill('x').catch(() => {})
