@@ -662,11 +662,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       {(() => {
         const on = collab.enabled
         const every = intervalLabel(collab.intervalSec)
-        const warn = (on && (collab.status === 'error' || !!collab.remote?.problem)) || collab.pending || (!on && dirty)
+        const warn = (on && (collab.paused || collab.status === 'error' || !!collab.remote?.problem)) || collab.pending || (!on && dirty)
         let icon = <InfoCircleOutlined style={{ color: '#1677ff' }} />
         let text
         if (on) {
-          if (collab.remote?.problem) { icon = <WarningFilled style={{ color: '#faad14' }} />; text = <>Could not check the Collab drive for an earlier draft yet ({collab.remote.problem}). Trying again; automatic saving waits until this works. You can click Download draft meanwhile.</> }
+          if (collab.paused) { icon = <WarningFilled style={{ color: '#faad14' }} />; text = <>Nothing is saved yet. Automatic saving in the Collab drive starts after you choose the dataset in the box above. You can click Download draft meanwhile.</> }
+          else if (collab.remote?.problem) { icon = <WarningFilled style={{ color: '#faad14' }} />; text = <>Could not check the Collab drive for an earlier draft yet ({collab.remote.problem}). Trying again; automatic saving waits until this works. You can click Download draft meanwhile.</> }
           else if (collab.status === 'error') { icon = <WarningFilled style={{ color: '#cf1322' }} />; text = <span style={{ color: '#cf1322' }}>Not saved in the Collab drive: {collab.error} Your answers are still in this page; click Download draft to be safe.</span> }
           else if (collab.pending) { icon = <WarningFilled style={{ color: '#faad14' }} />; text = <>Automatic saving is paused: a saved draft already exists in the Collab drive (see below).</> }
           else if (collab.status === 'saving') { icon = <LoadingOutlined />; text = <>Saving in the Collab drive…</> }

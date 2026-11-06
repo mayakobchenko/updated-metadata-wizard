@@ -47,9 +47,10 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
   const getPayloadRef = useRef(getPayload); getPayloadRef.current = getPayload
   const onSavedRef = useRef(onSaved); onSavedRef.current = onSaved
   const resolvedRef = useRef(false); resolvedRef.current = resolved
+  const pausedRef = useRef(paused); pausedRef.current = paused
   const files = useRef(new Set())                     // picture files known to be in the drive folder
 
-  const pending = valid && enabled && !!remote?.exists && !resolved
+  const pending = valid && enabled && !paused && !!remote?.exists && !resolved
   const ready = valid && enabled && !paused && remote !== null && !remote.problem && !pending
 
   const refreshRemote = useCallback(async () => {
@@ -130,7 +131,7 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
   }, [datasetVersionId])
 
   const saveNow = useCallback(async () => {
-    if (!valid) return
+    if (!valid || pausedRef.current) return        // several datasets in the ticket and none chosen yet: nothing is written
     if (busy.current) { again.current = true; return }
     busy.current = true; setStatus('saving'); setError('')
     clearTimeout(timer.current); timer.current = null      // a save is running, no extra one is planned
@@ -192,6 +193,6 @@ export default function useCollabDraft({ datasetVersionId, getPayload, editTick,
     return out
   }, [datasetVersionId])
 
-  return { available: valid, enabled, pending, unsaved, intervalSec, setIntervalSec, status, error, note, savedAt, remote, enable, disable, resolve, saveNow, load, loadFigures, refreshRemote }
+  return { available: valid, enabled, paused, pending, unsaved, intervalSec, setIntervalSec, status, error, note, savedAt, remote, enable, disable, resolve, saveNow, load, loadFigures, refreshRemote }
 }
 export { setFigures }

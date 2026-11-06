@@ -65,6 +65,7 @@ async function open(browser, candidates) {
   await s.page.locator('input').first().fill('x').catch(() => {})
   await s.page.getByLabel(/Dataset title|title/i).first().fill('My title').catch(() => {})
   await s.page.waitForTimeout(34000)
+  ok('the bar says that nothing is saved before a dataset is chosen', /Nothing is saved yet/.test(await s.page.locator('body').innerText()))
   ok('no Collab copy is written before a dataset is chosen', s.saves.length === 0, JSON.stringify(s.saves))
   await s.page.locator('.ant-select').first().click()
   await s.page.locator('.ant-select-item-option').filter({ hasText: 'Choline' }).click()
