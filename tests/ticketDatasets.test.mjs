@@ -29,3 +29,10 @@ test('only the best rule counts: labelled Collabs win over a stray link', () => 
   const r = findDatasetCandidates([{ body: `see also https://wiki/Collabs/d-${C}` }, { body: `Data Sharing Collab: https://wiki/Collabs/d-${A}/\nDataset Working Title: T` }])
   assert.deepEqual(r.map(c => c.id), [A])
 })
+
+test('HTML article: the link appears twice, every title is still found', () => {
+  const l = (id) => `https://wiki.ebrains.eu/bin/view/Collabs/d-${id}/`
+  const html = `<div>Data Sharing Collab: <a href="${l(A)}">${l(A)}</a><br>Dataset Working Title: Title A &amp; more<br><br>Data Sharing Collab: <a href="${l(B)}">${l(B)}</a><br><b>Dataset Working Title:</b> Title B</div>`
+  const r = findDatasetCandidates([{ body: html }])
+  assert.deepEqual(r, [{ id: A, title: 'Title A & more' }, { id: B, title: 'Title B' }])
+})

@@ -17,10 +17,16 @@ export function findDatasetCandidates(articles) {
       for (const m of body.matchAll(re)) {
         const id = m[1].toLowerCase()
         if (candidates.some(c => c.id === id)) continue
-        const after = body.slice(m.index + m[0].length, m.index + m[0].length + 400)
-        const stop = after.search(/data\s*sharing\s*collab|d-[0-9a-f]{8}-/i)
-        const t = (stop >= 0 ? after.slice(0, stop) : after).match(/dataset\s*working\s*title\s*:\s*([^\r\n<]+)/i)
-        candidates.push({ id, title: t ? t[1].trim() : '' })
+        // The title follows the Collab link. In an HTML article the link appears twice (href and text), so only a
+        // DIFFERENT d-<uuid>, or the next "Data sharing collab" label, ends the part where the title is looked for.
+        const after = body.slice(m.index + m[0].length, m.index + m[0].length + 600)
+        const other = [...after.matchAll(/d-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi)].find(x => x[1].toLowerCase() !== id)
+        const label = after.search(/data\s*sharing\s*collab/i)
+        const stops = [other ? other.index : -1, label].filter(x => x >= 0)
+        const part = stops.length ? after.slice(0, Math.min(...stops)) : after
+        const t = part.match(/dataset\s*working\s*title\s*(?:<[^>]*>\s*)*:\s*(?:<[^>]*>\s*)*([^\r\n<]+)/i)
+        const title = t ? t[1].replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim() : ''
+        candidates.push({ id, title })
       }
     }
     if (candidates.length) break
