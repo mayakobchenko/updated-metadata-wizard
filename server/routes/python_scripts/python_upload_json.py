@@ -884,8 +884,7 @@ if dsv_title:
     dsv_attributes["fullName"] = dsv_title
 if dsv_short_title:
     dsv_attributes["shortName"] = dsv_short_title
-if brief_summary:
-    dsv_attributes["description"] = brief_summary
+# description, authors and custodian are NOT set on the DatasetVersion: they live on the Dataset only (see below)
 if homepage:
     dsv_attributes["homepage"] = homepage
 if support_channels:
@@ -903,11 +902,6 @@ if data_type_list:
 
 valid_authors = [a for a in author_ids if isinstance(
     a, str) and a.startswith("http")]
-if valid_authors:
-    dsv_attributes["author"] = [{"@id": a} for a in valid_authors]
-
-if custodian_url and isinstance(custodian_url, str) and custodian_url.startswith("http"):
-    dsv_attributes["custodian"] = {"@id": custodian_url}
 
 if experimental_approach:
     dsv_attributes["experimentalApproach"] = as_id_list(experimental_approach)
@@ -1149,8 +1143,8 @@ def patch_dataset(dataset_uuid, dataset_attributes):
 
 
 # ── build Dataset attributes from form data ───────────────────────────────────
-# Dataset shares title, authors and custodian with DatasetVersion
-# but does NOT have description, license, embargo etc. — those live on DSV.
+# The Dataset (not the DatasetVersion) carries the description, the authors and the data custodian.
+# Title and short title are on both; license, embargo etc. live on the DatasetVersion only.
 
 dataset_attributes = {}
 
@@ -1158,12 +1152,9 @@ if dsv_title:
     dataset_attributes["fullName"] = dsv_title
 if dsv_short_title:
     dataset_attributes["shortName"] = dsv_short_title
-# change later for the data descriptor
-"""   
 if brief_summary:
     dataset_attributes["description"] = brief_summary
-"""
-# authors — same list resolved above for DSV
+# authors
 if valid_authors:
     dataset_attributes["author"] = [{"@id": a} for a in valid_authors]
 
