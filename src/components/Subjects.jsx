@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Form, Input, Select, Button, Radio, Tabs, Alert } from 'antd'
 
 const { Option } = Select
@@ -938,12 +938,25 @@ export default function Subjects({ form, onChange, data = {} }) {
   const [tissueSampleAttributeData, setTissueSampleAttributeData] = useState([])
   const [allUnits, setAllUnits]                                   = useState([])
 
-  const [mode, setMode]                   = useState(data.subjectMetadata?.subjectGroups ? 'grouped' : 'flat')
+  // An empty list of groups (as in every draft file that was saved with "subjectGroups": []) must not switch to the
+  // grouped view: that hid all the flat subjects. Grouped only when there are groups and no flat subjects.
+  const startMode = (sm) => ((sm?.subjectGroups?.length || 0) > 0 && !(sm?.subjects?.length || 0) ? 'grouped' : 'flat')
+  const [mode, setMode]                   = useState(startMode(data.subjectMetadata))
   const [subjectsData, setSubjectData]    = useState(data.subjectMetadata?.subjects || [])
   const [groups, setGroups]               = useState(data.subjectMetadata?.subjectGroups || [])
   const [tissueCollections, setTissueCollections] = useState(data.subjectMetadata?.tissueCollections || [])
   const [tissueSamples, setTissueSamples]         = useState(data.subjectMetadata?.tissueSamples || [])
   const [tissueMode, setTissueMode]       = useState(data.subjectMetadata?.tissueCollections?.length ? 'collections' : 'flat')
+  // A draft that is imported while this step is open (the form was empty before): show the kind of content it has.
+  const prevCounts = useRef({ subjects: data.subjectMetadata?.subjects?.length || 0, groups: data.subjectMetadata?.subjectGroups?.length || 0, collections: data.subjectMetadata?.tissueCollections?.length || 0 })
+  useEffect(() => {
+    const sm = data.subjectMetadata
+    const now = { subjects: sm?.subjects?.length || 0, groups: sm?.subjectGroups?.length || 0, collections: sm?.tissueCollections?.length || 0 }
+    const before = prevCounts.current
+    prevCounts.current = now
+    if (before.subjects + before.groups === 0 && now.subjects + now.groups > 0) setMode(startMode(sm))
+    if (before.collections === 0 && now.collections > 0) setTissueMode('collections')
+  }, [data.subjectMetadata?.subjects?.length, data.subjectMetadata?.subjectGroups?.length, data.subjectMetadata?.tissueCollections?.length])
 
   // Drives the "missing linked subject" warning banner — stays false (and
   // the banner hidden) until the user actually tries to move on from this
