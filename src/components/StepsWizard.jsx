@@ -660,7 +660,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
       })()}
 
       {(() => {
-        const on = collab.enabled
+        const on = collab.enabled && collab.available    // no dataset ID (page opened without a ticket link): there is no Collab drive to save to
         const every = intervalLabel(collab.intervalSec)
         const warn = (on && (collab.paused || collab.status === 'error' || !!collab.remote?.problem)) || collab.pending || (!on && dirty)
         let icon = <InfoCircleOutlined style={{ color: '#1677ff' }} />
@@ -677,7 +677,8 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         } else {
           if (dirty) icon = <WarningFilled style={{ color: '#faad14' }} />
           text = <><strong>Your answers are not stored on any server or in this browser.</strong>{' '}
-            {collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
+            {!collab.available ? <span style={{ color: '#ad6800' }}>This page was opened without a support-ticket link, so there is no Collab drive to save to. Open the wizard from the link in your ticket to use automatic saving.{' '}</span> : null}
+            {collab.available && collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
             {dirty ? 'You have changes that are not saved. Click Download draft before you close this page.'
               : lastSavedAt ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.` : 'To continue later, click Download draft and keep the file.'}
             {' '}Figures and tables are not part of the draft file.</>
