@@ -257,6 +257,10 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         }
         merged = { ...merged, datasetVersionId: known(currentId) ? currentId : ticketId }
       }
+    } else if (draftId && DATASET_VERSION_ID.test(draftId)) {
+      // No ticket: the dataset ID of the draft decides the Collab drive that the automatic saving writes to.
+      merged = { ...merged, datasetVersionId: draftId }
+      message.info(`The draft belongs to the dataset ${draftId}. Automatic saving now goes to the Collab drive of this dataset.`, 8)
     } else if (draftId && !DATASET_VERSION_ID.test(draftId)) {
       message.warning(`The dataset version ID in this draft ("${draftId}") is not a valid ID (it must look like 12345678-1234-1234-1234-123456789abc), so the bucket cannot be read.`, 10)
     }
@@ -659,6 +663,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         )
       })()}
 
+      {!collab.available && !skjemaInfo?.ticketNumber && (
+        <Alert type="warning" showIcon style={{ margin: '8px 16px 4px' }}
+          message="This page was opened without a ticket number."
+          description="Automatic saving in the Collab drive and the upload to the Knowledge Graph need the dataset of your data sharing Collab. Please close this page and open the wizard from the link provided in your data sharing Collab: that link contains the ticket number. If you have a draft file that contains the dataset ID, you can also import it with Import draft; the dataset ID of the draft then decides where your answers are saved." />
+      )}
+
       {(() => {
         const on = collab.enabled && collab.available    // no dataset ID (page opened without a ticket link): there is no Collab drive to save to
         const every = intervalLabel(collab.intervalSec)
@@ -677,7 +687,7 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         } else {
           if (dirty) icon = <WarningFilled style={{ color: '#faad14' }} />
           text = <><strong>Your answers are not stored on any server or in this browser.</strong>{' '}
-            {!collab.available ? <span style={{ color: '#ad6800' }}>This page was opened without a support-ticket link, so there is no Collab drive to save to. Open the wizard from the link in your ticket to use automatic saving.{' '}</span> : null}
+            {!collab.available && skjemaInfo?.ticketNumber ? <span style={{ color: '#ad6800' }}>Your ticket does not name a data sharing Collab, so there is no Collab drive to save to.{' '}</span> : null}
             {collab.available && collab.note ? <span style={{ color: '#ad6800' }}>{collab.note}{' '}</span> : null}
             {dirty ? 'You have changes that are not saved. Click Download draft before you close this page.'
               : lastSavedAt ? `Draft downloaded at ${lastSavedAt.toLocaleTimeString()}.` : 'To continue later, click Download draft and keep the file.'}
