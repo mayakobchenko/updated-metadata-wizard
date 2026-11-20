@@ -4,6 +4,7 @@ import { ExportOutlined } from '@ant-design/icons'
 import { resolveStandards, NO_STANDARD } from './importNormalize'
 import dayjs from 'dayjs'
 import FormShell from './FormShell'
+import OrganizationSelect from './OrganizationSelect.jsx'
 
 const { TextArea } = Input
 const { Option }   = Select
@@ -237,7 +238,7 @@ export default function Dataset1({ form, onChange, data, embedded = false, regis
                 name={['dataset1', 'copyrightOrganization']}
                 rules={[{ required: true, message: 'Please enter the organization name!' }]}
               >
-                <Input placeholder="Organization Name..." />
+                <OrganizationSelect />
               </AntForm.Item>
             )}
 

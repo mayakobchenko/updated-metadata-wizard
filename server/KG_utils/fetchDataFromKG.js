@@ -13,7 +13,8 @@ import { readFile } from 'fs/promises'
 const configReleased = [
   { openMindsType: "ORCID",        typeProperties: ["identifier"] },
   { openMindsType: "Person",       typeProperties: ["familyName", "givenName", "digitalIdentifier"] },
-  { openMindsType: "Organization", typeProperties: ["fullName"] },
+  { openMindsType: "ROR",          typeProperties: ["identifier"] },
+  { openMindsType: "Organization", typeProperties: ["fullName", "shortName", "homepage", "digitalIdentifier"] },
   { openMindsType: "Consortium",   typeProperties: ["fullName"] },
   {
     openMindsType:  "Funding",

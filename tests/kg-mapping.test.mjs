@@ -36,3 +36,23 @@ test('organisations are written with fullName and shortName (the editor labels t
   assert.match(src, /org_node = \{"@type": \[f"\{T\}Organization"\], "fullName": name, "shortName": name\}/)
   assert.match(src, /"fullName": name\.strip\(\), "shortName": name\.strip\(\)/)
 })
+
+// organisations of the common space are linked, not created again
+const findCommon = (name, orgs) => {
+  const fn = src.slice(src.indexOf('def find_common_organization'), src.indexOf('# ── KG helpers'))
+  const code = `${fn}\nimport json\nprint(json.dumps(find_common_organization(${JSON.stringify(name)}, json.loads(${JSON.stringify(JSON.stringify(orgs))}))))`
+  return JSON.parse(execFileSync('python3', ['-I', '-c', code]).toString())
+}
+const ORGS = [{ uuid: 'https://kg.ebrains.eu/api/instances/k1', fullName: 'Kavli Institute for Systems Neuroscience' }, { uuid: 'https://kg.ebrains.eu/api/instances/x', fullName: 'Other' }, { uuid: 'https://kg.ebrains.eu/api/instances/e' }]
+test('an organisation of the common space is found by its full name (case and spaces ignored)', () => {
+  assert.equal(findCommon('Kavli Institute for Systems Neuroscience', ORGS), 'https://kg.ebrains.eu/api/instances/k1')
+  assert.equal(findCommon('  kavli institute for systems neuroscience ', ORGS), 'https://kg.ebrains.eu/api/instances/k1')
+})
+test('an unknown or empty name is not found', () => {
+  assert.equal(findCommon('Nowhere University', ORGS), null)
+  assert.equal(findCommon('', ORGS), null)
+})
+test('find_or_create_organization looks in the common space first', () => {
+  const i = src.indexOf('def find_or_create_organization')
+  assert.ok(src.indexOf('find_common_organization(name, _org_list)', i) > i && src.indexOf('find_common_organization(name, _org_list)', i) < src.indexOf('find_organization_in_collab(name)', i))
+})

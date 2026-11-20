@@ -48,7 +48,7 @@ const json = (o) => ({ status: 200, contentType: 'application/json', body: JSON.
   await page.getByRole('button', { name: /^Next$/ }).click(); await page.waitForTimeout(500)
   ok('Funding: Next is blocked with an empty funder', await page.getByText('Please enter the name of the funder.').count() > 0)
   await page.getByRole('button', { name: /^OK$/ }).last().evaluate((el) => el.click()).catch(() => {}); await page.waitForTimeout(400)
-  await page.getByPlaceholder('e.g. European Research Council').fill('ERC')
+  await page.getByLabel('This organisation is not in the list').first().check(); await page.getByPlaceholder('Name of the organisation').fill('ERC')   // the funder is typed: the list is empty in this test
   await page.getByPlaceholder('e.g. ERC-2021-STG-123456').fill('123')
   draft = await dl()
   ok('Funding: answer and funder are stored', draft.funding?.isFunded === 'Yes' && draft.funding?.funders?.[0]?.funderName === 'ERC' && draft.funding?.funders?.[0]?.grantId === '123', JSON.stringify(draft.funding).slice(0, 140))

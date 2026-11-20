@@ -1,6 +1,7 @@
 import { Form as AntForm, Input } from 'antd'
 import { useEffect } from 'react'
 import FormShell from './FormShell'
+import OrganizationSelect from './OrganizationSelect.jsx'
 
 export default function Introduction({ form, onChange, data, embedded = false, register }) {
   const initialValues = {
@@ -103,7 +104,7 @@ export default function Introduction({ form, onChange, data, embedded = false, r
           label="Contact person's affiliation"
           name={['contactperson', 'affiliation']}
           rules={[{ required: true, message: "Please enter the contact person's affiliation!" }]}>
-          <Input placeholder="Department, Institution, City, Country" />
+          <OrganizationSelect placeholder="Search the list of institutions" />
         </AntForm.Item>
         <AntForm.Item
           label="Contact person's ORCID"
@@ -144,7 +145,7 @@ export default function Introduction({ form, onChange, data, embedded = false, r
           label="Data custodian's affiliation"
           name={['custodian', 'institution']} 
           rules={[{ required: true, message: "Please enter the data custodian's affiliation!" }]}>
-          <Input placeholder="Department, Institution, City, Country" />
+          <OrganizationSelect placeholder="Search the list of institutions" />
         </AntForm.Item>
         <AntForm.Item
           label="Data custodian's ORCID"

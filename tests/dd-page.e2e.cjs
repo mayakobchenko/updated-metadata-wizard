@@ -18,7 +18,7 @@ process.on('unhandledRejection', (e) => { console.log('ERROR', String(e).slice(0
   const go = async (i) => { await page.locator('.ant-steps-item').nth(i).click({ force: true }); await page.waitForTimeout(900) }
   await go(1)
   await click(page.locator('label:has(input[value=Yes])')); await page.waitForTimeout(300)
-  await page.getByPlaceholder('e.g. European Research Council').fill('ERC')
+  await page.getByLabel('This organisation is not in the list').first().check(); await page.getByPlaceholder('Name of the organisation').fill('ERC')   // the funder is typed: the list is empty in this test
   await page.getByPlaceholder('e.g. ERC-2021-STG-123456').fill('123')
   await go(5)
   const f = page.locator('#dataDescriptor_funding')

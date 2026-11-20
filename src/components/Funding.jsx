@@ -1,5 +1,6 @@
 import { Form, Input, Button, Radio } from 'antd'
 import { useEffect } from 'react'
+import OrganizationSelect from './OrganizationSelect.jsx'
 
 // Funding is mandatory information: first the question "Are you funded?"; with "Yes" at least one funder with its
 // name has to be given (the grant ID is optional), with "No" the step is complete. The answer is stored as funding.isFunded
@@ -72,10 +73,10 @@ export default function Funding({ form, onChange, data = {} }) {
                         label="Funder name"
                         name={[field.name, 'funderName']}
                         rules={[{ required: true, whitespace: true, message: 'Please enter the name of the funder.' }]}
-                        extra="Please state the full name of the funder (no abbreviations)."
+                        extra="Choose the funder from the list. If it is missing, tick the box and type its full name (no abbreviations)."
                         style={{ marginBottom: 12 }}
                       >
-                        <Input placeholder="e.g. European Research Council" />
+                        <OrganizationSelect placeholder="Search the list of funders, e.g. European Research Council" />
                       </Form.Item>
 
                       <Form.Item

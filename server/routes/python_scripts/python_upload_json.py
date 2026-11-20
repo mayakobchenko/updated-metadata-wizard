@@ -158,6 +158,35 @@ except Exception as e:
     _orcid_list = []
     print(f"DEBUG could not load ORCID.json: {e}", file=sys.stderr)
 
+# ── load the organisations of the common space ───────────────────────────────
+
+_org_path = os.path.join(_server_dir, 'data', 'kg-instances', 'Organization.json')
+
+try:
+    with open(_org_path, 'r', encoding='utf-8') as _f:
+        _org_list = json.load(_f)
+    print(f"DEBUG loaded {len(_org_list)} organisations", file=sys.stderr)
+except Exception as e:
+    _org_list = []
+    print(f"DEBUG could not load Organization.json: {e}", file=sys.stderr)
+
+
+def find_common_organization(name, orgs):
+    """
+    The organisation of the common space whose full name equals `name` (ignoring case and
+    surrounding spaces), as its KG URL; None if there is none. The form's list uses the same
+    rule, so what was picked there is what is linked here, and nothing is created twice.
+    """
+    wanted = (name or "").strip().lower()
+    if not wanted:
+        return None
+    for o in orgs or []:
+        full = o.get("fullName")
+        if isinstance(full, str) and full.strip().lower() == wanted and o.get("uuid"):
+            return o["uuid"]
+    return None
+
+
 # ── KG helpers ────────────────────────────────────────────────────────────────
 
 
@@ -669,6 +698,10 @@ def find_or_create_organization(name):
     name = nonempty(name)
     if not name:
         return None
+    common = find_common_organization(name, _org_list)
+    if common:
+        print(f"DEBUG organisation '{name}' is in the common space → {common}", file=sys.stderr)
+        return common
     try:
         existing = find_organization_in_collab(name)
     except KGLookupError as e:

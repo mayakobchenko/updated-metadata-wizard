@@ -3,6 +3,7 @@ import path from 'path'
 import { getRequestOptions } from './kgAuthentication.js'
 import { fileURLToPath } from 'url'
 import logger from '../logger.js'
+import { firstString, resolveOrganizationIdentifier } from './organizationIdentifier.js'
 
 const __filename      = fileURLToPath(import.meta.url)
 const __dirname       = path.dirname(__filename)
@@ -21,21 +22,23 @@ export const fetchCoreSchemaInstances = async (typeSpecifications, requestOption
     requestOptions = await getRequestOptions()
   }
 
-  // ── ORCID must be fetched first because Person depends on it ──────────────
-  const orcidSpec = typeSpecifications.find(s => s.openMindsType === 'ORCID')
-  if (orcidSpec) {
-    const stageName   = orcidSpec.stage ?? "RELEASED"
-    const spaceName   = orcidSpec.space ?? "common"
+  // ── ORCID and ROR must be fetched first: Person and Organization point to them ─
+  for (const firstType of ['ORCID', 'ROR']) {
+    const spec = typeSpecifications.find(s => s.openMindsType === firstType)
+    if (!spec) continue
+    const stageName   = spec.stage ?? "RELEASED"
+    const spaceName   = spec.space ?? "common"
     const QUERY_PARAMS = [`stage=${stageName}`, `space=${spaceName}`, "type=https://openminds.om-i.org/types/"]
-    const queryUrl    = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}ORCID`
-    const instances   = await fetchAndParseInstances(queryUrl, requestOptions, 'ORCID', orcidSpec.typeProperties)
-    const filePath    = path.join(OUTPUT_DIR, 'ORCID.json')
+    const queryUrl    = `${API_BASE_URL}${API_ENDPOINT}?${QUERY_PARAMS.join("&")}${firstType}`
+    const instances   = await fetchAndParseInstances(queryUrl, requestOptions, firstType, spec.typeProperties)
+    if (!instances.length) { logger.warn(`No ${firstType} instances returned, keeping the existing file`); continue }
+    const filePath    = path.join(OUTPUT_DIR, `${firstType}.json`)
     await fs.promises.writeFile(filePath, JSON.stringify(instances, null, 2))
-    logger.debug(`File with instances for ORCID written successfully (${instances.length} entries)`)
+    logger.debug(`File with instances for ${firstType} written successfully (${instances.length} entries)`)
   }
 
   // ── all other types fetched in parallel, grouped by type name ────────────
-  const otherSpecs = typeSpecifications.filter(s => s.openMindsType !== 'ORCID')
+  const otherSpecs = typeSpecifications.filter(s => !['ORCID', 'ROR'].includes(s.openMindsType))
 
   // group specs by type name so multiple stages accumulate into one file
   const resultsByType = new Map()
@@ -128,6 +131,10 @@ async function parseInstances(data, typeName, propertyNameList) {
     if (typeName === "Person") {
       orcidData = await loadJsonFile(path.join(OUTPUT_DIR, 'ORCID.json'))
     }
+    let rorData = []
+    if (typeName === "Organization") {
+      rorData = await loadJsonFile(path.join(OUTPUT_DIR, 'ROR.json')).catch(() => [])   // without it the organisations simply have no identifier
+    }
 
     for (const thisInstance of data.data) {
       const newInstance = { uuid: thisInstance["@id"] }
@@ -135,7 +142,13 @@ async function parseInstances(data, typeName, propertyNameList) {
       for (const propertyName of propertyNameList) {
         const vocabName = `${OPENMINDS_VOCAB}/${propertyName}`
         if (thisInstance[vocabName] !== undefined) {
-          if (typeName === "Person" && propertyName === "digitalIdentifier") {
+          if (typeName === "Organization" && propertyName === "digitalIdentifier") {
+            const ror = resolveOrganizationIdentifier(thisInstance[vocabName], rorData)
+            if (ror) newInstance["identifier"] = ror
+          } else if (typeName === "Organization" && propertyName === "homepage") {
+            const home = firstString(thisInstance[vocabName])
+            if (home) newInstance["homepage"] = home
+          } else if (typeName === "Person" && propertyName === "digitalIdentifier") {
             const findOrcid = orcidData?.find(
               entry => entry.uuid === thisInstance[`${OPENMINDS_VOCAB}/digitalIdentifier`]?.["@id"]
             )

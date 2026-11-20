@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Form, Input, Select, Checkbox, Button, Typography } from 'antd'
 import FormShell from './FormShell'
+import OrganizationSelect from './OrganizationSelect.jsx'
 import { CUSTODIAN_AFF, institutionList, custodianName, contactName, isEmail, authorSequence, fromSequence } from './authorModel'
 
 const { Option } = Select
@@ -364,7 +365,7 @@ const fetchContributors = async () => {
             : <div style={{ marginBottom: 6 }}><Text type="warning" style={{ fontSize: 12 }}>The data custodian’s affiliation is missing in the section above.</Text></div>}
           {affiliations.map((aff, i) => (
             <div key={aff.id} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-              <Input value={aff.text} onChange={(e) => changeAffiliation(i, e.target.value)} placeholder="Department, Institution, City, Country" />
+              <OrganizationSelect style={{ flex: 1 }} value={aff.text} onChange={(t) => changeAffiliation(i, t)} placeholder="Search the list of institutions" />
               <Button size="small" className="remove-text-btn" onClick={() => removeAffiliation(i)}>Remove</Button>
             </div>
           ))}

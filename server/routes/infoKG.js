@@ -62,20 +62,28 @@ router.get('/funding', async (req, res) => {
     res.status(500).json({ funding: [] })
   }
 })
-/*
+// Organisations of the common space for the dropdowns (copyright holder, funders, affiliations)
 router.get('/organisations', async (req, res) => {
   const filePath = path.join(__dirname, '../data/kg-instances/Organization.json')
   try {
-    const raw          = await readFile(filePath, 'utf-8')
-    const data         = JSON.parse(raw)
-    const organisations = Array.isArray(data) ? data : data.organisations || data.organization || []
+    const raw  = await readFile(filePath, 'utf-8')
+    const data = JSON.parse(raw)
+    const organisations = (Array.isArray(data) ? data : [])
+      .filter(o => o.uuid && typeof o.fullName === 'string' && o.fullName.trim())
+      .map(o => ({
+        uuid: o.uuid,
+        fullName: o.fullName.trim(),
+        shortName: typeof o.shortName === 'string' ? o.shortName.trim() : '',
+        homepage: typeof o.homepage === 'string' ? o.homepage : '',
+        identifier: typeof o.identifier === 'string' ? o.identifier : '',
+      }))
+      .sort((x, y) => x.fullName.localeCompare(y.fullName))
     res.status(200).json({ organisations })
   } catch (err) {
     console.error('Error reading Organization.json:', err.message)
     res.status(500).json({ organisations: [] })
   }
 })
-*/
 
 async function getTechniques(req, res) {
   const filePath = path.join(__dirname, '../data/techniques/techniques.json')
