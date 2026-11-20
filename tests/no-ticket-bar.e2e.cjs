@@ -34,7 +34,7 @@ process.on('unhandledRejection', (e) => { console.log('ERROR', String(e).slice(0
   ok('the warning about the missing ticket is gone after importing a draft with a dataset ID', !/opened without a ticket number/.test(t2))
   ok('the message names the dataset of the draft', t2.includes(ID) || await page.locator('.ant-message').innerText().then(x => x.includes(ID)).catch(() => false))
   ok('the Collab toggle is shown', await page.getByText('Collab copy').count() > 0)
-  await page.locator('input[type=text]:visible').first().click(); await page.keyboard.type(' x'); await page.waitForTimeout(36000)   // the saving starts with the first edit
+  await page.locator('.ant-select').filter({ hasText: '5 minutes' }).first().click(); await page.getByText('30 seconds', { exact: true }).last().click(); await page.locator('input[type=text]:visible').first().click(); await page.keyboard.type(' x'); await page.waitForTimeout(36000)   // the saving starts with the first edit; switch to 30 s so the test does not wait 5 minutes
   if (process.env.REMOTE_DRAFT) {
     ok('an existing Collab draft of that dataset is not overwritten without asking', saves.length === 0 && /saved draft already exists/i.test(await page.locator('body').innerText()), JSON.stringify(saves))
   } else {

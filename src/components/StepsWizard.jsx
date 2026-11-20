@@ -290,18 +290,31 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   const buildImportSummary = (parsed) => {
     if (!parsed) return []
     const lines = []
+    const n = (x) => (Array.isArray(x) ? x.length : 0)
+    const name = (p) => `${p?.firstName || ''} ${p?.familyName || ''}`.trim()
     if (parsed.datasetVersionId)                      lines.push(`Dataset version ID: ${parsed.datasetVersionId}`)
-    if (parsed.contactperson?.firstName)              lines.push(`Contact person: ${parsed.contactperson.firstName} ${parsed.contactperson.familyName}`)
-    if (parsed.custodian?.firstName)                  lines.push(`Custodian: ${parsed.custodian.firstName} ${parsed.custodian.familyName}`)
+    if (name(parsed.contactperson))                   lines.push(`Contact person: ${name(parsed.contactperson)}`)
+    if (name(parsed.custodian))                       lines.push(`Data custodian: ${name(parsed.custodian)}${n(parsed.contribution?.authors) || parsed.contribution?.custodianPosition ? ' (also listed as an author)' : ''}`)
     if (parsed.dataset1?.dataTitle)                   lines.push(`Dataset title: ${parsed.dataset1.dataTitle}`)
     if (parsed.dataset1?.briefSummary)                lines.push(`Summary: ${parsed.dataset1.briefSummary.slice(0, 80)}${parsed.dataset1.briefSummary.length > 80 ? '…' : ''}`)
-    if (parsed.funding?.funders?.length)              lines.push(`Funders: ${parsed.funding.funders.length}`)
-    if (parsed.contribution?.authors?.length)         lines.push(`Authors: ${parsed.contribution.authors.length}`)
-    if (parsed.experiments?.experimentalApproach?.length) lines.push(`Experimental approaches: ${parsed.experiments.experimentalApproach.length}`)
-    const subjects    = parsed.subjectMetadata?.subjects?.length    || 0
-    const groups      = parsed.subjectMetadata?.subjectGroups?.length|| 0
-    const tissues     = parsed.subjectMetadata?.tissueSamples?.length|| 0
-    const collections = parsed.subjectMetadata?.tissueCollections?.length || 0
+    const d1 = parsed.dataset1 || {}
+    if (d1.license)                                   lines.push('Licence: set')
+    if (d1.copyright === 'Yes' || d1.copyright === true) {
+      const holder = d1.copyrightHolder === 'Organization' ? d1.copyrightOrganization : `${d1.copyrightFirstName || ''} ${d1.copyrightLastName || ''}`.trim()
+      const year = d1.copyrightYear ? new Date(d1.copyrightYear).getUTCFullYear() : ''
+      if (holder || year) lines.push(`Copyright: ${[holder, year].filter(Boolean).join(', ')}`)
+    }
+    if (n(parsed.funding?.funders))                   lines.push(`Funders: ${parsed.funding.funders.length}`)
+    const nAuth = n(parsed.contribution?.authors)
+    if (nAuth || name(parsed.custodian))              lines.push(`Authors: ${nAuth}${name(parsed.custodian) ? ' + the data custodian' : ''}`)
+    if (n(parsed.contribution?.contributor?.othercontr)) lines.push(`Other contributors: ${parsed.contribution.contributor.othercontr.length}`)
+    if (n(parsed.experiments?.experimentalApproach))  lines.push(`Experimental approaches: ${parsed.experiments.experimentalApproach.length}`)
+    if (n(parsed.experiments?.techniques))            lines.push(`Techniques: ${parsed.experiments.techniques.length}`)
+    if (n(parsed.experiments?.studyTargets))          lines.push(`Study targets: ${parsed.experiments.studyTargets.length}`)
+    const subjects    = n(parsed.subjectMetadata?.subjects)
+    const groups      = n(parsed.subjectMetadata?.subjectGroups)
+    const tissues     = n(parsed.subjectMetadata?.tissueSamples)
+    const collections = n(parsed.subjectMetadata?.tissueCollections)
     if (subjects)    lines.push(`Subjects: ${subjects}`)
     if (groups)      lines.push(`Subject groups: ${groups}`)
     if (tissues)     lines.push(`Tissue samples: ${tissues}`)

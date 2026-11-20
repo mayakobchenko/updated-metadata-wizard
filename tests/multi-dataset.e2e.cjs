@@ -68,7 +68,8 @@ async function open(browser, candidates) {
   ok('the bar says that nothing is saved before a dataset is chosen', /Nothing is saved yet/.test(await s.page.locator('body').innerText()))
   ok('no Collab copy is written before a dataset is chosen', s.saves.length === 0, JSON.stringify(s.saves))
   await s.page.locator('.ant-select').first().click()
-  await s.page.locator('.ant-select-item-option').filter({ hasText: 'Choline' }).click()
+  await s.page.locator('.ant-select-item-option').filter({ hasText: 'Choline' }).click(); await s.page.waitForTimeout(500)
+  await s.page.locator('.ant-select').filter({ hasText: '5 minutes' }).first().click(); await s.page.getByText('30 seconds', { exact: true }).last().click()   // the default is 5 minutes
   await s.page.waitForTimeout(36000)
   ok('after choosing, the copy goes to the chosen dataset only', s.saves.length > 0 && s.saves.every(x => x === B), JSON.stringify(s.saves))
   ok('the dropdown is wide enough for the full title', (await s.page.locator('.ant-select').first().boundingBox()).width > 500)

@@ -3,10 +3,11 @@
 //   data.custodian                       name, email, ORCID and affiliation ("institution") of the data custodian
 //   data.contribution.affiliations       [{ id, text }]  institutions typed in the Contributors step
 //   data.contribution.custodianAuthor    { contributions, corresponding, equal, affiliationIds }  author details of the custodian
+//   data.contribution.custodianPosition  place of the data custodian in the author list, counted from 1 (default 1 = first author)
 //   data.contribution.authors[]          { id, isCustom, selectedAuthor | firstName/lastName/orcid,
 //                                          email, affiliationIds, contributions, corresponding, equal }
 // The data descriptor (Word file, Markdown, prompts) gets a derived table: authors with numbered affiliations,
-// numbered in the order of first appearance, the custodian first.
+// numbered in the order of first appearance; the custodian is first unless contribution.custodianPosition says otherwise.
 
 export const CUSTODIAN_AFF = 'custodian-aff'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -27,6 +28,21 @@ export function institutionList(data) {
     if (a && a.id !== undefined && clean(a.text)) out.push({ id: a.id, text: clean(a.text), fixed: false })
   }
   return out
+}
+
+// the whole author list in order: [{ kind: 'custodian' } | { kind: 'author', index }]
+export const custodianPosition = (data) => Math.max(1, parseInt(data?.contribution?.custodianPosition, 10) || 1)
+export function authorSequence(data, withCustodian = true) {
+  const seq = (data?.contribution?.authors || []).map((_, index) => ({ kind: 'author', index }))
+  if (withCustodian) seq.splice(Math.min(custodianPosition(data), seq.length + 1) - 1, 0, { kind: 'custodian' })
+  return seq
+}
+// a new sequence (after moving) -> the pieces the form stores
+export function fromSequence(seq) {
+  return {
+    authorOrder: seq.filter(x => x.kind === 'author').map(x => x.index),
+    custodianPosition: Math.max(1, seq.findIndex(x => x.kind === 'custodian') + 1),
+  }
 }
 
 const customName = (a) => `${clean(a.firstName)} ${clean(a.lastName)}`.trim()
@@ -50,25 +66,28 @@ export function buildAuthorTable(data, resolveName = (a) => (a.isCustom ? custom
   const cust = data?.custodian || {}
   const custName = custodianName(data)
   const ca = data?.contribution?.custodianAuthor || {}
-  if (custName) {
-    authors.push({
-      id: 'cust-0', name: custName, email: clean(cust.email),
-      affiliationNumbers: numbersFor([CUSTODIAN_AFF, ...(ca.affiliationIds || [])]),
-      contributions: ca.contributions || [],
-      corresponding: ca.corresponding ?? true,   // the data custodian is the corresponding author by default
-      equal: !!ca.equal,
-    })
-  }
-  ;(data?.contribution?.authors || []).forEach((a, i) => {
+  const raw = data?.contribution?.authors || []
+  for (const item of authorSequence(data, !!custName)) {
+    if (item.kind === 'custodian') {
+      authors.push({
+        id: 'cust-0', name: custName, email: clean(cust.email),
+        affiliationNumbers: numbersFor([CUSTODIAN_AFF, ...(ca.affiliationIds || [])]),
+        contributions: ca.contributions || [],
+        corresponding: ca.corresponding ?? true,   // the data custodian is the corresponding author by default
+        equal: !!ca.equal,
+      })
+      continue
+    }
+    const a = raw[item.index], i = item.index
     const name = resolveName(a)
-    if (!name || sameName(name, custName)) return
+    if (!name || sameName(name, custName)) continue
     authors.push({
       id: a.id || `contrib-${i}`, name, email: clean(a.email),
       affiliationNumbers: numbersFor(a.affiliationIds),
       contributions: a.contributions || [],
       corresponding: !!a.corresponding, equal: !!a.equal,
     })
-  })
+  }
   return { authors, affiliations }
 }
 
@@ -79,7 +98,7 @@ export function authorProblems(data, resolveName = (a) => (a.isCustom ? customNa
   const out = []
   ;(data?.contribution?.authors || []).forEach((a, i) => {
     const name = resolveName(a)
-    if (name && sameName(name, custName)) return          // the custodian is author 1 already
+    if (name && sameName(name, custName)) return          // the custodian is an author already
     const label = name || `Author ${i + 2}`
     const p = []
     if (a.isCustom ? !(clean(a.firstName) && clean(a.lastName)) : !clean(a.selectedAuthor)) p.push(a.isCustom ? 'first and last name' : 'the person')

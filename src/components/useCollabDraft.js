@@ -9,7 +9,7 @@ import { getFigures, setFigures } from './figuresStore'
 // A draft that is already in the drive is never overwritten before the person has loaded it or chosen to start fresh.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const INTERVAL_OPTIONS = [30, 60, 120, 300]    // seconds between automatic saves
-export const DEFAULT_INTERVAL = 30
+export const DEFAULT_INTERVAL = 300   // 5 minutes
 export const intervalLabel = (sec) => (sec < 60 ? `${sec} seconds` : sec === 60 ? '1 minute' : `${sec / 60} minutes`)
 const STOP_CODES = ['NO_LIBRARY', 'NO_WRITE', 'NO_DRIVE_ACCESS', 'SESSION_EXPIRED', 'BAD_ID']
 

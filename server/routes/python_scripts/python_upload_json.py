@@ -629,7 +629,8 @@ def find_organization_in_collab(name):
     headers = {"accept": "*/*", "Authorization": "Bearer " + personal_token}
     from_offset = 0
     page_size = 100
-    vocab_name = f"{V}name"
+    vocab_name = f"{V}fullName"
+    vocab_name_legacy = f"{V}name"     # older uploads wrote the name here, where the KG editor does not show it
     while True:
         url = (
             f"https://core.kg.ebrains.eu/v3/instances"
@@ -642,10 +643,17 @@ def find_organization_in_collab(name):
         items = resp.json().get("data", [])
         for item in items:
             item_name = item.get(vocab_name, "") or ""
-            if isinstance(item_name, str) and item_name.strip().lower() == name.strip().lower():
-                print(
-                    f"DEBUG found existing Organization '{name}' → {item['@id']}", file=sys.stderr)
-                return item["@id"]
+            legacy_name = item.get(vocab_name_legacy, "") or ""
+            for candidate in (item_name, legacy_name):
+                if isinstance(candidate, str) and candidate.strip().lower() == name.strip().lower():
+                    print(
+                        f"DEBUG found existing Organization '{name}' → {item['@id']}", file=sys.stderr)
+                    if not item_name:
+                        # repair: the editor shows "Full name" only
+                        fix = KG_patch(item["@id"], {"@type": [f"{T}Organization"], "fullName": name.strip()})
+                        print(f"DEBUG added fullName to existing Organization → {fix}",
+                              file=sys.stderr)
+                    return item["@id"]
         if len(items) < page_size:
             return None
         from_offset += page_size
@@ -670,7 +678,7 @@ def find_or_create_organization(name):
         return existing
 
     org_uuid = str(uuid4())
-    org_node = {"@type": [f"{T}Organization"], "name": name}
+    org_node = {"@type": [f"{T}Organization"], "fullName": name}
     print(f"DEBUG creating new Organization '{name}'", file=sys.stderr)
     result = KG_post(org_uuid, org_node)
     if isinstance(result, dict) and "error" in result:
@@ -815,13 +823,34 @@ study_targets = experiments.get("studyTargets",      [])
 # it directly when a KG lookup can't be confirmed.
 results = []
 
+def order_authors(author_slots, custodian_url, position):
+    """
+    author_slots: [(index in the form's author list, URL)]. The data custodian is an author
+    as well: slotted in at `position` (counted from 1 over the whole author list, default 1).
+    A person who appears twice is listed once, at the custodian's place.
+    """
+    urls = [(i, u) for i, u in author_slots if isinstance(u, str) and u.startswith("http")]
+    if not (custodian_url and isinstance(custodian_url, str) and custodian_url.startswith("http")):
+        return [u for _, u in urls]
+    try:
+        pos = max(int(position or 1), 1)
+    except (TypeError, ValueError):
+        pos = 1
+    rest = [(i, u) for i, u in urls if u != custodian_url]
+    before = [u for i, u in rest if i < pos - 1]
+    after = [u for i, u in rest if i >= pos - 1]
+    return before + [custodian_url] + after
+
+
 # ── resolve authors ───────────────────────────────────────────────────────────
 
 author_ids = []
-for entry in data.get("contribution", {}).get("authors", []):
+author_slots = []   # (position in the form's author list, URL) — the data custodian is slotted in below
+for author_idx, entry in enumerate(data.get("contribution", {}).get("authors", [])):
     selected = nonempty(entry.get("selectedAuthor", ""))
     if selected:
         author_ids.append(selected)
+        author_slots.append((author_idx, selected))
     elif entry.get("isCustom"):
         try:
             person_url = resolve_person(
@@ -844,6 +873,7 @@ for entry in data.get("contribution", {}).get("authors", []):
             continue
         if person_url and isinstance(person_url, str) and person_url.startswith("http"):
             author_ids.append(person_url)
+            author_slots.append((author_idx, person_url))
             print(f"DEBUG custom author → {person_url}", file=sys.stderr)
 
 # ── resolve custodian ─────────────────────────────────────────────────────────
@@ -900,8 +930,15 @@ if embargo is True or embargo == "true":
 if data_type_list:
     dsv_attributes["dataType"] = [{"@id": u} for u in data_type_list]
 
-valid_authors = [a for a in author_ids if isinstance(
-    a, str) and a.startswith("http")]
+valid_authors = [u for _, u in author_slots if isinstance(
+    u, str) and u.startswith("http")]
+
+# The data custodian is an author too. By default the first one; the form can move
+# them (contribution.custodianPosition, counted from 1 over the whole author list).
+valid_authors = order_authors(
+    author_slots, custodian_url, data.get("contribution", {}).get("custodianPosition"))
+if custodian_url:
+    print(f"DEBUG authors in order: {valid_authors}", file=sys.stderr)
 
 if experimental_approach:
     dsv_attributes["experimentalApproach"] = as_id_list(experimental_approach)

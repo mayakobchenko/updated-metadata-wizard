@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Form, Input, Select, Checkbox, Button, Typography } from 'antd'
 import FormShell from './FormShell'
-import { CUSTODIAN_AFF, institutionList, custodianName, contactName, isEmail } from './authorModel'
+import { CUSTODIAN_AFF, institutionList, custodianName, contactName, isEmail, authorSequence, fromSequence } from './authorModel'
 
 const { Option } = Select
 const { Text } = Typography
+const BOLD = { fontWeight: 700 }
 
 export default function Contributors({ form, onChange, data = {}, showErrors = false, embedded = false, register }) {
   const [contributors, setContributors] = useState([])
@@ -32,13 +33,14 @@ export default function Contributors({ form, onChange, data = {}, showErrors = f
 
   // everything the step stores, sent upward in one place
   const emit = (patch = {}) => {
-    const next = { authors, othercontr: otherContribs, affiliations, custodianAuthor: custAuthor, ...patch }
+    const next = { authors, othercontr: otherContribs, affiliations, custodianAuthor: custAuthor, custodianPosition: data.contribution?.custodianPosition, ...patch }
     onChange({
       contribution: {
         ...data.contribution,
         authors: next.authors,
         affiliations: next.affiliations,
         custodianAuthor: next.custodianAuthor,
+        ...(next.custodianPosition ? { custodianPosition: next.custodianPosition } : {}),
         contributor: { ...(data.contribution?.contributor || {}), othercontr: next.othercontr },
       },
     })
@@ -103,7 +105,11 @@ const fetchContributors = async () => {
   const removeAuthor = (index) => {
     const updated = authors.filter((_, i) => i !== index)
     setAuthors(updated)
-    emit({ authors: updated })
+    // the data custodian keeps their place among the others
+    const sq = authorSequence({ ...data, contribution: { ...data.contribution, authors } }, !!custodianName(data))
+    const authorAt = sq.findIndex(x => x.kind === 'author' && x.index === index)
+    const custAt = sq.findIndex(x => x.kind === 'custodian')
+    emit({ authors: updated, ...(custAt > authorAt && authorAt >= 0 ? { custodianPosition: custAt } : { custodianPosition: custAt + 1 || undefined }) })
   }
 
   const handleAuthorChange = (index, field, value) => {
@@ -199,46 +205,40 @@ const fetchContributors = async () => {
     emit({ othercontr: updated })
   }
 
-  const handleValuesChange = (changedValues) => {
-    if (changedValues.contribution) emit()
+  // ── order of the author list (the data custodian is one of the authors) ──
+  const seq = authorSequence({ ...data, contribution: { ...data.contribution, authors } }, !!custName)
+  const itemName = (item) => item.kind === 'custodian' ? `${custName} (data custodian)` : (authorName(authors[item.index]) || 'an author not named yet')
+  const applySequence = (nextSeq) => {
+    const { authorOrder, custodianPosition: pos } = fromSequence(nextSeq)
+    const nextAuthors = authorOrder.map(i => authors[i])
+    setAuthors(nextAuthors); emit({ authors: nextAuthors, custodianPosition: pos })
   }
+  const moveItem = (seqIdx, delta) => {
+    const to = seqIdx + delta
+    if (to < 0 || to >= seq.length) return
+    const nextSeq = [...seq];
+    [nextSeq[seqIdx], nextSeq[to]] = [nextSeq[to], nextSeq[seqIdx]]
+    applySequence(nextSeq)
+  }
+  const makeFirst = (seqIdx) => {
+    if (seqIdx === 0) return
+    applySequence([seq[seqIdx], ...seq.filter((_, i) => i !== seqIdx)])
+  }
+  const moveButtons = (seqIdx) => (
+    <span style={{ display: 'inline-flex', gap: 4 }}>
+      <Button size="small" disabled={seqIdx === 0} onClick={() => moveItem(seqIdx, -1)} title="Move this author up">↑</Button>
+      <Button size="small" disabled={seqIdx === seq.length - 1} onClick={() => moveItem(seqIdx, 1)} title="Move this author down">↓</Button>
+    </span>
+  )
 
-  return (
-    <div>
-      <p className="step-title">Dataset authors:</p>
-
-      <FormShell embedded={embedded} register={register} form={form} initialValues={initialValues} onValuesChange={handleValuesChange}>
-        <p className="step-description">
-          Please list all authors who have contributed to the dataset, in the order you would like them to appear on
-          the data publication. Please note that the list of authors may be different for this data publication as compared
-          to a journal article based on the data.
-        </p>
-
-        {/* institutions: every author chooses from this list; the numbers in the data descriptor are made from it */}
-        <div style={{ background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8, padding: '10px 16px', marginBottom: 16 }}>
-          <span className="step-subtitle">Institutions (affiliations)</span>
-          <p className="step-description" style={{ margin: '4px 0 8px' }}>
-            List the institutions of all authors once. Each author below picks one or more of them. The numbers in the data
-            descriptor are created automatically.
-          </p>
-          {data.custodian?.institution
-            ? <div style={{ marginBottom: 6 }}><Text>{data.custodian.institution}</Text> <Text type="secondary" style={{ fontSize: 12 }}>(the data custodian’s affiliation, from the section above)</Text></div>
-            : <div style={{ marginBottom: 6 }}><Text type="warning" style={{ fontSize: 12 }}>The data custodian’s affiliation is missing in the section above.</Text></div>}
-          {affiliations.map((aff, i) => (
-            <div key={aff.id} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-              <Input value={aff.text} onChange={(e) => changeAffiliation(i, e.target.value)} placeholder="Department, Institution, City, Country" />
-              <Button size="small" className="remove-text-btn" onClick={() => removeAffiliation(i)}>Remove</Button>
-            </div>
-          ))}
-          <Button type="dashed" size="small" onClick={addAffiliation}>Add an institution</Button>
-        </div>
-
-        {/* the data custodian (section above) is author 1 */}
-        {custName && (
+  const renderCustodian = (seqIdx) => (
           <div style={{ border: '1px solid #e1e8ef', borderRadius: 6, padding: '10px 14px', marginBottom: 16, background: '#fff' }}>
-            <span className="step-subtitle">Author 1: {custName} (data custodian)</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
+              <span className="step-subtitle" style={BOLD}>Author {seqIdx + 1}: {custName} (data custodian)</span>
+              {moveButtons(seqIdx)}
+            </span>
             <div style={{ fontSize: 12, color: '#777', margin: '2px 0 8px' }}>
-              Name, email and affiliation come from the data custodian section above. The data custodian is always the first author.
+              Name, email and affiliation come from the data custodian section above. By default the data custodian is the first author; use the arrows or “First author” above to change the order.
             </div>
             <Form.Item label="Additional affiliation(s) (optional)" style={{ marginBottom: 8 }}>
               <Select mode="multiple" style={{ width: '100%' }} placeholder="Another institution of the custodian, if any"
@@ -253,13 +253,14 @@ const fetchContributors = async () => {
             <Checkbox checked={custAuthor.corresponding ?? true} onChange={(e) => changeCust({ corresponding: e.target.checked })}>Corresponding author</Checkbox>
             <Checkbox checked={!!custAuthor.equal} onChange={(e) => changeCust({ equal: e.target.checked })}>Contributed equally (first authors)</Checkbox>
           </div>
-        )}
+  )
 
-        {authors.map((field, index) => (
+  const renderAuthor = (field, index, seqIdx) => (
           <div key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
               <Form.Item label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
-                <span className="step-subtitle">Author {index + (custName ? 2 : 1)}</span>
+                <span className="step-subtitle" style={BOLD}>Author {seqIdx + 1}</span>
+                {moveButtons(seqIdx)}
                 <Button type="link" size="small" className="remove-text-btn" style={{ color: "#d32f2f" }} onClick={() => removeAuthor(index)}>Remove</Button>
               </span>}>
                 <Checkbox
@@ -307,7 +308,7 @@ const fetchContributors = async () => {
 
               {custName && authorName(field).toLowerCase() === custName.toLowerCase() && (
                 <div style={{ color: '#d46b08', fontSize: 12, marginBottom: 8 }}>
-                  This person is the data custodian and is already author 1 (see the data custodian section above). You can remove this entry.
+                  This person is the data custodian and is already in the author list (see the data custodian card). You can remove this entry.
                 </div>
               )}
               {!(custName && authorName(field).toLowerCase() === custName.toLowerCase()) && (
@@ -316,7 +317,7 @@ const fetchContributors = async () => {
                     help={showErrors && !isEmail(field.email) ? (field.email ? 'This email address does not look valid.' : 'Please enter the email address.') : ''}>
                     <Input value={field.email || ''} onChange={(e) => handleAuthorChange(index, 'email', e.target.value)} placeholder="name@institution.org" />
                   </Form.Item>
-                  <Form.Item label="Affiliation(s)" required
+                  <Form.Item label={<b>Affiliation(s)</b>} required
                     validateStatus={showErrors && !(field.affiliationIds || []).some(id => instOptions.some(o => o.value === id)) ? 'error' : ''}
                     help={showErrors && !(field.affiliationIds || []).some(id => instOptions.some(o => o.value === id)) ? 'Please choose at least one institution (add it in the list above if it is missing).' : ''}>
                     <Select mode="multiple" style={{ width: '100%' }} placeholder="Choose from the institutions above"
@@ -334,8 +335,56 @@ const fetchContributors = async () => {
               )}
             </div>
           </div>
-        ))}
+  )
 
+  const handleValuesChange = (changedValues) => {
+    if (changedValues.contribution) emit()
+  }
+
+  return (
+    <div>
+      <p className="step-title">Dataset authors:</p>
+
+      <FormShell embedded={embedded} register={register} form={form} initialValues={initialValues} onValuesChange={handleValuesChange}>
+        <p className="step-description">
+          Please list all authors who have contributed to the dataset, in the order you would like them to appear on
+          the data publication. Please note that the list of authors may be different for this data publication as compared
+          to a journal article based on the data.
+        </p>
+
+        {/* institutions: every author chooses from this list; the numbers in the data descriptor are made from it */}
+        <div style={{ background: '#f7f9fb', border: '1px solid #d9e2ec', borderRadius: 8, padding: '10px 16px', marginBottom: 16 }}>
+          <span className="step-subtitle" style={BOLD}>Institutions (affiliations)</span>
+          <p className="step-description" style={{ margin: '4px 0 8px' }}>
+            List the institutions of all authors once. Each author below picks one or more of them. The numbers in the data
+            descriptor are created automatically.
+          </p>
+          {data.custodian?.institution
+            ? <div style={{ marginBottom: 6 }}><Text>{data.custodian.institution}</Text> <Text type="secondary" style={{ fontSize: 12 }}>(the data custodian’s affiliation, from the section above)</Text></div>
+            : <div style={{ marginBottom: 6 }}><Text type="warning" style={{ fontSize: 12 }}>The data custodian’s affiliation is missing in the section above.</Text></div>}
+          {affiliations.map((aff, i) => (
+            <div key={aff.id} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+              <Input value={aff.text} onChange={(e) => changeAffiliation(i, e.target.value)} placeholder="Department, Institution, City, Country" />
+              <Button size="small" className="remove-text-btn" onClick={() => removeAffiliation(i)}>Remove</Button>
+            </div>
+          ))}
+          <Button type="dashed" size="small" onClick={addAffiliation}>Add an institution</Button>
+        </div>
+
+        {/* who is the first author? the data custodian by default */}
+        {seq.length > 1 && (
+          <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <b>First author:</b>
+            <Select style={{ minWidth: 280 }} value={seq[0].kind === 'custodian' ? 'cust' : seq[0].index}
+              onChange={(v) => makeFirst(seq.findIndex(x => (v === 'cust' ? x.kind === 'custodian' : x.kind === 'author' && x.index === v)))}
+              options={seq.map(x => ({ value: x.kind === 'custodian' ? 'cust' : x.index, label: itemName(x) }))} />
+            <Text type="secondary" style={{ fontSize: 12 }}>The data custodian is the first author unless you choose someone else.</Text>
+          </div>
+        )}
+
+        {seq.map((item, seqIdx) => item.kind === 'custodian'
+          ? <div key="cust">{renderCustodian(seqIdx)}</div>
+          : renderAuthor(authors[item.index], item.index, seqIdx))}
         <div style={{ textAlign: 'center', margin: '20px 0' }}>
           <Button type="dashed" onClick={addAuthor} style={{ width: '30%' }} className="add-contributor-button">
             Add an Author
