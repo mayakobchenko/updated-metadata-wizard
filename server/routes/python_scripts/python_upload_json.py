@@ -130,6 +130,49 @@ if _pre.status_code in (403, 404, 500):
         "detail": _pre.text[:300]}))
     sys.exit(1)
 
+# ── in which space does the dataset version live, and may this account change it there? ─────────────
+# Normally in the dataset's collab space. After the curation it can have been moved to another space (e.g. "dataset").
+# The form's new items are always written to the collab space; the existing DatasetVersion and Dataset are changed
+# where they really are. If that is not allowed, stop NOW, before anything is written (no orphaned items).
+EXPECTED_SPACE = f"collab-d-{dsv_id}"
+dsv_space = EXPECTED_SPACE
+_META_SPACE = "https://core.kg.ebrains.eu/vocab/meta/space"
+
+
+def instance_space(uuid):
+    try:
+        r = rq.get(f"{KG_API}{uuid}?stage=IN_PROGRESS",
+                   headers={"Authorization": f"Bearer {personal_token}", "accept": "application/json"}, timeout=30)
+        if r.ok:
+            sp = (r.json().get("data") or {}).get(_META_SPACE)
+            return sp if isinstance(sp, str) and sp else None
+    except Exception as e:
+        print(f"DEBUG could not read the space of {uuid}: {e}", file=sys.stderr)
+    return None
+
+
+dsv_space = instance_space(dsv_id) or EXPECTED_SPACE
+print(f"DEBUG dataset version is in space {dsv_space}", file=sys.stderr)
+if dsv_space != EXPECTED_SPACE:
+    try:
+        _probe = rq.patch(f"{KG_API}{dsv_id}?space={dsv_space}",
+                          headers={"accept": "*/*", "Authorization": f"Bearer {personal_token}",
+                                   "Content-Type": "application/json; charset=utf-8"},
+                          data=json.dumps({**VOCAB, "@type": ["https://openminds.om-i.org/types/DatasetVersion"]}), timeout=30)
+        _probe_status = _probe.status_code
+    except Exception as e:
+        _probe_status = f"no answer ({e})"
+    print(f"DEBUG probe: change of the dataset version in space {dsv_space} → {_probe_status}", file=sys.stderr)
+    if _probe_status != 200:
+        print(json.dumps({
+            "error": (f"The dataset version is in the Knowledge Graph space \"{dsv_space}\", not in its collab space "
+                      f"\"{EXPECTED_SPACE}\" (it has probably been moved there by the curation). The account {uploader} "
+                      f"is not allowed to change it there (KG answered {_probe_status}). Nothing was written. "
+                      "A curator with write access to that space has to change it in the KG editor, or the dataset "
+                      "version has to be made editable in its collab space again."),
+            "kind": "no_write_access", "space": dsv_space, "uploader": uploader, "status": _probe_status}))
+        sys.exit(1)
+
 # ── load persons list ─────────────────────────────────────────────────────────
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -190,7 +233,11 @@ def find_common_organization(name, orgs):
 # ── KG helpers ────────────────────────────────────────────────────────────────
 
 
-def KG_patch(entry_id, attr):
+_writes = {"ok": 0, "failed": 0}
+
+
+def KG_patch(entry_id, attr, space=None):
+    use_space = space or EXPECTED_SPACE
     try:
         payload = {**VOCAB, **attr}
         headers = {
@@ -199,7 +246,7 @@ def KG_patch(entry_id, attr):
             "Content-Type":  "application/json; charset=utf-8"
         }
         instance_uuid = entry_id.split("/")[-1]
-        url = f'{KG_API}{instance_uuid}?space=collab-d-{dsv_id}'
+        url = f'{KG_API}{instance_uuid}?space={use_space}'
         resp = rq.patch(url=url, headers=headers,
                         data=json.dumps(payload, indent=4))
         print(f"DEBUG PATCH {url} → {resp.status_code}", file=sys.stderr)
@@ -214,9 +261,13 @@ def KG_patch(entry_id, attr):
 
         if not resp.ok:
             print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
-            return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
+            _writes["failed"] += 1
+            return {"error": f"KG returned {resp.status_code}", "detail": resp.text,
+                    "status": resp.status_code, "space": use_space, "instance": instance_uuid}
+        _writes["ok"] += 1
         return {"patched": entry_id, "status": resp.status_code}
     except Exception as e:
+        _writes["failed"] += 1
         return {"error": str(e)}
 
 
@@ -237,9 +288,13 @@ def KG_post(instance_id, attr):
         print(f"DEBUG POST {url} → {resp.status_code}", file=sys.stderr)
         if not resp.ok:
             print(f"DEBUG body: {resp.text[:300]}", file=sys.stderr)
-            return {"error": f"KG returned {resp.status_code}", "detail": resp.text}
+            _writes["failed"] += 1
+            return {"error": f"KG returned {resp.status_code}", "detail": resp.text,
+                    "status": resp.status_code, "space": f"collab-d-{dsv_id}", "instance": instance_id}
+        _writes["ok"] += 1
         return {"created": instance_id, "status": resp.status_code}
     except Exception as e:
+        _writes["failed"] += 1
         return {"error": str(e)}
 
 # ── string helpers ────────────────────────────────────────────────────────────
@@ -1144,7 +1199,7 @@ if contribution_nodes:
 
 # ── 2. patch DatasetVersion ───────────────────────────────────────────────────
 
-dsv_result = KG_patch(dsv_id, dsv_attributes)
+dsv_result = KG_patch(dsv_id, dsv_attributes, space=dsv_space)
 results.append({"datasetVersion": dsv_result})
 
 # ── 2b. find or create parent Dataset and update it ──────────────────────────
@@ -1208,7 +1263,9 @@ def patch_dataset(dataset_uuid, dataset_attributes):
         "hasVersion": [{"@id": KG_PREFIX + dsv_id}],
         **dataset_attributes,
     }
-    result = KG_patch(dataset_uuid, dataset_node)
+    # the Dataset is changed where it lives (the same space as the DatasetVersion unless the KG says otherwise)
+    ds_space = (instance_space(dataset_uuid) if dsv_space != EXPECTED_SPACE else None) or dsv_space
+    result = KG_patch(dataset_uuid, dataset_node, space=ds_space)
     print(f"DEBUG patched Dataset {dataset_uuid} → {result}", file=sys.stderr)
     return result
 
@@ -2088,7 +2145,7 @@ for collection in subject_metadata.get("tissueCollections", []):
 # ── 6. attach all specimen to DatasetVersion ──────────────────────────────────
 
 if specimen_list:
-    attach_result = KG_patch(dsv_id, {"studiedSpecimen": specimen_list})
+    attach_result = KG_patch(dsv_id, {"studiedSpecimen": specimen_list}, space=dsv_space)
     results.append({"attachSpecimen": attach_result})
     print(
         f"DEBUG attached {len(specimen_list)} specimen to DatasetVersion", file=sys.stderr)
@@ -2107,7 +2164,11 @@ def collect_failures(node, path=""):
     if isinstance(node, dict):
         err = node.get("error")
         if err:
-            found.append({"where": path or "(root)", "error": str(err)[:300]})
+            item = {"where": path or "(root)", "error": str(err)[:300]}
+            for k in ("status", "space", "instance"):
+                if node.get(k) is not None:
+                    item[k] = node[k]
+            found.append(item)
         for k, v in node.items():
             if k in ("error", "detail"):
                 continue
@@ -2124,4 +2185,7 @@ if failures:
           file=sys.stderr)
 print(json.dumps({"results": results,
                   "partial": bool(failures),
-                  "failures": failures}))
+                  "failures": failures,
+                  "written": _writes["ok"],
+                  "uploader": uploader,
+                  "space": dsv_space}))

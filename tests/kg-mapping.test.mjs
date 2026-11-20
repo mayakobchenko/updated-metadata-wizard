@@ -56,3 +56,10 @@ test('find_or_create_organization looks in the common space first', () => {
   const i = src.indexOf('def find_or_create_organization')
   assert.ok(src.indexOf('find_common_organization(name, _org_list)', i) > i && src.indexOf('find_common_organization(name, _org_list)', i) < src.indexOf('find_organization_in_collab(name)', i))
 })
+
+test('upload script probes the dataset version space before writing and reports failure details', () => {
+  assert.match(src, /EXPECTED_SPACE = f"collab-d-\{dsv_id\}"/)
+  assert.match(src, /"kind":\s*"no_write_access"/)
+  assert.match(src, /KG_patch\(dsv_id, dsv_attributes, space=dsv_space\)/)
+  assert.match(src, /"status":\s*resp\.status_code/)
+})

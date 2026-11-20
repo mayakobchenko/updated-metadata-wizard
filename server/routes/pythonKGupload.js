@@ -1,4 +1,5 @@
 import express           from 'express'
+import { summarizeFailures } from './uploadFailureText.js'
 import dotenv            from 'dotenv'
 import { spawn }         from 'child_process'
 import path              from 'path'
@@ -256,18 +257,16 @@ async function runPythonScript(req, res) {
     // ── partial upload: the script finished but skipped / failed some items (e.g.
     // KG answered HTTP 500). This must NOT be reported as success. ───────────────
     if (Array.isArray(parsed.failures) && parsed.failures.length > 0) {
-      const n     = parsed.failures.length
-      const lines = parsed.failures.slice(0, 10).map(f => `- ${f.where}: ${f.error}`).join('\n')
-      const more  = n > 10 ? `\n... and ${n - 10} more` : ''
-      const errMsg = `Upload INCOMPLETE: ${n} item(s) could not be written to the Knowledge Graph.\n${lines}${more}`
+      const n = parsed.failures.length
+      const texts = summarizeFailures(parsed)
       logger.error(`[submission] job ${jobId} INCOMPLETE (${elapsed}s) — ${n} failed/skipped item(s)`)
       jobs.set(jobId, {
         status: 'error',
-        error:  `The upload was incomplete: ${n} item(s) could not be written to the Knowledge Graph (it may have been temporarily unavailable). The curators were notified and your metadata is saved in the ticket. Please try again later.`,
+        error:  texts.user,
         detail: JSON.stringify(parsed.failures).slice(0, 1500),
       })
       scheduleJobCleanup(jobId)
-      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage: errMsg, stderr })
+      await sendFailureNotification({ datasetTitle, datasetVersionId, userEmail, ticketId, ticketNumber, errorMessage: texts.curator, stderr })
       return
     }
 
