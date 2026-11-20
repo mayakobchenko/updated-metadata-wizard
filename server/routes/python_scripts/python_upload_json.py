@@ -648,10 +648,11 @@ def find_organization_in_collab(name):
                 if isinstance(candidate, str) and candidate.strip().lower() == name.strip().lower():
                     print(
                         f"DEBUG found existing Organization '{name}' → {item['@id']}", file=sys.stderr)
-                    if not item_name:
-                        # repair: the editor shows "Full name" only
-                        fix = KG_patch(item["@id"], {"@type": [f"{T}Organization"], "fullName": name.strip()})
-                        print(f"DEBUG added fullName to existing Organization → {fix}",
+                    if not item_name or not (item.get(f"{V}shortName") or ""):
+                        # repair: the KG editor labels an organisation by its shortName and shows fullName
+                        fix = KG_patch(item["@id"], {"@type": [f"{T}Organization"],
+                                                      "fullName": name.strip(), "shortName": name.strip()})
+                        print(f"DEBUG added fullName/shortName to existing Organization → {fix}",
                               file=sys.stderr)
                     return item["@id"]
         if len(items) < page_size:
@@ -678,7 +679,7 @@ def find_or_create_organization(name):
         return existing
 
     org_uuid = str(uuid4())
-    org_node = {"@type": [f"{T}Organization"], "fullName": name}
+    org_node = {"@type": [f"{T}Organization"], "fullName": name, "shortName": name}
     print(f"DEBUG creating new Organization '{name}'", file=sys.stderr)
     result = KG_post(org_uuid, org_node)
     if isinstance(result, dict) and "error" in result:

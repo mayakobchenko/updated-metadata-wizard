@@ -32,6 +32,7 @@ test('custodian can be placed in the middle or last', () => {
 })
 test('a person listed as author and custodian appears once', () => assert.deepEqual(orderAuthors(A, 'http://b', 1), ['http://b', 'http://a']))
 test('without a resolved custodian the authors are unchanged', () => assert.deepEqual(orderAuthors(A, null), ['http://a', 'http://b']))
-test('organisations are written with fullName, which the KG editor shows', () => {
-  assert.match(src, /org_node = \{"@type": \[f"\{T\}Organization"\], "fullName": name\}/)
+test('organisations are written with fullName and shortName (the editor labels them by shortName)', () => {
+  assert.match(src, /org_node = \{"@type": \[f"\{T\}Organization"\], "fullName": name, "shortName": name\}/)
+  assert.match(src, /"fullName": name\.strip\(\), "shortName": name\.strip\(\)/)
 })
