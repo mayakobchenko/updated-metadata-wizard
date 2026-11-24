@@ -107,6 +107,17 @@ async function open(browser, url, { draft = false, ticketDataset = A, candidates
   ok('4b: the draft and the Knowledge Graph are loaded for the dataset version of the link', d.datasetVersionId === A && d.dataset1.dataTitle === 'Draft title' && d.subjectMetadata.subjects.length === 2)
   ok('4b: the address keeps both', s.search() === `?TicketNumber=4829200&DatasetVersionUUID=${A}`, s.search())
 
+  // 4b2. after the choice the note is gone; with only a ticket and Zammad down a popup explains what is not possible
+  await s.page.goto(base + `/?TicketNumber=4829200&DatasetVersionUUID=${A}`).catch(() => {})
+  s = await open(browser, `/?TicketNumber=4829200&DatasetVersionUUID=${A}`, { draft: true, zammadDown: true })
+  await s.chooser.getByRole('button', { name: 'Load', exact: true }).evaluate((el) => el.click()); await s.page.waitForTimeout(2000)
+  ok('4b2: the "could not be read" note is gone after loading', await s.page.getByText('The ticket could not be read').count() === 0)
+  s = await open(browser, '/?TicketNumber=4829200', { zammadDown: true })
+  const pop = s.page.locator('.ant-modal').filter({ hasText: 'The ticket system (Zammad) is not available' })
+  ok('4b2: ticket only, Zammad down: a popup says what is not possible', await pop.isVisible() && /no draft can be saved/.test(await pop.innerText()))
+  await pop.getByRole('button', { name: 'I understand' }).evaluate((el) => el.click()); await s.page.waitForTimeout(600)
+  ok('4b2: the popup can be closed', !(await pop.isVisible()))
+
   // 4c. wrongly written links ("?" instead of "&", or no "&") are understood and the address is corrected
   for (const bad of [`/?TicketNumber=4829200?DatasetVersionUUID=${A}`, `/?TicketNumber=4829200DatasetVersionUUID=${A}`]) {
     s = await open(browser, bad, { draft: true })

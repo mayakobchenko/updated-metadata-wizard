@@ -189,7 +189,13 @@ export default function NewContextProvider({ children }) {
         try {
           [nettskjemaId, datasetVersionId, datasetCandidates] = await authFunctions.zammad(ticketNumber)
         } catch (zammadErr) {
-          if (!dsvFromLink) throw zammadErr
+          if (!dsvFromLink) {
+            // no dataset version in the link either: nothing to prefill from and nowhere to save; the page tells the person
+            console.warn('Zammad is not available and the link has no dataset version:', zammadErr?.message)
+            dispatch({ type: 'nettskjemaInfo', text: { ticketNumber } })
+            dispatch({ type: 'urlTicketUnavailable', text: true })
+            return
+          }
           // Zammad does not answer, but the link names the dataset version: work from the Collab drive and the
           // Knowledge Graph of that dataset version. The ticket number stays (it is shown and kept in the link).
           console.warn('Zammad is not available, using the dataset version of the link:', zammadErr?.message)

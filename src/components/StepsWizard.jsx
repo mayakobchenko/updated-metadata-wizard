@@ -638,6 +638,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
   // content, or both (the draft first, then what is only in the Knowledge Graph is added; nothing of the draft is replaced).
   const [kg, setKg]                       = useState({ status: 'idle' })       // idle | loading | ready | error
   const [sourceOpen, setSourceOpen]       = useState(false)
+  const [ticketNoteDone, setTicketNoteDone] = useState(false)   // the "ticket could not be read" notes were seen / answered
+  const sourceWasOpen = useRef(false)
+  useEffect(() => {
+    if (sourceOpen) sourceWasOpen.current = true
+    else if (sourceWasOpen.current) setTicketNoteDone(true)     // the source question was answered or skipped: the note is no longer needed
+  }, [sourceOpen])
   const [sourceChoice, setSourceChoice]   = useState('')
   const [sourceBusy, setSourceBusy]       = useState(false)
   const [suggestSave, setSuggestSave]     = useState(false)
@@ -872,11 +878,20 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         )
       })()}
 
-      {skjemaInfo?.urlTicketUnavailable && (
+      {skjemaInfo?.urlTicketUnavailable && !!skjemaInfo?.datasetVersionId && !ticketNoteDone && (
         <Alert type="warning" showIcon closable style={{ margin: '4px 16px' }}
-          message={`Ticket ${skjemaInfo?.nettskjemaInfo?.ticketNumber || ''} could not be read`.replace('  ', ' ')}
-          description="The ticket system (Zammad) does not answer, so the information from the Nettskjema form is not loaded. The wizard works from the dataset version in the link: choose below whether to load the draft from the Collab drive, the content of the Knowledge Graph, or both." />
+          message="The ticket could not be read"
+          description="The ticket system (Zammad) does not answer, so the information from the Nettskjema form is not loaded. The wizard works from the dataset version in the link." />
       )}
+
+      <Modal open={!!skjemaInfo?.urlTicketUnavailable && !skjemaInfo?.datasetVersionId && !ticketNoteDone}
+        title="The ticket system (Zammad) is not available"
+        onCancel={() => setTicketNoteDone(true)}
+        footer={[<Button key="ok" type="primary" onClick={() => setTicketNoteDone(true)}>I understand</Button>]}>
+        <p>Ticket {skjemaInfo?.nettskjemaInfo?.ticketNumber || ''} could not be read, so the wizard cannot be prefilled from your Nettskjema form, and it does not know the dataset of your ticket.</p>
+        <p>This means that <b>no draft can be saved</b> in the Collab drive, nothing can be loaded from the Knowledge Graph and nothing can be uploaded. Your answers are kept only in this page.</p>
+        <p>You can fill in the form and keep your work with <b>Download draft</b> (and continue later with <b>Import draft</b>). Please try again later, or open the wizard with a link that also contains the dataset version (…&amp;DatasetVersionUUID=…).</p>
+      </Modal>
 
       {skjemaInfo?.urlDatasetIgnored && (
         <Alert type="warning" showIcon closable style={{ margin: '4px 16px' }}
