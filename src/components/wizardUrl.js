@@ -17,6 +17,20 @@ export function readWizardParams(search) {
     if (!ticket && TICKET_KEYS.includes(key) && /^[A-Za-z0-9_-]{1,32}$/.test(value)) ticket = value
     if (!datasetVersionId && DSV_KEYS.includes(key) && UUID.test(value)) datasetVersionId = value.toLowerCase()
   }
+  // Links that were typed or pasted wrongly still work: "?TicketNumber=123?DatasetVersionUUID=…" (a second "?" instead of
+  // "&") and "?TicketNumber=123DatasetVersionUUID=…" (the "&" is missing).
+  if (!ticket || !datasetVersionId) {
+    let raw = String(search || '')
+    try { raw = decodeURIComponent(raw) } catch { /* keep as it is */ }
+    if (!ticket) {
+      const m = raw.match(/ticketnumber=([A-Za-z0-9_-]{1,32}?)(?=$|[&?#=]|datasetversion)/i)
+      if (m) ticket = m[1]
+    }
+    if (!datasetVersionId) {
+      const m = raw.match(/datasetversion(?:uuid|id)=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+      if (m) datasetVersionId = m[1].toLowerCase()
+    }
+  }
   // a ticket number is a short word of letters, digits, - and _ (normally digits only); anything else is kept out of the address
   return { ticket, datasetVersionId }
 }
@@ -40,5 +54,17 @@ export function restoreWizardUrl(ids) {
     if (next !== window.location.pathname + window.location.search + window.location.hash) {
       window.history.replaceState({}, document.title, next)
     }
+  } catch { /* the address bar is a convenience only */ }
+}
+
+// Called once when the page opens: a link that was written wrongly (see above) gets its proper form in the address bar,
+// before anything uses it (the login takes the address as it is). The login answer itself (code=…) is left alone.
+export function normalizeWizardUrl() {
+  try {
+    const q = new URLSearchParams(window.location.search)
+    if (q.has('code') || q.has('error') || q.has('state')) return
+    const ids = readWizardParams(window.location.search)
+    if (!ids.ticket && !ids.datasetVersionId) return
+    restoreWizardUrl(ids)
   } catch { /* the address bar is a convenience only */ }
 }

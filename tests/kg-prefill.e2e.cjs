@@ -107,6 +107,13 @@ async function open(browser, url, { draft = false, ticketDataset = A, candidates
   ok('4b: the draft and the Knowledge Graph are loaded for the dataset version of the link', d.datasetVersionId === A && d.dataset1.dataTitle === 'Draft title' && d.subjectMetadata.subjects.length === 2)
   ok('4b: the address keeps both', s.search() === `?TicketNumber=4829200&DatasetVersionUUID=${A}`, s.search())
 
+  // 4c. wrongly written links ("?" instead of "&", or no "&") are understood and the address is corrected
+  for (const bad of [`/?TicketNumber=4829200?DatasetVersionUUID=${A}`, `/?TicketNumber=4829200DatasetVersionUUID=${A}`]) {
+    s = await open(browser, bad, { draft: true })
+    ok('4c: ' + bad.slice(0, 30) + '… opens the source dialog', await s.chooser.isVisible())
+    ok('4c: the address is corrected', s.search() === `?TicketNumber=4829200&DatasetVersionUUID=${A}`, s.search())
+  }
+
   // 5. no access to the Knowledge Graph content: said plainly, the rest still works
   s = await open(browser, `/?DatasetVersionUUID=${A}`, { kg: null })
   ok('5: the error is shown in the dialog', /not allowed to read the collab space/.test(await s.chooser.innerText()))
