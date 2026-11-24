@@ -20,6 +20,14 @@ const KEYED = {
   'dataset2.supportChannels': (e) => lc(e?.newChannel),
   'dataset2.relatedPublications': (e) => doi(e?.newPublication),
   'subjectMetadata.subjects': (e) => lc(e?.subjectID),
+  'subjectMetadata.subjectGroups': (e) => lc(e?.name),
+  'subjectMetadata.tissueSamples': (e) => lc(e?.sampleID),
+  'subjectMetadata.tissueCollections': (e) => lc(e?.collectionID),
+}
+// entries that are in both: the form's entry stays, but the members that only the Knowledge Graph has are added
+const MATCHED = {
+  'subjectMetadata.subjectGroups': { list: 'subjects', key: (e) => lc(e?.subjectID), counts: 'subjects' },
+  'subjectMetadata.tissueCollections': { list: 'samples', key: (e) => lc(e?.sampleID), counts: 'other' },
 }
 const NEVER_CHANGE = new Set(['datasetVersionId'])
 
@@ -27,7 +35,7 @@ export function mergeKgIntoForm(base, kg, { prefer = 'base' } = {}) {
   const added = { fields: 0, authors: 0, subjects: 0, contributors: 0, other: 0 }
   const count = (path, n) => {
     if (path === 'contribution.authors') added.authors += n
-    else if (path === 'subjectMetadata.subjects') added.subjects += n
+    else if (path === 'subjectMetadata.subjects' || path === 'subjectMetadata.subjectGroups' || path === 'subjectMetadata.tissueSamples' || path === 'subjectMetadata.tissueCollections') added.subjects += n
     else if (path === 'contribution.contributor.othercontr') added.contributors += n
     else added.other += n
   }
@@ -55,10 +63,22 @@ export function mergeKgIntoForm(base, kg, { prefer = 'base' } = {}) {
       const seen = new Set(b.map(x => (keyOf ? keyOf(x) : JSON.stringify(x))))
       const extra = k.filter(x => { const id = keyOf ? keyOf(x) : JSON.stringify(x); if (!id || seen.has(id)) return false; seen.add(id); return true })
       if (extra.length) count(path, extra.length)
+      const hook = MATCHED[path]
+      const kgBy = new Map(k.map(x => [keyOf ? keyOf(x) : '', x]))
       if (prefer === 'kg' && keyOf) {
         // the Knowledge Graph's entry replaces the form's entry for the same person / subject / ...
-        const kgBy = new Map(k.map(x => [keyOf(x), x]))
         return [...b.map(x => kgBy.get(keyOf(x)) || x), ...extra]
+      }
+      if (hook) {
+        return [...b.map(x => {
+          const other = kgBy.get(keyOf(x))
+          if (!other) return x
+          const have = new Set((x[hook.list] || []).map(hook.key))
+          const more = (other[hook.list] || []).filter(m => { const id = hook.key(m); return id && !have.has(id) })
+          if (!more.length) return x
+          if (hook.counts === 'subjects') added.subjects += more.length; else added.other += more.length
+          return { ...x, [hook.list]: [...(x[hook.list] || []), ...more] }
+        }), ...extra]
       }
       return [...b, ...extra]
     }
@@ -66,8 +86,47 @@ export function mergeKgIntoForm(base, kg, { prefer = 'base' } = {}) {
     return b            // the form has a value: it stays
   }
   const data = walk(base || {}, kg || {}, '')
+  if (data.subjectMetadata) data.subjectMetadata = relinkSamples(data.subjectMetadata, kg?.subjectMetadata)
   const total = added.fields + added.authors + added.subjects + added.contributors + added.other
   return { data, added, changed: total > 0 }
+}
+
+// A tissue sample or collection that comes from the Knowledge Graph points to the subject (and time point) by the ids of
+// the Knowledge Graph's copy of the form. When the form already has that subject under another id (a draft), the link is
+// moved to the form's subject, matched by subject ID and by the position of the time point.
+function relinkSamples(sm, kgSm) {
+  if (!kgSm) return sm
+  const lcid = (x) => lc(x?.subjectID)
+  const all = (m) => [...(m?.subjects || []), ...(m?.subjectGroups || []).flatMap(g => g.subjects || [])]
+  const mine = new Map(all(sm).map(x => [lcid(x), x]))
+  const validIds = new Set(all(sm).map(x => x.id))
+  const idMap = new Map()      // KG form's subject id -> { subject, states: Map(kg state id -> state id here) }
+  for (const k of all(kgSm)) {
+    const m = mine.get(lcid(k))
+    if (!m) continue
+    const states = new Map((k.states || []).map((st, i) => [st.id, (m.states || [])[i]?.id ?? (m.states || [])[0]?.id ?? null]))
+    idMap.set(k.id, { subject: m, states })
+  }
+  const fix = (e) => {
+    if (!e.linkedSubjectId || validIds.has(e.linkedSubjectId)) return e
+    const t = idMap.get(e.linkedSubjectId)
+    if (!t) return e
+    return { ...e, linkedSubjectId: t.subject.id, linkedSubjectStateId: t.states.get(e.linkedSubjectStateId) ?? null }
+  }
+  const out = { ...sm }
+  if (sm.tissueSamples) out.tissueSamples = sm.tissueSamples.map(fix)
+  if (sm.tissueCollections) out.tissueCollections = sm.tissueCollections.map(c => ({ ...fix(c), samples: (c.samples || []).map(fix) }))
+  // the subject lists the flat samples taken from it
+  if (out.tissueSamples) {
+    const link = (subj) => {
+      const ids = out.tissueSamples.filter(t => t.linkedSubjectId === subj.id).map(t => t.id)
+      const missing = ids.filter(id => !(subj.linkedSampleIds || []).includes(id))
+      return missing.length ? { ...subj, linkedSampleIds: [...(subj.linkedSampleIds || []), ...missing] } : subj
+    }
+    if (out.subjects) out.subjects = out.subjects.map(link)
+    if (out.subjectGroups) out.subjectGroups = out.subjectGroups.map(g => ({ ...g, subjects: (g.subjects || []).map(link) }))
+  }
+  return out
 }
 
 // one line for the person: what was added

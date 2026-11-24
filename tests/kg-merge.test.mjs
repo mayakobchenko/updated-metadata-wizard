@@ -76,3 +76,28 @@ test('link parameters: ticket, dataset version, both, any letter case', () => {
   assert.equal(buildWizardSearch({ ticket: '1', datasetVersionId: id }), `?TicketNumber=1&DatasetVersionUUID=${id}`)
   assert.equal(buildWizardSearch({}), '')
 })
+
+test('tissue samples from the KG are linked to the form\'s own subject, groups and collections get missing members', () => {
+  const base = { subjectMetadata: {
+    subjects: [{ id: 'draft-s1', subjectID: 'sub-1', linkedSampleIds: [], states: [{ id: 'draft-st1' }, { id: 'draft-st2' }] }],
+    subjectGroups: [{ id: 'g', name: 'Patients', subjects: [{ id: 'gp1', subjectID: 'p-1', states: [{}] }] }],
+    tissueCollections: [{ id: 'c', collectionID: 'C1', samples: [{ id: 'cs1', sampleID: 'cs-1' }] }],
+  } }
+  const kgd = { subjectMetadata: {
+    subjects: [{ id: 'kg-s1', subjectID: 'sub-1', linkedSampleIds: ['kg-t1'], states: [{ id: 'kg-st1' }, { id: 'kg-st2' }] }],
+    subjectGroups: [{ id: 'kg-g', name: 'patients', subjects: [{ id: 'k', subjectID: 'p-1', states: [{}] }, { id: 'k2', subjectID: 'p-2', states: [{}] }] }],
+    tissueSamples: [{ id: 'kg-t1', sampleID: 'ts-1', linkedSubjectId: 'kg-s1', linkedSubjectStateId: 'kg-st2', states: [{}] }],
+    tissueCollections: [{ id: 'kc', collectionID: 'c1', linkedSubjectId: 'kg-s1', linkedSubjectStateId: 'kg-st1', samples: [{ id: 'x', sampleID: 'cs-1' }, { id: 'y', sampleID: 'cs-2' }] }, { id: 'kc2', collectionID: 'C2', linkedSubjectId: 'kg-s1', linkedSubjectStateId: 'kg-st2', samples: [] }],
+  } }
+  const { data, added } = mergeKgIntoForm(base, kgd)
+  const sm = data.subjectMetadata
+  assert.equal(sm.tissueSamples[0].linkedSubjectId, 'draft-s1')
+  assert.equal(sm.tissueSamples[0].linkedSubjectStateId, 'draft-st2')
+  assert.deepEqual(sm.subjects[0].linkedSampleIds, ['kg-t1'])
+  assert.deepEqual(sm.subjectGroups[0].subjects.map(s => s.subjectID), ['p-1', 'p-2'])
+  assert.deepEqual(sm.tissueCollections[0].samples.map(s => s.sampleID), ['cs-1', 'cs-2'])
+  const c2 = sm.tissueCollections.find(c => c.collectionID === 'C2')
+  assert.equal(c2.linkedSubjectId, 'draft-s1'); assert.equal(c2.linkedSubjectStateId, 'draft-st2')
+  assert.equal(sm.tissueCollections.length, 2)                      // C1 / c1 are the same collection
+  assert.ok(added.subjects >= 3)
+})

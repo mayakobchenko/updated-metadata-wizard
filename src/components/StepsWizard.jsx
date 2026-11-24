@@ -872,6 +872,12 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         )
       })()}
 
+      {skjemaInfo?.urlTicketUnavailable && (
+        <Alert type="warning" showIcon closable style={{ margin: '4px 16px' }}
+          message={`Ticket ${skjemaInfo?.nettskjemaInfo?.ticketNumber || ''} could not be read`.replace('  ', ' ')}
+          description="The ticket system (Zammad) does not answer, so the information from the Nettskjema form is not loaded. The wizard works from the dataset version in the link: choose below whether to load the draft from the Collab drive, the content of the Knowledge Graph, or both." />
+      )}
+
       {skjemaInfo?.urlDatasetIgnored && (
         <Alert type="warning" showIcon closable style={{ margin: '4px 16px' }}
           message="The dataset version in the link is not part of your ticket"

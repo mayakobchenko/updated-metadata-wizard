@@ -12,17 +12,23 @@ const KG = { data: {
   dataset1: { dataTitle: 'KG title', briefSummary: 'KG summary', optionsData: [] },
   contribution: { authors: [{ id: 1, isCustom: true, firstName: 'Ann', lastName: 'Lee', orcid: '', email: '', affiliationIds: [], contributions: [], selectedAuthor: '' }] },
   experiments: { subjectschoice: 'Yes' },
-  subjectMetadata: { subjects: [{ id: 1, subjectID: 'sub-1', states: [{ id: 11 }] }, { id: 2, subjectID: 'sub-2', states: [{ id: 21 }] }] },
-}, summary: ['Title: KG title', 'Subjects: 2 (2 states)'], notes: ['3 tissue samples found in the collab space; they are not read back into the form'], counts: { subjects: 2 } }
+  subjectMetadata: {
+    subjects: [{ id: 1, subjectID: 'sub-1', linkedSampleIds: [100], states: [{ id: 11 }] }, { id: 2, subjectID: 'sub-2', states: [{ id: 21 }] }],
+    subjectGroups: [{ id: 50, name: 'Controls', additionalRemarks: '', groupState: {}, subjects: [] }],
+    tissueSamples: [{ id: 100, sampleID: 'ts-1', type: 'tissue', linkedSubjectId: 1, linkedSubjectStateId: 11, states: [{ id: 101 }] }],
+    tissueCollections: [{ id: 200, collectionID: 'tc-1', samples: [] }],
+  },
+}, summary: ['Title: KG title', 'Subjects: 2 (2 states)'], notes: [], counts: { subjects: 2, groups: 1, tissueSamples: 1, collections: 1 } }
 const DRAFT = { datasetVersionId: A, dataset1: { dataTitle: 'Draft title', briefSummary: '', optionsData: [], dataStandart: [] }, subjectMetadata: { subjects: [{ id: 5, subjectID: 'sub-1', states: [{ id: 51, age: '3' }] }] }, experiments: { subjectschoice: 'Yes' } }
 
-async function open(browser, url, { draft = false, ticketDataset = A, candidates = null, kg = KG } = {}) {
+async function open(browser, url, { draft = false, ticketDataset = A, candidates = null, kg = KG, zammadDown = false } = {}) {
   const page = await (await browser.newContext({ viewport: { width: 1500, height: 1000 }, acceptDownloads: true })).newPage()
   const calls = []; const saves = []
   await page.route('**/api/**', async (route) => {
     const u = new URL(route.request().url()); calls.push(u.pathname)
     if (u.pathname === '/api/auth/me') return route.fulfill(json({ active: true, user: { fullname: 'Maya K', email: 'm@x.no', username: 'maya' } }))
     if (u.pathname === '/api/auth/token') return route.fulfill({ status: 200, contentType: 'text/plain', body: JSON.stringify({ success: true, user: { fullname: 'Maya K', email: 'm@x.no', username: 'maya' }, ticket: '4829200', datasetVersionUUID: A }) })
+    if (u.pathname === '/api/zammad/zammadinfo' && zammadDown) return route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
     if (u.pathname === '/api/zammad/zammadinfo') return route.fulfill(json({ submissionId: 7, datasetVersionId: ticketDataset, datasetCandidates: candidates || [{ id: ticketDataset, title: 'T' }] }))
     if (u.pathname === '/api/zammad/nettskjema') return route.fulfill(json({ ContactInfo: ['N', 'C', 'n@x.no'], CustodianInfo: ['Cu', 'St', 'c@x.no', '', 'Inst'], GroupLeader: ['G', ''], DataInfo: ['Nettskjema title', 'Nett summary', false, [], '', [], '', false, ''], Data2Info: ['', ''] }))
     if (u.pathname === '/api/drive/draft/info') return route.fulfill(json(draft ? { exists: true, mtime: Date.now(), library: true } : { exists: false, library: true }))
@@ -57,10 +63,10 @@ async function open(browser, url, { draft = false, ticketDataset = A, candidates
   ok('2: the source dialog opens by itself', await s.chooser.isVisible())
   ok('2: no ticket or Nettskjema call', !s.calls.includes('/api/zammad/zammadinfo') && !s.calls.includes('/api/zammad/nettskjema'))
   ok('2: the Knowledge Graph is preselected', await s.chooser.getByRole('radio', { name: /Knowledge Graph only/ }).isChecked())
-  ok('2: what is not read back is told', /3 tissue samples/.test(await s.chooser.innerText()))
   await s.chooser.getByRole('button', { name: 'Load', exact: true }).evaluate((el) => el.click()); await s.page.waitForTimeout(1500)
   let d = await s.dl()
   ok('2: title and both subjects are in the form', d.dataset1.dataTitle === 'KG title' && d.subjectMetadata.subjects.length === 2 && d.datasetVersionId === A)
+  ok('2: subject group, tissue sample and collection are in the form', d.subjectMetadata.subjectGroups?.[0]?.name === 'Controls' && d.subjectMetadata.tissueSamples?.[0]?.sampleID === 'ts-1' && d.subjectMetadata.tissueCollections?.[0]?.collectionID === 'tc-1')
   ok('2: a draft in the Collab drive is suggested', await s.page.getByText('Keep what was loaded as a draft in the Collab drive?').count() === 1)
   await s.page.getByRole('button', { name: 'Save a draft now' }).evaluate((el) => el.click()); await s.page.waitForTimeout(1500)
   ok('2: the draft goes to the collab of this dataset version', s.saves.length > 0 && s.saves.every(x => x === A), JSON.stringify(s.saves))
@@ -78,6 +84,9 @@ async function open(browser, url, { draft = false, ticketDataset = A, candidates
   ok('3: authors of the Knowledge Graph are added', (d.contribution?.authors || []).some(a => a.lastName === 'Lee'))
   ok('3: the address keeps both', s.search() === `?TicketNumber=4829200&DatasetVersionUUID=${A}`, s.search())
 
+  ok('3: the tissue sample from the Knowledge Graph is added, linked to the draft subject', d.subjectMetadata.tissueSamples?.[0]?.linkedSubjectId === 5, JSON.stringify(d.subjectMetadata.tissueSamples?.[0]?.linkedSubjectId))
+  ok('3: groups and collections are added too', d.subjectMetadata.subjectGroups?.length === 1 && d.subjectMetadata.tissueCollections?.length === 1)
+
   // 3b. the draft only, as before (with the preview)
   s = await open(browser, `/?TicketNumber=4829200&DatasetVersionUUID=${A}`, { draft: true })
   await s.chooser.getByRole('radio', { name: /The draft of the Collab drive only/ }).evaluate((el) => el.click())
@@ -88,6 +97,15 @@ async function open(browser, url, { draft = false, ticketDataset = A, candidates
   s = await open(browser, `/?TicketNumber=4829200&DatasetVersionUUID=${B}`, { ticketDataset: A })
   ok('4: warning that the dataset is not part of the ticket', await s.page.getByText('The dataset version in the link is not part of your ticket').count() === 1)
   ok('4: the ticket dataset is used', (await s.dl()).datasetVersionId === A)
+
+  // 4b. Zammad does not answer, the link has both: the dataset version of the link is used, draft + Knowledge Graph offered
+  s = await open(browser, `/?TicketNumber=4829200&DatasetVersionUUID=${A}`, { draft: true, zammadDown: true })
+  ok('4b: warning that the ticket could not be read', await s.page.getByText(/could not be read/).count() >= 1)
+  ok('4b: the source dialog opens without Nettskjema', await s.chooser.isVisible() && !s.calls.includes('/api/zammad/nettskjema'))
+  await s.chooser.getByRole('button', { name: 'Load', exact: true }).evaluate((el) => el.click()); await s.page.waitForTimeout(2000)
+  d = await s.dl()
+  ok('4b: the draft and the Knowledge Graph are loaded for the dataset version of the link', d.datasetVersionId === A && d.dataset1.dataTitle === 'Draft title' && d.subjectMetadata.subjects.length === 2)
+  ok('4b: the address keeps both', s.search() === `?TicketNumber=4829200&DatasetVersionUUID=${A}`, s.search())
 
   // 5. no access to the Knowledge Graph content: said plainly, the rest still works
   s = await open(browser, `/?DatasetVersionUUID=${A}`, { kg: null })

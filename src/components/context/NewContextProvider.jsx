@@ -13,6 +13,7 @@ const initialState = {
   reloadWizard: false,
   datasetVersionId: null,
   urlDatasetVersionId: null,   // the DatasetVersionUUID of the link, when it had one
+  urlTicketUnavailable: false, // the ticket could not be read (Zammad down); the dataset of the link is used
   urlDatasetIgnored: false,    // the link named a dataset that the ticket does not cover
   datasetCandidates: [],   // every dataset named in the ticket: [{ id, title }]
   ticketNumber: null,
@@ -184,7 +185,20 @@ export default function NewContextProvider({ children }) {
         // even though the ID had already been fetched successfully from
         // Zammad on the line above. That's why it appeared to "get lost"
         // whenever Nettskjema had an outage.
-        const [nettskjemaId, datasetVersionId, datasetCandidates] = await authFunctions.zammad(ticketNumber)
+        let nettskjemaId, datasetVersionId, datasetCandidates
+        try {
+          [nettskjemaId, datasetVersionId, datasetCandidates] = await authFunctions.zammad(ticketNumber)
+        } catch (zammadErr) {
+          if (!dsvFromLink) throw zammadErr
+          // Zammad does not answer, but the link names the dataset version: work from the Collab drive and the
+          // Knowledge Graph of that dataset version. The ticket number stays (it is shown and kept in the link).
+          console.warn('Zammad is not available, using the dataset version of the link:', zammadErr?.message)
+          dispatch({ type: 'dsvId', text: dsvFromLink })
+          dispatch({ type: 'dsvCandidates', text: [] })
+          dispatch({ type: 'nettskjemaInfo', text: { ticketNumber } })
+          dispatch({ type: 'urlTicketUnavailable', text: true })
+          return
+        }
         // A link with both: the dataset of the link decides, if the ticket covers it. A dataset that the ticket does not
         // name never takes over (the submission and the Collab copy would go to a dataset the ticket is not about).
         const sameId = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase()
@@ -296,6 +310,8 @@ export function authReducer(state, action) {
       return { ...state, datasetCandidates: action.text || [] }
     case 'urlDsv':
       return { ...state, urlDatasetVersionId: action.text || null }
+    case 'urlTicketUnavailable':
+      return { ...state, urlTicketUnavailable: !!action.text }
     case 'urlDsvIgnored':
       return { ...state, urlDatasetIgnored: !!action.text }
     case 'SET_TICKET':

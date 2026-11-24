@@ -75,24 +75,31 @@ export async function fetchCollabContent(token, dsvId) {
   } catch (e) { if (e.code === 'SESSION_EXPIRED') throw e }
 
   const space = `collab-d-${id}`
-  const subjects = await listSpace(token, space, 'Subject')
-  const ignored = {}
-  for (const [label, type] of [['subject groups', 'SubjectGroup'], ['tissue samples', 'TissueSample'], ['tissue sample collections', 'TissueSampleCollection']]) {
-    try { ignored[label] = (await listSpace(token, space, type)).length } catch (e) { if (e.code === 'SESSION_EXPIRED') throw e }
-  }
-
-  // everything the form needs to name: persons, organisations, DOIs, states, strains, diseases
   const byId = {}
+  const listed = {}
+  // the specimen of the collab space, and all their states, in a few list requests (not one request per state)
+  const TYPES = ['Subject', 'SubjectGroup', 'TissueSample', 'TissueSampleCollection',
+    'SubjectState', 'SubjectGroupState', 'TissueSampleState', 'TissueSampleCollectionState']
+  for (const type of TYPES) {
+    listed[type] = await listSpace(token, space, type)
+    if (type.endsWith('State')) for (const st of listed[type]) { const u = uuidOf(st['@id']); if (u) byId[u] = st }
+  }
+  const subjects = listed.Subject
+
+  // everything else the form needs to name: persons, organisations, DOIs, strains, diseases
   const copyright = [].concat(dsv[V + 'copyright'] || [])[0]
   const personIds = [...refs(dataset, 'author'), ...refs(dataset, 'custodian'),
     ...[].concat(dsv[V + 'otherContribution'] || []).flatMap(c => refs(c, 'contributor')),
     ...(copyright ? refs(copyright, 'holder') : [])]
-  await getMany(token, [...personIds, ...refs(dsv, 'relatedPublication'), ...subjects.flatMap(s => [...refs(s, 'studiedState'), ...refs(s, 'species')])], byId)
+  const specimen = [...subjects, ...listed.TissueSample, ...listed.TissueSampleCollection]
+  await getMany(token, [...personIds, ...refs(dsv, 'relatedPublication'), ...specimen.flatMap(x => refs(x, 'species')),
+    // states that are not in the listing (a state that lives in another space is still read)
+    ...specimen.flatMap(x => refs(x, 'studiedState')), ...listed.SubjectGroup.flatMap(x => refs(x, 'studiedState'))], byId)
   await getMany(token, [
     ...personIds.flatMap(p => refs(byId[p], 'digitalIdentifier')),
-    ...subjects.flatMap(s => refs(s, 'studiedState')).flatMap(st => refs(byId[st], 'pathology')),
-    ...subjects.flatMap(s => refs(s, 'species')).flatMap(sp => refs(byId[sp], 'species')),
+    ...Object.values(byId).filter(x => x && !(x['@type'] || []).some(t => /Person|ORCID|DOI|Organization/.test(t))).flatMap(x => refs(x, 'pathology')),
+    ...specimen.flatMap(x => refs(x, 'species')).flatMap(sp => refs(byId[sp], 'species')),
   ], byId)
 
-  return buildFormFromKg({ dsvId: id, dsv, dataset, byId, subjects, ignored })
+  return buildFormFromKg({ dsvId: id, dsv, dataset, byId, subjects, groups: listed.SubjectGroup, samples: listed.TissueSample, collections: listed.TissueSampleCollection })
 }

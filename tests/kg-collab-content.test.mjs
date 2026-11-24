@@ -21,7 +21,9 @@ const db = [
   inst(2, 'ORCID', COLLAB, { identifier: 'https://orcid.org/0000-0001-0000-0000' }),
   inst(20, 'Subject', COLLAB, { lookupLabel: 'sub-1', studiedState: [ref(21)] }),
   inst(21, 'SubjectState', COLLAB, { lookupLabel: 'sub-1_state1', age: { '@type': [T + 'QuantitativeValue'], [V + 'value']: 5, [V + 'unit']: ref(30) } }),
-  inst(40, 'TissueSample', COLLAB, {}),
+  inst(40, 'TissueSample', COLLAB, { lookupLabel: 'ts-1', studiedState: [ref(41)] }),
+  inst(41, 'TissueSampleState', COLLAB, { lookupLabel: 'ts-1_state1', descendedFrom: ref(21) }),
+  inst(50, 'SubjectGroup', COLLAB, { lookupLabel: 'G1' }),
 ]
 const calls = []
 
@@ -49,7 +51,9 @@ test('reads the dataset version, the parent dataset, persons and the collab subj
   assert.deepEqual(r.data.custodian, { firstName: 'Ann', familyName: 'Lee', orcid: '0000-0001-0000-0000' })
   assert.equal(r.data.subjectMetadata.subjects[0].subjectID, 'sub-1')
   assert.equal(r.data.subjectMetadata.subjects[0].states[0].age, '5')
-  assert.ok(r.notes.some(n => /1 tissue samples/.test(n)))
+  assert.equal(r.data.subjectMetadata.tissueSamples[0].sampleID, 'ts-1')
+  assert.equal(r.data.subjectMetadata.tissueSamples[0].linkedSubjectId, r.data.subjectMetadata.subjects[0].id)
+  assert.equal(r.data.subjectMetadata.subjectGroups[0].name, 'G1')
   assert.ok(calls.some(c => c.includes(`space=${COLLAB}`)))
 })
 
