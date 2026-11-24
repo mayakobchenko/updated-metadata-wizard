@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuthContext } from './context/NewContextProvider.jsx'
 import ConfigProvider from './ConfigProvider.jsx'
-import { Form as AntForm, Button, Modal, Upload, Alert, Typography, Switch, Popover, Select, message } from 'antd'
+import { Form as AntForm, Button, Modal, Upload, Alert, Typography, Switch, Popover, Select, Radio, Spin, message } from 'antd'
 import { FileTextOutlined, LoadingOutlined, CheckCircleFilled, InfoCircleOutlined, WarningFilled } from '@ant-design/icons'
 import ProgressBar from './ProgressBar.jsx'
 import { DatasetStep, ContributorsStep } from './MergedSteps.jsx'
@@ -14,8 +14,10 @@ import PopoverSave from './FinalChoice.jsx'
 import DataDescriptor from './DataDescriptor.jsx'
 import dayjs from 'dayjs'
 import useLoginKeepalive from './useLoginKeepalive.js'
+import { restoreWizardUrl } from './wizardUrl.js'
 import useCollabDraft, { INTERVAL_OPTIONS, intervalLabel } from './useCollabDraft.js'
 import { normalizeImportedJson } from './importNormalize.js'
+import { mergeKgIntoForm, describeAdded } from './kgMerge.js'
 import { renderDataDescriptor, downloadBlob } from './renderDescriptor'
 import { getFigures, useFigures, setFigures } from './figuresStore'
 
@@ -210,29 +212,32 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     return false
   }
 
-  const applyImportedJson = async () => {
-    if (!importPreview || applyingImport) return
-    setApplyingImport(true)
-    try {
-    // The exported JSON holds KG URLs for "type of data" and free-form values for
-    // the data standards; map them back to what the form widgets understand.
-    // Right after a deployment the server may still be loading its reference data; wait for it (bounded)
-    // instead of silently importing without the data-type mapping.
-    let dataTypes = null
+  // The reference data (data types) from the server; null while it is not available yet. Right after a deployment the
+  // server may still be loading it: wait (bounded) instead of silently importing without the data-type mapping.
+  const loadDataTypes = async () => {
     try {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), 60000)
       const res = await fetch('api/kginfo/datatypes', { signal: ctrl.signal })
       clearTimeout(timer)
-      if (res.ok) dataTypes = (await res.json()).dataTypes || []
+      if (res.ok) return (await res.json()).dataTypes || []
     } catch (e) {
       console.warn('Could not load KG data types for import:', e.message)
     }
+    return null
+  }
+
+  // Puts a parsed draft into the form (everything the draft has replaces the form's value). Returns false when the
+  // reference data from the server is not available yet.
+  const applyParsed = async (parsed) => {
+    // The exported JSON holds KG URLs for "type of data" and free-form values for
+    // the data standards; map them back to what the form widgets understand.
+    const dataTypes = await loadDataTypes()
     if (dataTypes === null) {
       setImportError('The reference data from the server is not available yet (the wizard may have just been updated). Please wait a moment and click "Apply to form" again.')
-      return
+      return false
     }
-    const normalized = normalizeImportedJson(importPreview, dataTypes)
+    const normalized = normalizeImportedJson(parsed, dataTypes)
     let merged = deepMerge(formDataRef.current, normalized)
     // Which dataset this form belongs to. A ticket can cover several datasets (one Collab each): a draft of any of
     // them is accepted. A draft of a dataset that is not named in the ticket never moves the submission and the
@@ -270,10 +275,18 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     onFormDataChange?.(merged)
     if (figuresToApply.current) { setFigures(figuresToApply.current); figuresToApply.current = null }
     collab.resolve()
-    setImportModalVisible(false)
-    setImportPreview(null)
-    setImportFileName('')
-    setImportError('')
+    return true
+  }
+
+  const applyImportedJson = async () => {
+    if (!importPreview || applyingImport) return
+    setApplyingImport(true)
+    try {
+      if (!(await applyParsed(importPreview))) return
+      setImportModalVisible(false)
+      setImportPreview(null)
+      setImportFileName('')
+      setImportError('')
     } finally {
       setApplyingImport(false)
     }
@@ -619,6 +632,95 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
     } catch (e) { message.error(e.message) }
   }
 
+  // ── what the Knowledge Graph already holds for this dataset version ─────────────────────────────────
+  // The collab space of the dataset version (subjects, persons, ...) and the dataset version itself, read with the
+  // person's own login. The person chooses what goes into the form: the draft of the Collab drive, the Knowledge Graph
+  // content, or both (the draft first, then what is only in the Knowledge Graph is added; nothing of the draft is replaced).
+  const [kg, setKg]                       = useState({ status: 'idle' })       // idle | loading | ready | error
+  const [sourceOpen, setSourceOpen]       = useState(false)
+  const [sourceChoice, setSourceChoice]   = useState('')
+  const [sourceBusy, setSourceBusy]       = useState(false)
+  const [suggestSave, setSuggestSave]     = useState(false)
+  const chooserShown                      = useRef(false)
+  const currentDsv                        = String(formData?.datasetVersionId || skjemaInfo?.datasetVersionId || '').toLowerCase()
+  const linkDsv                           = skjemaInfo?.urlDatasetVersionId || ''
+  const draftExists                       = !!collab.remote?.exists
+  const kgHasContent                      = kg.status === 'ready' && Object.keys(kg.data || {}).some(k => k !== 'datasetVersionId')
+
+  const fetchKg = async () => {
+    if (!DATASET_VERSION_ID.test(currentDsv)) return null
+    setKg({ status: 'loading', dsv: currentDsv })
+    try {
+      const res = await fetch(`/api/kgcollab/content?datasetVersionId=${currentDsv}`, { credentials: 'same-origin', cache: 'no-store' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `The server answered ${res.status}.`)
+      setKg({ status: 'ready', dsv: currentDsv, ...body })
+      return body
+    } catch (e) {
+      setKg({ status: 'error', dsv: currentDsv, error: e.message })
+      return null
+    }
+  }
+
+  const openSourceChooser = () => { setSourceChoice(''); setSourceOpen(true); fetchKg() }
+
+  // the preselected choice, once it is known what exists
+  useEffect(() => {
+    if (!sourceOpen || sourceChoice || kg.status === 'loading' || kg.status === 'idle') return
+    setSourceChoice(draftExists && kgHasContent ? 'both' : kgHasContent ? 'kg' : draftExists ? 'draft' : '')
+  }, [sourceOpen, sourceChoice, kg.status, draftExists, kgHasContent])
+
+  // A link with a DatasetVersionUUID: when the draft check of the Collab drive and the Nettskjema answer are in, ask what
+  // to load (once per page load). The form is only touched after the person has chosen.
+  useEffect(() => {
+    if (!linkDsv || chooserShown.current) return
+    if (!collab.available || collab.remote === null || !skjemaInfo?.nettskjemaInfo) return
+    if (currentDsv !== linkDsv) return
+    if ((skjemaInfo?.datasetCandidates || []).length > 1) setDatasetChosen(true)    // the link named the dataset: nothing left to choose
+    chooserShown.current = true
+    openSourceChooser()
+  }, [linkDsv, collab.available, collab.remote, skjemaInfo?.nettskjemaInfo, currentDsv])
+
+  // the address bar follows the dataset when the link named one and another dataset of the ticket is chosen later
+  useEffect(() => {
+    if (!linkDsv || !DATASET_VERSION_ID.test(currentDsv) || currentDsv === linkDsv) return
+    restoreWizardUrl({ ticket: skjemaInfo?.ticketNumber, datasetVersionId: currentDsv })
+  }, [currentDsv])
+
+  const applyKgContent = async (payload, prefer) => {
+    const dataTypes = await loadDataTypes()
+    if (dataTypes === null) throw new Error('The reference data from the server is not available yet (the wizard may have just been updated). Please try again in a moment.')
+    const normalized = normalizeImportedJson(payload.data, dataTypes)
+    const { data: merged, added, changed } = mergeKgIntoForm(formDataRef.current, normalized, { prefer })
+    formDataRef.current = merged
+    setFormData(merged)
+    form.setFieldsValue(normalizeDatesForForm(merged))
+    onFormDataChange?.(merged)
+    return { added, changed }
+  }
+
+  const applySource = async () => {
+    if (!sourceChoice || sourceBusy) return
+    setSourceBusy(true)
+    try {
+      if (sourceChoice === 'draft') { setSourceOpen(false); await loadFromCollab(); return }
+      if (sourceChoice === 'both') {
+        const parsed = await collab.load()
+        figuresToApply.current = await collab.loadFigures().catch(() => null)
+        if (!(await applyParsed(parsed))) { message.error('The reference data from the server is not available yet. Please try again in a moment.'); return }
+      }
+      const { added, changed } = await applyKgContent(kg, sourceChoice === 'kg' ? 'kg' : 'base')
+      message.success(changed ? `Added from the Knowledge Graph: ${describeAdded(added)}.` : 'The Knowledge Graph had nothing to add to the form.', 8)
+      // only the Knowledge Graph was loaded and no draft exists yet: suggest keeping what was loaded in the Collab drive
+      if (!draftExists && collab.available) setSuggestSave(true)
+      setSourceOpen(false)
+    } catch (e) {
+      message.error(e.message)
+    } finally {
+      setSourceBusy(false)
+    }
+  }
+
   const downloadJson = async () => {
     const payload = await mapDataset1OptionsToIds(formDataRef.current)
     const blob    = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -743,6 +845,10 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
                   {on && collab.unsaved && (
                     <Button size="small" onClick={collab.saveNow} title="Save the copy in the Collab drive now">Save now</Button>
                   )}
+                  <Button size="small" onClick={openSourceChooser}
+                    title="Read what the Knowledge Graph already holds for this dataset version (its collab space) and add it to the form">
+                    Load from Knowledge Graph
+                  </Button>
                   {collab.remote?.exists && (
                     <Button size="small" onClick={loadFromCollab}
                       title={collab.remote.mtime ? `Saved ${new Date(collab.remote.mtime).toLocaleString()}` : 'Open the draft saved in the Collab drive'}>
@@ -766,6 +872,22 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
         )
       })()}
 
+      {skjemaInfo?.urlDatasetIgnored && (
+        <Alert type="warning" showIcon closable style={{ margin: '4px 16px' }}
+          message="The dataset version in the link is not part of your ticket"
+          description="The link named a dataset version that the ticket does not cover, so the dataset of the ticket is used. If you meant another dataset, open the link with only the dataset version (DatasetVersionUUID) or with a ticket that covers it." />
+      )}
+
+      {suggestSave && collab.available && !collab.pending && (
+        <Alert type="info" showIcon closable onClose={() => setSuggestSave(false)} style={{ margin: '4px 16px' }}
+          message="Keep what was loaded as a draft in the Collab drive?"
+          description={<>
+            The content of the Knowledge Graph is in the form now, but nothing is saved yet. A draft in the Collab drive of this dataset lets you continue later, also on another computer.{' '}
+            <Button size="small" type="primary" onClick={() => { setSuggestSave(false); collab.enable() }}>Save a draft now</Button>{' '}
+            <Button size="small" onClick={() => setSuggestSave(false)}>Not now</Button>
+          </>} />
+      )}
+
       {collab.pending && (
         <Alert type="warning" showIcon style={{ margin: '4px 16px' }}
           message="A draft is already saved in the Collab drive of this dataset"
@@ -775,6 +897,54 @@ const StepsWizard = ({ externalFormData, onFormDataChange }) => {
             <Button size="small" onClick={() => collab.resolve()} title="Keep working here; the saved draft will be replaced by what you enter">Start fresh and replace it</Button>
           </>} />
       )}
+
+      {/* ── What to load: the draft of the Collab drive and / or the content of the Knowledge Graph ───── */}
+      <Modal
+        open={sourceOpen}
+        title="Load existing information"
+        width={640}
+        maskClosable={false}
+        onCancel={() => setSourceOpen(false)}
+        footer={[
+          <Button key="skip" onClick={() => setSourceOpen(false)}>Start without loading</Button>,
+          <Button key="load" type="primary" disabled={!sourceChoice || kg.status === 'loading'} loading={sourceBusy} onClick={applySource}>Load</Button>,
+        ]}
+      >
+        <p style={{ marginTop: 0, fontSize: 13, color: '#555' }}>
+          Dataset version <code>{currentDsv}</code>. Choose what to put into the form. Nothing is written to the Knowledge Graph by loading.
+        </p>
+        <div style={{ border: '1px solid #e8e8e8', borderRadius: 6, padding: '8px 12px', marginBottom: 8 }}>
+          <b>Draft in the Collab drive</b><br />
+          {draftExists
+            ? <Text style={{ fontSize: 13 }}>A draft saved {collab.remote?.mtime ? new Date(collab.remote.mtime).toLocaleString() : 'earlier'} was found.</Text>
+            : <Text type="secondary" style={{ fontSize: 13 }}>No draft was found{collab.remote?.problem ? ` (the check failed: ${collab.remote.problem})` : ''}.</Text>}
+        </div>
+        <div style={{ border: '1px solid #e8e8e8', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+          <b>Knowledge Graph: the dataset version and its collab space</b><br />
+          {kg.status === 'loading' && <span><Spin size="small" /> <Text style={{ fontSize: 13 }}>Reading the Knowledge Graph…</Text></span>}
+          {kg.status === 'error' && (
+            <span style={{ fontSize: 13, color: '#cf1322' }}>{kg.error}{' '}<Button size="small" onClick={fetchKg}>Try again</Button></span>
+          )}
+          {kg.status === 'ready' && !kgHasContent && <Text type="secondary" style={{ fontSize: 13 }}>Nothing is stored yet for this dataset version.</Text>}
+          {kg.status === 'ready' && kgHasContent && (
+            <>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                {(kg.summary || []).map((line, i) => <li key={i}><Text style={{ fontSize: 13 }}>{line}</Text></li>)}
+              </ul>
+              {(kg.notes || []).map((n, i) => <div key={i} style={{ fontSize: 12, color: '#ad6800', marginTop: 4 }}>{n}.</div>)}
+            </>
+          )}
+        </div>
+        {(draftExists || kgHasContent) ? (
+          <Radio.Group value={sourceChoice} onChange={(e) => setSourceChoice(e.target.value)} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {draftExists && kgHasContent && <Radio value="both"><b>The draft, plus what is only in the Knowledge Graph</b> (recommended): the draft is loaded first; subjects, authors and other entries that are in the Knowledge Graph but not in the draft are added. Nothing of the draft is replaced.</Radio>}
+            {draftExists && <Radio value="draft">The draft of the Collab drive only (you see what it contains first)</Radio>}
+            {kgHasContent && <Radio value="kg">The Knowledge Graph only{draftExists ? ' (the saved draft stays in the Collab drive; automatic saving stays paused until you decide about it)' : ''}</Radio>}
+          </Radio.Group>
+        ) : kg.status !== 'loading' && kg.status !== 'idle' ? (
+          <Text type="secondary" style={{ fontSize: 13 }}>There is nothing to load yet. Fill in the form as usual.</Text>
+        ) : null}
+      </Modal>
 
       {/* ── Import preview modal ─────────────────────────────────────────── */}
       <Modal

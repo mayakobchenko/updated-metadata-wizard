@@ -1,3 +1,5 @@
+import { readWizardParams, buildWizardSearch } from '../wizardUrl.js'
+
 const LOGGED_OUT_KEY = 'mw_logged_out'
 const USER_INFO_URL = import.meta.env.VITE_APP_USER_INFO_URL
 const userMap = {
@@ -79,11 +81,13 @@ logout: async function logout() {
     try {
         try { sessionStorage.setItem(LOGGED_OUT_KEY, '1') } catch { /* ignore */ }
         await fetch('api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {})
-        // back to the wizard page of the ticket, which now shows the login dialog
-        const ticket = new URLSearchParams(window.location.search).get('TicketNumber')
-        const first = (() => { try { return new URL(localStorage.getItem('wizard_link_ticket') || '').searchParams.get('TicketNumber') } catch { return null } })()
-        const t = ticket || first
-        window.location.href = window.location.pathname + (t ? `?TicketNumber=${encodeURIComponent(t)}` : '')
+        // back to the wizard page of the ticket / dataset version, which now shows the login dialog
+        const here = readWizardParams(window.location.search)
+        const first = (() => { try { return readWizardParams(new URL(localStorage.getItem('wizard_link_ticket') || '').search) } catch { return {} } })()
+        window.location.href = window.location.pathname + buildWizardSearch({
+            ticket: here.ticket || first.ticket,
+            datasetVersionId: here.datasetVersionId || first.datasetVersionId,
+        })
     } catch (error) {console.error('Error occurred while logging out:', error.message)}
 },
 

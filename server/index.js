@@ -5,6 +5,7 @@ import dotenv from 'dotenv'
 import logger from './logger.js'
 import formRoutes from './routes/metadataSubmission.js'
 import authRoutes from './routes/auth.js'
+import kgCollabRoutes from './routes/kgCollab.js'
 import KGinfoRoutes from './routes/infoKG.js'
 import KGinfoSubjects from './routes/infoSubjects.js'
 import zammadInfo from './routes/getTicketNettskjemaInfo.js'
@@ -28,7 +29,7 @@ app.use(express.json({ limit: '10mb' }))
 // Request log: only API calls (not pages or static files), without query strings except a few ids.
 // Never the OAuth "code"/"state" of the login redirect. Routine reference-data and keep-alive calls are debug only.
 const QUIET_PATHS = ['/api/auth/keepalive', '/api/kginfo/', '/api/subjects/']
-const LOGGED_PARAMS = ['TicketNumber', 'NettskjemaId', 'datasetVersionId']
+const LOGGED_PARAMS = ['TicketNumber', 'NettskjemaId', 'datasetVersionId', 'DatasetVersionUUID']
 app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
         const ids = LOGGED_PARAMS.filter(k => req.query?.[k]).map(k => `${k}=${req.query[k]}`)
@@ -98,6 +99,7 @@ app.use('/api/zammad/', zammadInfo)
 app.use('/api/python/', runpython)
 app.use('/api/drive/', driveupload)
 app.use('/api/drive/', collabDraft)
+app.use('/api/kgcollab/', kgCollabRoutes)
 app.use('/api/mistral/', mistralRoutes)
 app.use('/api/bucket/', bucketRoutes)
 app.use('/api/dd/', ddRender)

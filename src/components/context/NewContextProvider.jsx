@@ -1,6 +1,7 @@
 import { createContext, useReducer, useContext, useEffect, useRef, useCallback } from 'react'
 import { Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material"
 import authFunctions from "./authenticate"
+import { readWizardParams, buildWizardSearch, restoreWizardUrl } from "../wizardUrl.js"
 
 const initialState = {   
   token: null, 
@@ -11,6 +12,8 @@ const initialState = {
   nettskjemaInfo: null,
   reloadWizard: false,
   datasetVersionId: null,
+  urlDatasetVersionId: null,   // the DatasetVersionUUID of the link, when it had one
+  urlDatasetIgnored: false,    // the link named a dataset that the ticket does not cover
   datasetCandidates: [],   // every dataset named in the ticket: [{ id, title }]
   ticketNumber: null,
 }
@@ -20,7 +23,7 @@ const WIZARD_LINK = 'wizard_link_ticket'
 // remembers (in this tab only) that a silent login check was started, and for which ticket
 const SILENT_KEY = 'mw_silent_login'
 const readSilent = () => { try { return JSON.parse(sessionStorage.getItem(SILENT_KEY) || 'null') } catch { return null } }
-const writeSilent = (ticket) => { try { sessionStorage.setItem(SILENT_KEY, JSON.stringify({ t: Date.now(), ticket: ticket || '' })) } catch { /* ignore */ } }
+const writeSilent = (ticket, dsv) => { try { sessionStorage.setItem(SILENT_KEY, JSON.stringify({ t: Date.now(), ticket: ticket || '', dsv: dsv || '' })) } catch { /* ignore */ } }
 const clearSilent = () => { try { sessionStorage.removeItem(SILENT_KEY) } catch { /* ignore */ } }
 
 export default function NewContextProvider({ children }) {
@@ -29,6 +32,7 @@ export default function NewContextProvider({ children }) {
   const mountedRef = useRef(false)
   const hasAuthenticatedRef = useRef(false)
   const hasTicket = useRef(null)
+  const hasDsv = useRef(null)      // DatasetVersionUUID of the link
 
   const removeUrlParams = useCallback((params = []) => {
     try {
@@ -72,10 +76,9 @@ export default function NewContextProvider({ children }) {
               // carry it) and show the normal login dialog at once.
               const silentTry = readSilent()
               const quiet = ['login_required', 'interaction_required', 'consent_required'].includes(why)
-              if (silentTry?.ticket && !url.searchParams.get("TicketNumber")) {
-                  const u = new URL(window.location.origin + window.location.pathname)
-                  u.searchParams.set("TicketNumber", silentTry.ticket)
-                  window.history.replaceState({}, document.title, u.toString())
+              if ((silentTry?.ticket || silentTry?.dsv) && !readWizardParams(window.location.search).ticket) {
+                  window.history.replaceState({}, document.title,
+                    window.location.pathname + buildWizardSearch({ ticket: silentTry.ticket, datasetVersionId: silentTry.dsv }))
               } else {
                   removeUrlParams(["error", "error_description", "state", "iss", "session_state"])
               }
@@ -107,6 +110,7 @@ export default function NewContextProvider({ children }) {
                 dispatch({ type: "SET_USER", text: resp_data.user })
                 hasAuthenticatedRef.current = true
                 hasTicket.current = resp_data.ticket
+                hasDsv.current = resp_data.datasetVersionUUID || null
                 dispatch({ type: "SET_TICKET", text: resp_data.ticket })
               } else {
                 console.log(resp_data.message)
@@ -123,7 +127,7 @@ export default function NewContextProvider({ children }) {
                   if (mountedRef.current) dispatch({ type: "SHOW_LOGIN_DIALOG" })
                   return false
               }
-              const ticketInUrl = url.searchParams.get("TicketNumber")
+              const { ticket: ticketInUrl, datasetVersionId: dsvInUrl } = readWizardParams(window.location.search)
               // 1. already logged in to the wizard (server session)? Then simply continue, no trip to EBRAINS.
               const me = await authFunctions.me()
               if (!mountedRef.current) return false
@@ -131,6 +135,7 @@ export default function NewContextProvider({ children }) {
                   dispatch({ type: "SET_USER", text: me.user })
                   hasAuthenticatedRef.current = true
                   hasTicket.current = ticketInUrl
+                  hasDsv.current = dsvInUrl || null
                   if (ticketInUrl) dispatch({ type: "SET_TICKET", text: ticketInUrl })
                   console.log('Continued with the existing login.')
                   return true
@@ -141,7 +146,7 @@ export default function NewContextProvider({ children }) {
               if (!earlier || Date.now() - earlier.t > 60000) {
                   // the marker is set only when the redirect really starts, so a failed request (for example while
                   // the server restarts after a deployment) does not use up the one silent attempt
-                  const redirected = await authFunctions.login(true, () => writeSilent(ticketInUrl))
+                  const redirected = await authFunctions.login(true, () => writeSilent(ticketInUrl, dsvInUrl))
                   if (redirected !== false) return false
               }
               // 3. otherwise the person has to log in: show the dialog
@@ -156,8 +161,19 @@ export default function NewContextProvider({ children }) {
     if (authenticated) {
       await (async function fetchTicket() {
         const ticketNumber = hasTicket.current
-        if (!ticketNumber) return
+        const dsvFromLink = hasDsv.current
         if (!mountedRef.current) return
+        // The address bar gets the ticket number and the dataset version back: the login answer replaced them.
+        restoreWizardUrl({ ticket: ticketNumber, datasetVersionId: dsvFromLink })
+        dispatch({ type: 'urlDsv', text: dsvFromLink })
+        if (!ticketNumber) {
+          // a link with only a DatasetVersionUUID: no ticket, no Nettskjema; the dataset is the one named in the link
+          if (dsvFromLink) {
+            dispatch({ type: 'dsvId', text: dsvFromLink })
+            dispatch({ type: 'nettskjemaInfo', text: {} })
+          }
+          return
+        }
 
         // datasetVersionId comes from Zammad, not Nettskjema — store it as
         // soon as we have it, independent of whether the Nettskjema fetch
@@ -169,8 +185,13 @@ export default function NewContextProvider({ children }) {
         // Zammad on the line above. That's why it appeared to "get lost"
         // whenever Nettskjema had an outage.
         const [nettskjemaId, datasetVersionId, datasetCandidates] = await authFunctions.zammad(ticketNumber)
-        dispatch({ type: 'dsvId', text: datasetVersionId })
+        // A link with both: the dataset of the link decides, if the ticket covers it. A dataset that the ticket does not
+        // name never takes over (the submission and the Collab copy would go to a dataset the ticket is not about).
+        const sameId = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase()
+        const covered = !!dsvFromLink && (sameId(dsvFromLink, datasetVersionId) || (datasetCandidates || []).some(c => sameId(c.id, dsvFromLink)))
+        dispatch({ type: 'dsvId', text: covered ? dsvFromLink : datasetVersionId })
         dispatch({ type: 'dsvCandidates', text: datasetCandidates })
+        if (dsvFromLink && !covered) dispatch({ type: 'urlDsvIgnored', text: true })
 
         try {
           const nettskjemaInfo = await authFunctions.nettskjema(nettskjemaId)
@@ -273,6 +294,10 @@ export function authReducer(state, action) {
       return { ...state, datasetVersionId: action.text } 
     case 'dsvCandidates':
       return { ...state, datasetCandidates: action.text || [] }
+    case 'urlDsv':
+      return { ...state, urlDatasetVersionId: action.text || null }
+    case 'urlDsvIgnored':
+      return { ...state, urlDatasetIgnored: !!action.text }
     case 'SET_TICKET':
       return { ...state, ticketNumber: action.text } 
     default:

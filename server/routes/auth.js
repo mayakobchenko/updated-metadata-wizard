@@ -25,6 +25,7 @@ const REDIRECT_URI = process.env.WIZARD_OIDC_CLIENT_REDIRECT_URL
 const router     = express.Router()
 const stateStore = new Map()
 const STATE_TTL_MS = 5 * 60 * 1000   // 5 minutes
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // ── state helpers ─────────────────────────────────────────────────────────────
 
@@ -150,6 +151,9 @@ async function getLoginUrl(req, res) {
 
     const payload = {}
     if (req.query?.TicketNumber) payload.ticket = req.query.TicketNumber
+    // a link may carry the dataset version too (DatasetVersionUUID=...); it comes back with the answer of the login
+    const dsvParam = [req.query?.DatasetVersionUUID, req.query?.datasetVersionUUID, req.query?.datasetVersionId].find(v => typeof v === 'string' && UUID_RE.test(v))
+    if (dsvParam) payload.datasetVersionUUID = dsvParam.toLowerCase()
 
     const state = genState()
     storeState(state, payload)
@@ -258,6 +262,7 @@ async function getToken(req, res) {
         success: false,
         user:    null,
         ticket:  storedPayload.ticket,
+        datasetVersionUUID: storedPayload.datasetVersionUUID || null,
         message: 'Authenticated but user info unavailable — please reload'
       })
     }
@@ -266,7 +271,8 @@ async function getToken(req, res) {
     return res.status(200).send({
       success: true,
       user:    userInfo,
-      ticket:  storedPayload.ticket
+      ticket:  storedPayload.ticket,
+      datasetVersionUUID: storedPayload.datasetVersionUUID || null,
     })
 
   } catch (error) {
